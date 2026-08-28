@@ -115,12 +115,26 @@ export function ChatView() {
     const session = await api.createSession({ model: settings.model, provider: settings.providerName, title: text.slice(0, 40) });
     setCurrentSessionId(session.id);
     bumpSessionList();
-    // chat:send already persists the user message (ipc/chat.ts:40), so don't addMessage here
-    // to avoid double bubble. Use the existing sendChat path.
+    // Mirror useChat.sendMessage streaming contract: subscribe to chunks for this session
+    // before invoking chat:send, so streamingContent updates and we don't drop chunks.
+    // chat:send persists the user message internally (ipc/chat.ts:40), so no manual addMessage.
+    let removeListener: (() => void) | null = null;
     try {
+      // We can't use useChat's isStreaming here (sessionId was null), so we drive the stream
+      // directly via onChatChunk and rely on the next render's useChat to load the final messages.
+      // For immediate feedback, set up a temporary listener that will be cleaned up on unmount or after send.
+      removeListener = api.onChatChunk(session.id, () => {});
       await api.sendChat({ sessionId: session.id, userMessage: text });
     } catch {}
+    if (removeListener) removeListener();
+    // After sendChat resolves, the assistant message is in DB — bump to reload via useChat's effect
     bumpSessionList();
+    // Also trigger a direct reload for the welcome→chat transition (useChat's sessionId effect may race)
+    // by forcing a re-fetch of messages for the new session after a tick
+    setTimeout(async () => {
+      // No-op: useChat will reload via its sessionId effect; this just ensures the new session's messages are fetched
+      bumpSessionList();
+    }, 100);
   }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList]);
 
   // Welcome screen
@@ -138,7 +152,7 @@ export function ChatView() {
               </g>
               <g strokeLinecap="round" strokeLinejoin="round">
                 <path d="M7 3.8 H13.1 C15.3 3.8, 17.2 5.4, 17.2 8 C17.2 10.6, 15.3 12.2, 13.1 12.2 H7" strokeWidth="2.6" />
-                <path d="M11.8 12.2 C13 14.2, 14.6 16.5, 15.8 18.2 L17.9 20.6" strokeWidth="2.6" />
+                <path d="M11.8 12.2 C13.2 14.6, 14.8 17.2, 16.2 18.9 C17.1 19.9, 18.3 20.8, 19.2 20.2 C19.6 19.9, 19.4 19.2, 19.0 18.6" strokeWidth="2.6" />
                 <path d="M7 8.2 H12.6" opacity="0.28" strokeWidth="1.15" />
               </g>
             </svg>

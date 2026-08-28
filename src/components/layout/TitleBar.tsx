@@ -41,7 +41,7 @@ export function TitleBar({ onToggleSidebar }: TitleBarProps) {
             <g strokeLinecap="round" strokeLinejoin="round">
               {/* Right half — sharp cursive bowl + leg */}
               <path d="M7 3.8 H13.1 C15.3 3.8, 17.2 5.4, 17.2 8 C17.2 10.6, 15.3 12.2, 13.1 12.2 H7" strokeWidth="2.6" />
-              <path d="M11.8 12.2 C13 14.2, 14.6 16.5, 15.8 18.2 L17.9 20.6" strokeWidth="2.6" />
+              <path d="M11.8 12.2 C13.2 14.6, 14.8 17.2, 16.2 18.9 C17.1 19.9, 18.3 20.8, 19.2 20.2 C19.6 19.9, 19.4 19.2, 19.0 18.6" strokeWidth="2.6" />
               {/* Hairline spine where halves meet — personality split */}
               <path d="M7 8.2 H12.6" opacity="0.28" strokeWidth="1.0" />
             </g>
