@@ -16,7 +16,6 @@ import {
   XIcon,
   MessageCircleIcon,
   Code2Icon,
-  FolderOpenIcon,
   GlobeIcon,
   TerminalSquareIcon,
   PlusIcon,
@@ -42,7 +41,8 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
 export function SidePanel() {
   const { currentSessionId } = useApp();
   // Keep existing sidechat hook for data, but wrap in Z tabs
-  const { tabs: sideTabs } = useSideChats(currentSessionId, 0);
+  // (sideTabs kept for wiring; not rendered directly — Z tabs handle UI)
+  useSideChats(currentSessionId, 0);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([
     { id: "zcode", type: "terminal", title: "zcode" },
   ]);
@@ -78,11 +78,6 @@ export function SidePanel() {
     setRecentlyClosed(prev => prev.filter(t => t.id !== tab.id));
   };
 
-  const handleCloseTab = async (tabId: string) => {
-    await api.closeSideChatTab(tabId);
-    bumpSideChats();
-  };
-
   return (
     <aside className="panel-side" aria-label="Side panel" style={{display:'flex', flexDirection:'column', background:'#0a0a0a', borderLeft:'1px solid #1f1f1f'}}>
       {/* Header — zcode pill + + + dropdown (Image 2,3) */}
@@ -94,7 +89,7 @@ export function SidePanel() {
         {showPicker && (
           <div style={{position:'absolute', top:44, right:10, width:320, background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:8, zIndex:20, boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
             <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#0f0f0f', borderRadius:8, marginBottom:8}}>
-              <SearchIcon size={14} style={{opacity:0.5}} /><input placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
+              <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={14} /></span><input placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
             </div>
             <div style={{fontSize:11, color:'#8a8a8a', padding:'4px 8px'}}>Open tabs</div>
             {openTabs.map(t => {
@@ -157,89 +152,5 @@ export function SidePanel() {
         {activeTab?.type === "browser" && <div style={{color:'#8a8a8a', fontSize:13, textAlign:'center', marginTop:40}}>Browser — preview at http://192.168.1.100:63881/prototype-mobile.html</div>}
       </div>
     </aside>
-  );
-}
-
-function SideChatsTabContent({
-  tabs,
-  closedTabs,
-  onClose,
-  onReopen,
-}: {
-  tabs: ReturnType<typeof useSideChats>["tabs"];
-  closedTabs: ReturnType<typeof useSideChats>["closedTabs"];
-  onClose: (tabId: string) => void;
-  onReopen: (tabId: string) => void;
-}) {
-  if (tabs.length === 0 && closedTabs.length === 0) {
-    return <EmptyTab tabId="sidechats" />;
-  }
-
-  return (
-    <div className="sidepanel-sidechats-tab">
-      {tabs.length > 0 && (
-        <div className="sidepanel-section">
-          <div className="sidepanel-section-label">Active ({tabs.length})</div>
-          {tabs.map(tab => (
-            <div
-              key={tab.id}
-              className="sidechat-tab-item"
-              title={tab.sideChatTitle ?? "Side chat"}
-            >
-              <MessageCircleIcon size={13} />
-              <span className="sidechat-tab-item-title">
-                {tab.sideChatTitle ?? "Untitled"}
-              </span>
-              <button
-                className="sidechat-tab-item-close"
-                onClick={() => onClose(tab.id)}
-                title="Close"
-                aria-label="Close tab"
-              >
-                <XIcon size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {closedTabs.length > 0 && (
-        <div className="sidepanel-section">
-          <div className="sidepanel-section-label">Closed ({closedTabs.length})</div>
-          {closedTabs.map(tab => (
-            <div
-              key={tab.id}
-              className="sidechat-tab-item"
-              title="Reopen side chat"
-            >
-              <MessageCircleIcon size={13} />
-              <span className="sidechat-tab-item-title">
-                {tab.sideChatTitle ?? "Untitled"}
-              </span>
-              <button
-                className="sidechat-tab-item-close"
-                onClick={() => onReopen(tab.id)}
-                title="Reopen"
-                aria-label="Reopen tab"
-              >
-                <PlusIcon size={12} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EmptyTab({ tabId }: { tabId: TabId }) {
-  const empty = EMPTY_STATES[tabId];
-  const Icon = empty.Icon;
-  return (
-    <div className="sidepanel-empty-tab">
-      <Icon size={32} className="sidepanel-empty-tab-icon" />
-      <div className="sidepanel-empty-tab-title">{empty.title}</div>
-      <div className="sidepanel-empty-tab-desc">{empty.desc}</div>
-    </div>
   );
 }
