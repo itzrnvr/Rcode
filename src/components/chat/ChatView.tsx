@@ -64,7 +64,7 @@ export function ChatView() {
     bumpSessionList,
     settings,
   } = useApp();
-  const { messages, streamingContent, isStreaming, error, sendMessage, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
+  const { messages, streamingContent, isStreaming, error, sendMessage, sendTo, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -115,27 +115,10 @@ export function ChatView() {
     const session = await api.createSession({ model: settings.model, provider: settings.providerName, title: text.slice(0, 40) });
     setCurrentSessionId(session.id);
     bumpSessionList();
-    // Mirror useChat.sendMessage streaming contract: subscribe to chunks for this session
-    // before invoking chat:send, so streamingContent updates and we don't drop chunks.
-    // chat:send persists the user message internally (ipc/chat.ts:40), so no manual addMessage.
-    let removeListener: (() => void) | null = null;
-    try {
-      // We can't use useChat's isStreaming here (sessionId was null), so we drive the stream
-      // directly via onChatChunk and rely on the next render's useChat to load the final messages.
-      // For immediate feedback, set up a temporary listener that will be cleaned up on unmount or after send.
-      removeListener = api.onChatChunk(session.id, () => {});
-      await api.sendChat({ sessionId: session.id, userMessage: text });
-    } catch {}
-    if (removeListener) removeListener();
-    // After sendChat resolves, the assistant message is in DB — bump to reload via useChat's effect
+    // Use sendTo which correctly subscribes to onChatChunk before sendChat and reloads from DB
+    await sendTo(session.id, text);
     bumpSessionList();
-    // Also trigger a direct reload for the welcome→chat transition (useChat's sessionId effect may race)
-    // by forcing a re-fetch of messages for the new session after a tick
-    setTimeout(async () => {
-      // No-op: useChat will reload via its sessionId effect; this just ensures the new session's messages are fetched
-      bumpSessionList();
-    }, 100);
-  }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList]);
+  }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList, sendTo]);
 
   // Welcome screen
   if (!currentSessionId) {

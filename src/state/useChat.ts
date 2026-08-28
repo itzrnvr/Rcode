@@ -10,7 +10,7 @@
  * CONSUMERS: components/chat/ChatView.tsx
  */
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import { api } from "../api/client";
 
@@ -74,6 +74,37 @@ export function useChat(sessionId: string | null) {
     }
   }, [sessionId]);
 
+  // For welcome → new session: send to a specific id not yet in the hook's closure
+  const sendTo = useCallback(async (targetId: string, text: string) => {
+    if (!text.trim()) return;
+    setError(null);
+    const tempUserMsg: Message = {
+      id: `temp-${Date.now()}`,
+      sessionId: targetId,
+      role: "user",
+      content: text,
+      createdAt: Date.now(),
+    };
+    setMessages(prev => [...prev, tempUserMsg]);
+    const removeListener = api.onChatChunk(targetId, (chunk) => {
+      if (chunk.done) return;
+      setStreamingContent(prev => prev + chunk.content);
+    });
+    setIsStreaming(true);
+    setStreamingContent("");
+    try {
+      await api.sendChat({ sessionId: targetId, userMessage: text });
+      const msgs = await api.getMessages(targetId);
+      setMessages(msgs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      removeListener();
+      setIsStreaming(false);
+      setStreamingContent("");
+    }
+  }, []);
+
   // Stop the local streaming state. The actual main-process stream may
   // continue in the background until the upstream model finishes or times out;
   // we just hide it from the UI immediately so the user can keep typing.
@@ -96,5 +127,5 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, [sessionId]);
 
-  return { messages, streamingContent, isStreaming, error, sendMessage, stopStream, editMessage, deleteMessage };
+  return { messages, streamingContent, isStreaming, error, sendMessage, sendTo, stopStream, editMessage, deleteMessage };
 }
