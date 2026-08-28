@@ -35,7 +35,7 @@ export function useTheme(theme: Theme): void {
     root.style.setProperty("--font-ui", theme.uiFont);
     root.style.setProperty("--font-code", theme.codeFont);
     root.style.setProperty("--font-scale", String(theme.fontSizeScale));
-    document.documentElement.style.fontSize = `${theme.fontSizeScale * 16}px`;
+    document.documentElement.style.fontSize = `${Math.round(theme.fontSizeScale * 16)}px`;
 
     // Geometry
     root.style.setProperty("--radius", `${theme.radius}px`);
