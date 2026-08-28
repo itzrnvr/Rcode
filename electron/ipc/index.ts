@@ -10,6 +10,7 @@ import { registerMessageHandlers } from "./messages";
 import { registerSideChatHandlers } from "./sideChats";
 import { registerSettingsHandlers } from "./settings";
 import { registerChatHandler } from "./chat";
+import { registerTerminalHandlers } from "./terminal";
 
 export function registerAllHandlers(): void {
   registerSessionHandlers();
@@ -17,4 +18,5 @@ export function registerAllHandlers(): void {
   registerSideChatHandlers();
   registerSettingsHandlers();
   registerChatHandler();
+  registerTerminalHandlers();
 }

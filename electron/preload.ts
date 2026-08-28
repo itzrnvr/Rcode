@@ -82,6 +82,20 @@ const electronAPI = {
     return () => ipcRenderer.removeListener(channel, handler);
   },
 
+  // --- Terminal ---
+  createTerminal: (id: string, cwd?: string): Promise<void> =>
+    ipcRenderer.invoke("terminal:create", id, cwd),
+  sendTerminalInput: (id: string, data: string): Promise<void> =>
+    ipcRenderer.invoke("terminal:input", id, data),
+  closeTerminal: (id: string): Promise<void> =>
+    ipcRenderer.invoke("terminal:close", id),
+  onTerminalData: (id: string, callback: (data: string) => void): (() => void) => {
+    const channel = `terminal:data:${id}`;
+    const handler = (_e: IpcRendererEvent, data: string) => callback(data);
+    ipcRenderer.on(channel, handler);
+    return () => ipcRenderer.removeListener(channel, handler);
+  },
+
   // --- Platform ---
   platform: process.platform,
 

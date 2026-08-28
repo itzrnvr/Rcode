@@ -21,6 +21,7 @@ import {
   SearchIcon,
   HistoryIcon,
 } from "../common/Icons";
+import { TerminalPane } from "./TerminalPane";
 
 type ZTabType = "side-conversation" | "review" | "terminal" | "browser";
 
@@ -41,9 +42,9 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   const { currentSessionId, sideChatVersion } = useApp();
   const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([
-    { id: "zcode", type: "terminal", title: "zcode" },
+    { id: "terminal", type: "terminal", title: "Terminal" },
   ]);
-  const [activeId, setActiveId] = useState<string>("zcode");
+  const [activeId, setActiveId] = useState<string>("terminal");
   const [showPicker, setShowPicker] = useState(false);
   const [recentlyClosed, setRecentlyClosed] = useState<ZTab[]>([]);
 
@@ -67,7 +68,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       return [...keep, ...mapped];
     });
     // Auto-select first side chat when it appears and terminal was active (so selection→Create is visible)
-    if (sideTabs.length > 0 && activeId === "zcode") {
+    if (sideTabs.length > 0 && activeId === "terminal") {
       // don't auto-switch if user is on terminal/review/browser — only if no side pill was active
       const hasActiveSide = sideTabs.some(s => s.id === activeId);
       if (!hasActiveSide) setActiveId(sideTabs[0].id);
@@ -134,7 +135,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       {/* Header — zcode pill + + + dropdown (Image 2,3) */}
       <div style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderBottom:'1px solid #1f1f1f'}}>
         <button onClick={() => setShowPicker(v => !v)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', fontSize:13, flex:1}}>
-          <span style={{opacity:0.6}}>⇄</span> {activeTab ? activeTab.title : "zcode"} <span style={{marginLeft:'auto', opacity:0.5}}>▾</span>
+          <span style={{opacity:0.6}}>⇄</span> {activeTab ? activeTab.title : "Terminal"} <span style={{marginLeft:'auto', opacity:0.5}}>▾</span>
         </button>
         <button onClick={() => setShowPicker(true)} style={{width:28, height:28, borderRadius:6, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', display:'flex', alignItems:'center', justifyContent:'center'}}><PlusIcon size={14} /></button>
         {onToggleCollapse && (
@@ -222,12 +223,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           </div>
         )}
         {activeTab?.type === "terminal" && (
-          <div style={{background:'#0f0f0f', border:'1px solid #262626', borderRadius:8, padding:12, fontFamily:'monospace', fontSize:12, color:'#e8e8e8', minHeight:200}}>
-            <div style={{color:'#8a8a8a'}}>PowerShell 7.6.0</div>
-            <div style={{marginTop:8, background:'#0a0a0a', padding:8, borderRadius:6, border:'1px solid #1f1f1f'}}>A new PowerShell stable release is available: v7.6.5<br/>Upgrade now, or check out the release page at:<br/>https://aka.ms/PowerShell-Release?tag=v7.6.5</div>
-            <div style={{marginTop:12, display:'flex', gap:6, alignItems:'center', background:'#1a1a1a', padding:'6px 8px', borderRadius:6}}><span style={{background:'#3b82f6', color:'#fff', padding:'2px 6px', borderRadius:999, fontSize:11}}>  ...\zcode</span><span style={{background:'#1a1a1a', border:'1px solid #262626', padding:'2px 6px', borderRadius:999, fontSize:11}}> main ?</span><span style={{background:'#1a1a1a', border:'1px solid #262626', padding:'2px 6px', borderRadius:999, fontSize:11}}>⬢ v26.3.0</span><span style={{marginLeft:'auto', background:'#0f0f0f', padding:'2px 6px', borderRadius:999, fontSize:11}}>🕒 11:06</span></div>
-            <div style={{marginTop:8, color:'#22c55e'}}>&gt; <span style={{background:'#1a1a1a', width:8, height:14, display:'inline-block', verticalAlign:'middle'}} /></div>
-          </div>
+          <TerminalPane terminalId={activeTab.id} />
         )}
         {activeTab?.type === "review" && <div style={{color:'#8a8a8a', fontSize:13}}>Review — diff + Changes +12330 -0 will render here.</div>}
         {activeTab?.type === "browser" && <div style={{color:'#8a8a8a', fontSize:13, textAlign:'center', marginTop:40}}>Browser — preview at http://192.168.1.100:63881/prototype-mobile.html</div>}
