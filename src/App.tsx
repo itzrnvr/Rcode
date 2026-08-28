@@ -61,6 +61,8 @@ function AppInner() {
   const [route, setRoute] = useState<"chat" | "settings">("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [sidePanelCollapsed, setSidePanelCollapsed] = useState(false);
+  const [sidePanelWidth, setSidePanelWidth] = useState(380);
   // Seed demo session if DB is empty and first-run flag not set
   const [seedReady, setSeedReady] = useState(false);
 
@@ -107,6 +109,12 @@ function AppInner() {
     api.getSetting("sidebarWidth")
       .then(v => { const n = parseInt(v ?? "", 10); if (!isNaN(n) && n >= 200 && n <= 480) setSidebarWidth(n); })
       .catch(() => {});
+    api.getSetting("sidePanelCollapsed")
+      .then(v => { if (v === "true") setSidePanelCollapsed(true); })
+      .catch(() => {});
+    api.getSetting("sidePanelWidth")
+      .then(v => { const n = parseInt(v ?? "", 10); if (!isNaN(n) && n >= 240 && n <= 600) setSidePanelWidth(n); })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -124,6 +132,15 @@ function AppInner() {
   const handleSidebarWidthChange = async (w: number) => {
     setSidebarWidth(w);
     await api.setSetting("sidebarWidth", String(w));
+  };
+  const toggleSidePanel = async () => {
+    const v = !sidePanelCollapsed;
+    setSidePanelCollapsed(v);
+    await api.setSetting("sidePanelCollapsed", v ? "true" : "false");
+  };
+  const handleSidePanelWidthChange = async (w: number) => {
+    setSidePanelWidth(w);
+    await api.setSetting("sidePanelWidth", String(w));
   };
 
   if (route === "settings") {
@@ -146,7 +163,11 @@ function AppInner() {
       sidebarWidth={sidebarWidth}
       onSidebarWidthChange={handleSidebarWidthChange}
       chat={<ChatView />}
-      sidePanel={<SidePanel />}
+      sidePanel={<SidePanel collapsed={sidePanelCollapsed} onToggleCollapse={toggleSidePanel} width={sidePanelWidth} />}
+      sidePanelCollapsed={sidePanelCollapsed}
+      sidePanelWidth={sidePanelWidth}
+      onSidePanelWidthChange={handleSidePanelWidthChange}
+      onToggleSidePanel={toggleSidePanel}
     />
   );
 }

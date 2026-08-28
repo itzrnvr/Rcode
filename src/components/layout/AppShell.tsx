@@ -18,10 +18,14 @@ interface AppShellProps {
   sidebarCollapsed?: boolean;
   sidebarWidth?: number;
   onSidebarWidthChange?: (w: number) => void;
+  sidePanelCollapsed?: boolean;
+  sidePanelWidth?: number;
+  onSidePanelWidthChange?: (w: number) => void;
+  onToggleSidePanel?: () => void;
 }
 
-export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed, sidebarWidth, onSidebarWidthChange }: AppShellProps) {
-  const handleMouseDown = (e: React.MouseEvent) => {
+export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed, sidebarWidth, onSidebarWidthChange, sidePanelCollapsed, sidePanelWidth, onSidePanelWidthChange, onToggleSidePanel }: AppShellProps) {
+  const handleLeftMouseDown = (e: React.MouseEvent) => {
     if (sidebarCollapsed) return;
     const startX = e.clientX;
     const startW = sidebarWidth ?? 280;
@@ -53,6 +57,43 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
     document.addEventListener("mouseup", onUp);
   };
 
+  const handleRightMouseDown = (e: React.MouseEvent) => {
+    if (sidePanelCollapsed) return;
+    const startX = e.clientX;
+    const startW = sidePanelWidth ?? 380;
+    const el = document.querySelector(".panel-side") as HTMLElement | null;
+    const prevTransition = el?.style.transition;
+    if (el) el.style.transition = "none";
+    const onMove = (ev: MouseEvent) => {
+      const delta = startX - ev.clientX; // drag left to increase width
+      const next = Math.min(600, Math.max(240, startW + delta));
+      if (el) {
+        el.style.width = `${next}px`;
+        el.style.minWidth = `${next}px`;
+      }
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    };
+    const onUp = (ev: MouseEvent) => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      if (el) el.style.transition = prevTransition ?? "";
+      const delta = startX - ev.clientX;
+      const finalW = Math.min(600, Math.max(240, startW + delta));
+      // Collapse if dragged very narrow
+      if (finalW < 260 && onToggleSidePanel) {
+        // keep width for next expand, just collapse
+        onToggleSidePanel();
+      } else {
+        onSidePanelWidthChange?.(finalW);
+      }
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  };
+
   return (
     <div className="app-shell">
       {titleBar}
@@ -61,7 +102,7 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
         {!sidebarCollapsed && (
           <div
             className="sidebar-resizer"
-            onMouseDown={handleMouseDown}
+            onMouseDown={handleLeftMouseDown}
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize sidebar"
@@ -69,7 +110,40 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
           />
         )}
         {chat}
-        {sidePanel}
+        {!sidePanelCollapsed && sidePanel && (
+          <div
+            className="sidebar-resizer sidepanel-resizer"
+            onMouseDown={handleRightMouseDown}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize side panel"
+            title="Drag to resize side panel"
+            style={{ cursor: "col-resize" }}
+          />
+        )}
+        {!sidePanelCollapsed && sidePanel}
+        {sidePanelCollapsed && (
+          <button
+            onClick={onToggleSidePanel}
+            title="Expand side panel"
+            aria-label="Expand side panel"
+            style={{
+              width: 16,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              background: "var(--color-bg-secondary)",
+              borderLeft: "1px solid var(--color-border)",
+              cursor: "pointer",
+              color: "var(--color-muted)",
+              writingMode: "vertical-rl",
+              fontSize: 11,
+              letterSpacing: 1,
+            }}
+          >
+            ›
+          </button>
+        )}
       </div>
     </div>
   );
