@@ -104,6 +104,9 @@ export function ChatInput({
   const filteredSlash = showSlash
     ? SLASH_COMMANDS.filter(c => c.name.startsWith(text.split(" ")[0].toLowerCase()))
     : [];
+  const [slashIdx, setSlashIdx] = useState(0);
+
+  useEffect(() => { setSlashIdx(0); }, [text]);
 
   const chooseModel = useCallback((m: ModelEntry) => {
     setSetting("model", m.id);
@@ -151,18 +154,65 @@ export function ChatInput({
   }, [onStop]);
 
   const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (showSlash && filteredSlash.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSlashIdx(i => (i + 1) % filteredSlash.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSlashIdx(i => (i - 1 + filteredSlash.length) % filteredSlash.length);
+        return;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        const picked = filteredSlash[slashIdx];
+        if (picked) {
+          setText(picked.name + " ");
+          requestAnimationFrame(() => ref.current?.focus());
+        }
+        return;
+      }
+      if (e.key === "Enter" && !e.shiftKey) {
+        // If slash menu is open, Enter executes the selected command
+        const picked = filteredSlash[slashIdx];
+        if (picked && text.trim().toLowerCase() !== picked.name) {
+          // If user hasn't fully typed the command, complete it first
+          e.preventDefault();
+          setText(picked.name + " ");
+          return;
+        }
+        // Otherwise let send() handle it (will execute /side, /compact, etc.)
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setText("");
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
-    if (e.key === "Escape" && showSlash) {
-      setText("");
-    }
-  }, [send, showSlash]);
+  }, [send, showSlash, filteredSlash, slashIdx, text]);
 
   const pickSlash = useCallback((name: string) => {
     setText(name + " ");
     ref.current?.focus();
+  }, []);
+
+  const pickAndSend = useCallback((name: string) => {
+    // For Enter on a slash item: set text and immediately send if it is a full command
+    setText(name + " ");
+    // Let the next tick send - or just call onSend directly for slash commands that fork
+    setTimeout(() => {
+      const el = ref.current;
+      if (el) {
+        el.style.height = "auto";
+        el.focus();
+      }
+    }, 0);
   }, []);
 
   return (
@@ -170,11 +220,12 @@ export function ChatInput({
       <div className={`chat-input-pill ${streaming ? "streaming" : ""}`}>
         {showSlash && filteredSlash.length > 0 && (
           <div className="slash-commands">
-            {filteredSlash.map(cmd => (
+            {filteredSlash.map((cmd, idx) => (
               <button
                 key={cmd.name}
-                className="slash-command-item"
+                className={`slash-command-item ${idx === slashIdx ? "active" : ""}`}
                 onClick={() => pickSlash(cmd.name)}
+                onMouseEnter={() => setSlashIdx(idx)}
                 onMouseDown={e => e.preventDefault()}
               >
                 <span className="slash-command-icon"><cmd.Icon size={14} /></span>
