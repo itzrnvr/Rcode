@@ -196,17 +196,17 @@ export function ChatMessage({ role, content, streaming, model, onEdit, onDelete 
       <div className="message-group message-group-user">
         <div className="message-user">{content}</div>
         <div className="message-actions">
-          <button className="message-action-btn" onClick={onCopyMessage} title="Copy">
-            {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}<span>{copied ? "Copied" : "Copy"}</span>
+          <button className="message-action-btn" onClick={onCopyMessage} title={copied ? "Copied" : "Copy"}>
+            {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
           </button>
           {onEdit && (
             <button className="message-action-btn" onClick={() => setIsEditing(true)} title="Edit">
-              <PenIcon size={12} /><span>Edit</span>
+              <PenIcon size={12} />
             </button>
           )}
           {onDelete && (
             <button className="message-action-btn danger" onClick={onDelete} title="Delete">
-              <TrashIcon size={12} /><span>Delete</span>
+              <TrashIcon size={12} />
             </button>
           )}
         </div>
@@ -231,17 +231,17 @@ export function ChatMessage({ role, content, streaming, model, onEdit, onDelete 
         )}
       </div>
       <div className="message-actions">
-        <button className="message-action-btn" onClick={onCopyMessage} title="Copy">
-          {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}<span>{copied ? "Copied" : "Copy"}</span>
+        <button className="message-action-btn" onClick={onCopyMessage} title={copied ? "Copied" : "Copy"}>
+          {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
         </button>
         {onEdit && !isEditing && (
           <button className="message-action-btn" onClick={() => setIsEditing(true)} title="Edit">
-            <PenIcon size={12} /><span>Edit</span>
+            <PenIcon size={12} />
           </button>
         )}
         {onDelete && (
           <button className="message-action-btn danger" onClick={onDelete} title="Delete">
-            <TrashIcon size={12} /><span>Delete</span>
+            <TrashIcon size={12} />
           </button>
         )}
       </div>
