@@ -17,6 +17,7 @@ import { useSettings } from "../../state/useSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import { InstructionsEditor } from "./InstructionsEditor";
 import { api } from "../../api/client";
+import { MODELS } from "../../models";
 
 import {
   ArrowLeftIcon,
@@ -246,14 +247,34 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
                   <div className="settings-info-title">Default model</div>
                   <div className="settings-info-meta">
                     Currently using <strong>{settings.model}</strong> via{" "}
-                    {settings.providerName}
+                    {settings.providerName} — {settings.apiBase}
                   </div>
                 </div>
               </div>
-              <p className="settings-hint">
-                Change the default model in the composer. The picker at the
-                bottom of the chat input lets you choose per-conversation.
-              </p>
+              <div className="settings-hint" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12}}>
+                <span>Select the default model — also available in the composer’s model pill.</span>
+                <span style={{fontSize:11, color:'var(--color-muted)', border:'1px solid var(--color-border)', borderRadius:6, padding:'2px 6px', background:'var(--color-surface)'}}>{settings.apiBase}</span>
+              </div>
+              <div className="model-picker-grid" style={{display:'grid', gap:8, marginTop:4}}>
+                {MODELS.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => { updateSetting("model", m.id); updateSetting("providerName", m.provider); }}
+                    style={{
+                      display:'flex', alignItems:'center', justifyContent:'space-between', gap:12,
+                      padding:'10px 12px', borderRadius:8, border: `1px solid ${settings.model===m.id?'var(--color-fg)':'var(--color-border)'}`,
+                      background: settings.model===m.id?'color-mix(in srgb, var(--color-fg) 6%, transparent)':'var(--color-surface)',
+                      textAlign:'left', cursor:'pointer'
+                    }}
+                  >
+                <div>
+                      <div style={{fontSize:13, fontWeight:600, color:'var(--color-fg)'}}>{m.name}</div>
+                      <div style={{fontSize:11, color:'var(--color-muted)'}}>{m.providerLabel} · {m.description}</div>
+              </div>
+                    {settings.model===m.id && <span style={{fontSize:11, color:'var(--color-fg)', border:'1px solid var(--color-fg)', borderRadius:999, padding:'2px 6px'}}>Active</span>}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

@@ -36,67 +36,17 @@ import {
   PlanModeIcon,
   FullAccessModeIcon,
   RestrictedModeIcon,
+  SparkleIcon,
+  TrashIcon,
 } from "../common/Icons";
+import { MODELS } from "../../models";
+import type { ModelEntry } from "../../models";
 
-const MODELS: ModelEntry[] = [
-  {
-    id: "glm-5.2",
-    name: "GLM-5.2",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "Strong multilingual, fast, 128K context",
-  },
-  {
-    id: "glm-4.5",
-    name: "GLM-4.5",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "Previous gen, stable",
-  },
-  {
-    id: "kimi-k3",
-    name: "Kimi K3",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "1T MoE, strong reasoning + coding",
-  },
-  {
-    id: "deepseek-v4-flash",
-    name: "DeepSeek-V4-Flash",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "Sparse MoE, fast inference, code-focused",
-  },
-  {
-    id: "qwen3.6-27b-mtp",
-    name: "Qwen3.6-27B-MTP",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "Alibaba Qwen3.6 with speculative MTP",
-  },
-  {
-    id: "minimax-h3",
-    name: "MiniMax-H3",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "H3 hybrid SSM+attention, fast long-context",
-  },
-  {
-    id: "muse-glimmer-30b",
-    name: "Muse-Glimmer-30B",
-    provider: "rcode",
-    providerLabel: "RCODE",
-    description: "Creative writing + roleplay tuned",
-  },
-];
-
-interface ModelEntry {
-  id: string;
-  name: string;
-  provider: string;
-  providerLabel: string;
-  description: string;
-}
+const SLASH_COMMANDS = [
+  { name: "/compact", label: "Compact", desc: "Summarize and compact the conversation", Icon: SparkleIcon },
+  { name: "/clear", label: "Clear", desc: "Clear the current chat", Icon: TrashIcon },
+  { name: "/help", label: "Help", desc: "Show available commands", Icon: SparkleIcon },
+] as const;
 
 type AgentMode = "plan" | "full-access" | "restricted";
 
@@ -146,6 +96,11 @@ export function ChatInput({
     setText(el.value);
   }, []);
 
+  const showSlash = text.startsWith("/");
+  const filteredSlash = showSlash
+    ? SLASH_COMMANDS.filter(c => c.name.startsWith(text.split(" ")[0].toLowerCase()))
+    : [];
+
   const chooseModel = useCallback((m: ModelEntry) => {
     setSetting("model", m.id);
     setSetting("providerName", m.provider);
@@ -157,6 +112,27 @@ export function ChatInput({
   const send = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || disabled || streaming) return;
+    // Handle slash commands
+    if (trimmed.startsWith("/")) {
+      const cmd = trimmed.split(" ")[0].toLowerCase();
+      const match = SLASH_COMMANDS.find(c => c.name === cmd);
+      if (match) {
+        // For now, compact just sends a system message about compacting
+        // The parent can intercept and handle compaction
+        if (match.name === "/compact") {
+          onSend("/compact");
+          setText("");
+          if (ref.current) ref.current.style.height = "auto";
+          return;
+        }
+        if (match.name === "/clear") {
+          onSend("/clear");
+          setText("");
+          if (ref.current) ref.current.style.height = "auto";
+          return;
+        }
+      }
+    }
     onSend(trimmed);
     setText("");
     if (ref.current) {
@@ -174,11 +150,36 @@ export function ChatInput({
       e.preventDefault();
       send();
     }
-  }, [send]);
+    if (e.key === "Escape" && showSlash) {
+      setText("");
+    }
+  }, [send, showSlash]);
+
+  const pickSlash = useCallback((name: string) => {
+    setText(name + " ");
+    ref.current?.focus();
+  }, []);
 
   return (
     <div className="chat-input-wrap">
       <div className={`chat-input-pill ${streaming ? "streaming" : ""}`}>
+        {showSlash && filteredSlash.length > 0 && (
+          <div className="slash-commands">
+            {filteredSlash.map(cmd => (
+              <button
+                key={cmd.name}
+                className="slash-command-item"
+                onClick={() => pickSlash(cmd.name)}
+                onMouseDown={e => e.preventDefault()}
+              >
+                <span className="slash-command-icon"><cmd.Icon size={14} /></span>
+                <span className="slash-command-name">{cmd.name}</span>
+                <span className="slash-command-desc">{cmd.desc}</span>
+                <span className="slash-command-slash">/</span>
+              </button>
+            ))}
+          </div>
+        )}
         <textarea
           ref={ref}
           className="chat-input"
