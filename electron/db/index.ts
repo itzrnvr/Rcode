@@ -102,6 +102,16 @@ function createSchema(): void {
     }
   } catch {}
 
+  // Migration: add is_pinned + pinned_at for multiple pinned sessions (ws)
+  try {
+    const cols2 = getDb().prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+    if (!cols2.some(c => c.name === "is_pinned")) {
+      getDb().exec("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0");
+      getDb().exec("ALTER TABLE sessions ADD COLUMN pinned_at INTEGER NOT NULL DEFAULT 0");
+      getDb().exec("CREATE INDEX IF NOT EXISTS idx_sessions_pinned ON sessions(is_pinned)");
+    }
+  } catch {}
+
   const versionRow = db.prepare("SELECT COUNT(*) as c FROM schema_version").get() as { c: number };
   if (versionRow.c === 0) {
     db.prepare("INSERT INTO schema_version (version) VALUES (1)").run();

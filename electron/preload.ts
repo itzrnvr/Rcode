@@ -29,6 +29,12 @@ const electronAPI = {
     ipcRenderer.invoke("session:delete", id),
   reorderSessions: (orderedIds: string[]): Promise<void> =>
     ipcRenderer.invoke("session:reorder", orderedIds),
+  pinSession: (id: string): Promise<void> =>
+    ipcRenderer.invoke("session:pin", id),
+  unpinSession: (id: string): Promise<void> =>
+    ipcRenderer.invoke("session:unpin", id),
+  togglePinSession: (id: string): Promise<number> =>
+    ipcRenderer.invoke("session:togglePin", id),
 
   // --- Messages ---
   addMessage: (sessionId: string, role: Message["role"], content: string): Promise<Message> =>

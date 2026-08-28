@@ -19,4 +19,7 @@ export function registerSessionHandlers(): void {
   ipcMain.handle("session:update", (_e, id: string, updates: SessionUpdate) => sessions.updateSession(id, updates));
   ipcMain.handle("session:delete", (_e, id: string) => sessions.deleteSession(id));
   ipcMain.handle("session:reorder", (_e, orderedIds: string[]) => sessions.reorderSessions(orderedIds));
+  ipcMain.handle("session:pin", (_e, id: string) => sessions.pinSession(id));
+  ipcMain.handle("session:unpin", (_e, id: string) => sessions.unpinSession(id));
+  ipcMain.handle("session:togglePin", (_e, id: string) => sessions.togglePinSession(id));
 }

@@ -17,6 +17,8 @@ export interface Session {
   updatedAt: number;
   depth: number;
   sortOrder?: number;
+  isPinned?: number;
+  pinnedAt?: number;
 }
 
 export interface Message {

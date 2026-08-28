@@ -10,7 +10,6 @@ import { useState } from "react";
 
 import { useApp } from "../../state/AppContext";
 import { useSideChats } from "../../state/useSideChats";
-import { api } from "../../api/client";
 
 import {
   XIcon,

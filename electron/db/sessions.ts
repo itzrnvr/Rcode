@@ -26,6 +26,8 @@ interface SessionRow {
   created_at: number;
   updated_at: number;
   sort_order: number;
+  is_pinned: number;
+  pinned_at: number;
   depth: number;
 }
 
@@ -61,6 +63,8 @@ function rowToSession(row: SessionRow): Session {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     sortOrder: row.sort_order,
+    isPinned: row.is_pinned,
+    pinnedAt: row.pinned_at,
     depth: row.depth,
   };
 }
@@ -80,12 +84,12 @@ export function createSession(input: CreateSessionInput = {}): Session {
   const sortOrder = now;
 
   db.prepare(`
-    INSERT INTO sessions (id, parent_id, title, task_type, status, model, provider, custom_instructions, created_at, updated_at, sort_order)
-    VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?)
+    INSERT INTO sessions (id, parent_id, title, task_type, status, model, provider, custom_instructions, created_at, updated_at, sort_order, is_pinned, pinned_at)
+    VALUES (?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, 0, 0)
   `).run(id, parentId, input.title ?? "New Chat", taskType, input.model ?? "", input.provider ?? "", input.customInstructions ?? null, now, now, sortOrder);
 
   const depth = parentId ? computeDepth(parentId) + 1 : 0;
-  return { id, parentId, title: input.title ?? "New Chat", taskType, status: "active", model: input.model ?? "", provider: input.provider ?? "", customInstructions: input.customInstructions ?? null, createdAt: now, updatedAt: now, sortOrder, depth };
+  return { id, parentId, title: input.title ?? "New Chat", taskType, status: "active", model: input.model ?? "", provider: input.provider ?? "", customInstructions: input.customInstructions ?? null, createdAt: now, updatedAt: now, sortOrder, isPinned: 0, pinnedAt: 0, depth };
 }
 
 export function getSession(id: string): Session | null {
@@ -106,7 +110,7 @@ export function listMainSessions(): Session[] {
     SELECT s.*, COALESCE(d.depth, 0) as depth
     FROM sessions s LEFT JOIN depth_calc d ON s.id = d.id
     WHERE s.task_type = 'main' AND s.status = 'active'
-    ORDER BY s.sort_order DESC, s.updated_at DESC
+    ORDER BY s.is_pinned DESC, s.pinned_at DESC, s.sort_order DESC, s.updated_at DESC
   `).all() as SessionRow[];
   return rows.map(rowToSession);
 }
@@ -121,6 +125,26 @@ export function reorderSessions(orderedIds: string[]): void {
     }
   });
   tx(orderedIds);
+}
+
+export function pinSession(id: string): void {
+  getDb().prepare("UPDATE sessions SET is_pinned = 1, pinned_at = ?, updated_at = ? WHERE id = ?").run(Date.now(), Date.now(), id);
+}
+
+export function unpinSession(id: string): void {
+  getDb().prepare("UPDATE sessions SET is_pinned = 0, pinned_at = 0, updated_at = ? WHERE id = ?").run(Date.now(), id);
+}
+
+export function togglePinSession(id: string): number {
+  const row = getDb().prepare("SELECT is_pinned FROM sessions WHERE id = ?").get(id) as { is_pinned: number } | undefined;
+  if (!row) return 0;
+  if (row.is_pinned) {
+    unpinSession(id);
+    return 0;
+  } else {
+    pinSession(id);
+    return 1;
+  }
 }
 
 export function updateSession(id: string, updates: SessionUpdate): void {

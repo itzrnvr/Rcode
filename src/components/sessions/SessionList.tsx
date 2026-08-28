@@ -132,13 +132,10 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
     bumpSessionList();
   }, [menu, currentSessionId, setCurrentSessionId, bumpSessionList]);
 
-  const handlePin = useCallback(async (id: string) => {
-    // Pin = move to top via sort_order
-    const order = [id, ...orderedSessions.filter(s => s.id !== id).map(s => s.id)];
-    setLocalOrder(order);
-    await api.reorderSessions(order);
+  const handleTogglePin = useCallback(async (id: string) => {
+    await api.togglePinSession(id);
     bumpSessionList();
-  }, [orderedSessions, bumpSessionList]);
+  }, [bumpSessionList]);
 
   const menuItems: ContextMenuItem[] = [
     { label: "Rename", onClick: handleRename },
@@ -231,14 +228,37 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
 
       {/* Pinned */}
       <div className="sidebar-group-label">Pinned</div>
-      {sessions.length > 0 && (
-        <div className="sidebar-pinned">
-          <div className="session-item pinned" onClick={() => setCurrentSessionId(sessions[0].id)} style={{flexDirection:'row', alignItems:'center', gap:8}}>
-            <PinIcon size={12} className="pin-icon" />
-            <span className="session-item-title" style={{flex:1}}>{sessions[0].title}</span>
-      </div>
-      </div>
-      )}
+      {(() => {
+        const pinned = orderedSessions.filter(s => s.isPinned);
+        if (pinned.length === 0) {
+          return <div className="sidebar-empty-hint" style={{fontSize:12, color:'var(--color-muted)', padding:'4px 8px'}}>No pinned chats</div>;
+        }
+        return (
+          <div className="sidebar-pinned">
+            {pinned.map(s => (
+              <div
+                key={s.id}
+                className={`session-item pinned ${currentSessionId === s.id ? "active" : ""}`}
+                onClick={() => { setCurrentSessionId(s.id); setActiveNav("chat"); }}
+                title={s.title}
+                style={{flexDirection:'row', alignItems:'center', gap:8}}
+              >
+                <PinIcon size={12} className="pin-icon" />
+                <span className="session-item-title" style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{s.title}</span>
+                <button
+                  className="session-action-btn"
+                  onClick={e => { e.stopPropagation(); handleTogglePin(s.id); }}
+                  title="Unpin"
+                  aria-label="Unpin"
+                  style={{opacity:0.7}}
+                >
+                  <PinIcon size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       <div className="sidebar-group-label">Projects</div>
       <div className="sidebar-empty-hint">No projects</div>
@@ -266,7 +286,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
               <span className="empty-hint">Click "New Chat" to start</span>
             </div>
           )}
-          {orderedSessions.slice(0, 30).map(session => (
+          {orderedSessions.filter(s => !s.isPinned).slice(0, 30).map(session => (
             <div
               key={session.id}
               className={`session-item ${currentSessionId === session.id ? "active" : ""}`}
@@ -320,9 +340,10 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
                   <div className="session-item-actions">
                     <button
                       className="session-action-btn"
-                      onClick={e => { e.stopPropagation(); handlePin(session.id); }}
-                      title="Pin to top"
-                      aria-label="Pin"
+                      onClick={e => { e.stopPropagation(); handleTogglePin(session.id); }}
+                      title={session.isPinned ? "Unpin" : "Pin to top"}
+                      aria-label={session.isPinned ? "Unpin" : "Pin"}
+                      style={session.isPinned ? { color: 'var(--color-fg)', opacity: 1 } : undefined}
                     >
                       <PinIcon size={12} />
                     </button>
