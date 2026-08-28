@@ -210,10 +210,9 @@ export function ModelSettings() {
                     onChange={e => updateSelected({ apiFormat: e.target.value })}
                     style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", fontSize: 13, outline: "none" }}
                   >
-                    <option value="openai-completions">Chat Completions (/chat/completions)</option>
                     <option value="responses">Responses (/responses)</option>
-                    <option value="openai-responses">OpenAI Responses</option>
-                    <option value="anthropic">Anthropic</option>
+                    <option value="anthropic">Anthropic (/v1/messages)</option>
+                    <option value="openai-completions">Chat Completions (/chat/completions)</option>
                   </select>
                 </div>
 

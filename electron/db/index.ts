@@ -127,10 +127,8 @@ function createSchema(): void {
 
   // Seed default providers (mirrors DSH wandb + screenshot providers)
   try {
-    const cnt = getDb().prepare("SELECT COUNT(*) as c FROM providers").get() as { c: number };
-    if (cnt.c === 0) {
-      const now = Date.now();
-      const defaults: Array<[string, string, string, string, string, string, number, number]> = [
+    const now = Date.now();
+    const defaults: Array<[string, string, string, string, string, string, number, number]> = [
         ["zai", "Z.ai", "https://api.z.ai/api/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.5", vision:1, context:"128K"},{id:"glm-4.6", vision:1, context:"200K"}]), 1, 0],
         ["meta", "meta", "https://api.meta.ai/v1", "responses", "sk-...meta", JSON.stringify([{id:"muse-spark-1.2", vision:1, context:"1M"}]), 1, 1],
         ["minimax-proxy", "Minimax-Proxy", "http://127.0.0.1:3477/v1", "openai-completions", "", JSON.stringify([{id:"MiniMax-M3", vision:0, context:"128K"},{id:"MiniMax-M2.5", vision:0, context:"128K"}]), 1, 1],
@@ -140,10 +138,11 @@ function createSchema(): void {
         ["zai-coding", "zai-coding", "https://api.z.ai/api/coding/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.6-coding", vision:1, context:"200K"}]), 1, 1],
         ["baidu", "baidu", "https://qianfan.baidubce.com/v2", "openai-completions", "", JSON.stringify([{id:"ernie-4.5", vision:1, context:"128K"}]), 1, 1],
       ];
-      const stmt = getDb().prepare("INSERT INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const stmt = getDb().prepare("INSERT OR IGNORE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
       for (const row of defaults) stmt.run(...row);
-    }
-  } catch {}
+  } catch (e) {
+    console.error("provider seed failed", e);
+  }
 
   const versionRow = db.prepare("SELECT COUNT(*) as c FROM schema_version").get() as { c: number };
   if (versionRow.c === 0) {
