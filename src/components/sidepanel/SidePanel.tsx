@@ -6,7 +6,7 @@
  * Matches Images 1-5: red-box pane with pill tabs zcode / Side conversation 1.
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 import { useApp } from "../../state/AppContext";
 import { useSideChats } from "../../state/useSideChats";
@@ -38,19 +38,55 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
 };
 
 export function SidePanel() {
-  const { currentSessionId, sideChatVersion, bumpSideChats } = useApp();
+  const { currentSessionId, sideChatVersion } = useApp();
   const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([
     { id: "zcode", type: "terminal", title: "zcode" },
   ]);
   const [activeId, setActiveId] = useState<string>("zcode");
   const [showPicker, setShowPicker] = useState(false);
-  const [recentlyClosed, setRecentlyClosed] = useState<ZTab[]>([
-    { id: "rc-1", type: "side-conversation", title: "Explore layout and CSS" },
-    { id: "rc-2", type: "browser", title: "gypsy-dragon" },
-  ]);
+  const [recentlyClosed, setRecentlyClosed] = useState<ZTab[]>([]);
 
   const activeTab = openTabs.find(t => t.id === activeId) ?? openTabs[0];
+
+  // Sync real sideChats into pill bar: each SideChatTab becomes a ZTab.
+  // Keeps non-side tabs (terminal/browser/review) untouched, replaces side-conversation pills with DB state.
+  useEffect(() => {
+    setOpenTabs(prev => {
+      const keep = prev.filter(t => t.type !== "side-conversation");
+      const mapped: ZTab[] = sideTabs.map(st => ({
+        id: st.id,
+        type: "side-conversation" as const,
+        title: st.sideChatTitle?.trim() ? st.sideChatTitle : st.sideChatId.slice(0, 8),
+      }));
+      // If no real side chats, preserve a single placeholder pill so the picker/list has a target
+      if (mapped.length === 0 && keep.length === prev.length) return prev;
+      if (mapped.length === 0) return keep.length ? keep : prev;
+      return [...keep, ...mapped];
+    });
+    // Auto-select first side chat when it appears and terminal was active (so selection→Create is visible)
+    if (sideTabs.length > 0 && activeId === "zcode") {
+      // don't auto-switch if user is on terminal/review/browser — only if no side pill was active
+      const hasActiveSide = sideTabs.some(s => s.id === activeId);
+      if (!hasActiveSide) setActiveId(sideTabs[0].id);
+    }
+  }, [sideTabs, activeId]);
+
+  // Sync closed side chats into recentlyClosed picker (append, de-dupe, prune reopened)
+  useEffect(() => {
+    const mapped: ZTab[] = sideClosedTabs.map(st => ({
+      id: st.id,
+      type: "side-conversation" as const,
+      title: st.sideChatTitle?.trim() ? st.sideChatTitle : st.sideChatId.slice(0, 8),
+    }));
+    setRecentlyClosed(prev => {
+      const openIds = new Set(sideTabs.map(s => s.id));
+      let next = prev.filter(p => !openIds.has(p.id));
+      const byId = new Map(next.map(p => [p.id, p] as const));
+      for (const m of mapped) if (!byId.has(m.id)) next = [...next, m];
+      return next.slice(0, 10);
+    });
+  }, [sideClosedTabs, sideTabs]);
 
   const openNewTab = (type: ZTabType) => {
     const id = `${type}-${Date.now()}`;
@@ -75,13 +111,20 @@ export function SidePanel() {
     setRecentlyClosed(prev => prev.filter(t => t.id !== tab.id));
   };
 
+  // Local close/reopen already refreshes via useSideChats internal refresh() — no bump needed (avoids double fetch)
   const handleCloseSideChat = async (tabId: string) => {
-    await closeSideChatTab(tabId);
-    bumpSideChats();
+    try {
+      await closeSideChatTab(tabId);
+    } catch (e) {
+      console.error("closeSideChat failed", e);
+    }
   };
   const handleReopenSideChat = async (tabId: string) => {
-    await reopenSideChatTab(tabId);
-    bumpSideChats();
+    try {
+      await reopenSideChatTab(tabId);
+    } catch (e) {
+      console.error("reopenSideChat failed", e);
+    }
   };
 
   return (
