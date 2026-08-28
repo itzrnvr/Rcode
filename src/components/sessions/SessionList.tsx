@@ -234,7 +234,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
       {sessions.length > 0 && (
         <div className="sidebar-pinned">
           <div className="session-item pinned" onClick={() => setCurrentSessionId(sessions[0].id)} style={{flexDirection:'row', alignItems:'center', gap:8}}>
-            <PinIcon size={12} style={{flexShrink:0, color:'var(--color-muted)'}} />
+            <PinIcon size={12} className="pin-icon" />
             <span className="session-item-title" style={{flex:1}}>{sessions[0].title}</span>
       </div>
       </div>

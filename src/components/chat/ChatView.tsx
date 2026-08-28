@@ -61,6 +61,7 @@ export function ChatView() {
     setCurrentSessionId,
     bumpSideChats,
     setHasSideChats,
+    bumpSessionList,
     settings,
   } = useApp();
   const { messages, streamingContent, isStreaming, error, sendMessage, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
@@ -114,11 +115,8 @@ export function ChatView() {
     const session = await api.createSession({ model: settings.model, provider: settings.providerName, title: text.slice(0, 40) });
     setCurrentSessionId(session.id);
     bumpSessionList();
-    // Send the first message via the same path — wait a tick for session to be set, then use api directly
-    // to avoid race with useChat's sessionId still being null
-    await api.addMessage(session.id, "user", text);
-    // Trigger the assistant response via chat:send (useChat will pick up the new session on next render,
-    // but we also kick it here for immediate streaming)
+    // chat:send already persists the user message (ipc/chat.ts:40), so don't addMessage here
+    // to avoid double bubble. Use the existing sendChat path.
     try {
       await api.sendChat({ sessionId: session.id, userMessage: text });
     } catch {}

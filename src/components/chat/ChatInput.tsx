@@ -38,8 +38,6 @@ import {
   RestrictedModeIcon,
 } from "../common/Icons";
 
-import type { AgentMode } from "../../types";
-
 const MODELS: ModelEntry[] = [
   {
     id: "glm-5.2",
