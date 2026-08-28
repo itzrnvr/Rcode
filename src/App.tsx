@@ -62,6 +62,11 @@ function AppInner() {
   const [route, setRoute] = useState<"chat" | "settings">("chat");
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [settingsCategory, setSettingsCategory] = useState<string | undefined>(undefined);
+  const openSettingsAt = (cat?: string) => {
+    setSettingsCategory(cat);
+    setShowSettings(true);
+  };
   // Seed demo session if DB is empty and first-run flag not set
   const [seedReady, setSeedReady] = useState(false);
 
@@ -119,6 +124,11 @@ function AppInner() {
   useEffect(() => {
     const open = () => setIsSearchOpen(true);
     window.addEventListener("open-search-palette", open as EventListener);
+    const openSettingsEv = (e: Event) => {
+      const ce = e as CustomEvent<{ category?: string }>;
+      openSettingsAt(ce.detail?.category);
+    };
+    window.addEventListener("open-settings", openSettingsEv as EventListener);
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
@@ -128,6 +138,7 @@ function AppInner() {
     window.addEventListener("keydown", onKey as EventListener);
     return () => {
       window.removeEventListener("open-search-palette", open as EventListener);
+      window.removeEventListener("open-settings", openSettingsEv as EventListener);
       window.removeEventListener("keydown", onKey as EventListener);
     };
   }, []);
@@ -154,7 +165,7 @@ function AppInner() {
   if (route === "settings") {
     return (
       <>
-        <SettingsPage onClose={closeSettings} />
+        <SettingsPage onClose={closeSettings} initialCategory={settingsCategory as never} />
         <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
       </>
     );

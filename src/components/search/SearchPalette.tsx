@@ -30,8 +30,8 @@ interface SearchPaletteProps {
 }
 
 export function SearchPalette({ open, onClose }: SearchPaletteProps) {
-  const { setCurrentSessionId, setShowSettings, bumpSessionList, settings } = useApp();
-  const { sessions } = useSessions(0);
+  const { setCurrentSessionId, setShowSettings, bumpSessionList, settings, sessionListVersion, setSidePanelCollapsed } = useApp();
+  const { sessions } = useSessions(sessionListVersion);
   const { allModels } = useProviders();
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -83,13 +83,16 @@ export function SearchPalette({ open, onClose }: SearchPaletteProps) {
   };
 
   const handleNewTab = async (type: "terminal" | "side-conversation" | "review" | "browser") => {
-    // Dispatch event for SidePanel to create tab from left
+    // Ensure side panel is visible and dispatch new tab from left
+    try { await setSidePanelCollapsed(false); } catch {}
     window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type } }));
     onClose();
   };
 
-  const handleSlash = (cmd: string) => {
-    // Dispatch to ChatView to handle slash
+  const handleSlash = async (cmd: string) => {
+    if (cmd.startsWith("/side")) {
+      try { await setSidePanelCollapsed(false); } catch {}
+    }
     window.dispatchEvent(new CustomEvent("chat:slash", { detail: { cmd } }));
     onClose();
   };
@@ -220,9 +223,9 @@ export function SearchPalette({ open, onClose }: SearchPaletteProps) {
           {/* Settings shortcuts */}
           <div style={{ fontSize: 11, fontWeight: 600, color: "#8a8a8a", textTransform: "uppercase", letterSpacing: 0.6, padding: "12px 8px 4px" }}>Settings</div>
           {[
-            { label: "API Settings", Icon: SettingsIcon, action: () => { setShowSettings(true); onClose(); } },
-            { label: "Theme", Icon: SettingsIcon, action: () => { setShowSettings(true); onClose(); } },
-            { label: "Model Settings", Icon: SettingsIcon, action: () => { setShowSettings(true); onClose(); } },
+            { label: "API Settings", category: "api", Icon: SettingsIcon, action: () => { window.dispatchEvent(new CustomEvent("open-settings", { detail: { category: "api" } })); onClose(); } },
+            { label: "Theme", category: "theme", Icon: SettingsIcon, action: () => { window.dispatchEvent(new CustomEvent("open-settings", { detail: { category: "theme" } })); onClose(); } },
+            { label: "Model Settings", category: "model", Icon: SettingsIcon, action: () => { window.dispatchEvent(new CustomEvent("open-settings", { detail: { category: "model" } })); onClose(); } },
           ]
             .filter(c => !query || c.label.toLowerCase().includes(query.toLowerCase()))
             .map(c => (
