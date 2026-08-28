@@ -114,7 +114,7 @@ export const DEFAULT_THEME: Theme = {
   codeFont: "'JetBrains Mono', 'Cascadia Code', Menlo, Consolas, monospace",
   fontSizeScale: 1.08,
   radius: 10,
-  translucentSidebar: true,
+  translucentSidebar: false,
   contrast: "medium",
   darkMode: true,
 };

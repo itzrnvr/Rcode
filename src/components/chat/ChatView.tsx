@@ -116,8 +116,8 @@ export function ChatView() {
         <div className="chat-welcome">
           <div className="chat-mascot">
             <div className="mascot-glow" />
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M6 4 H14 A4 4 0 0 1 14 12 H6 V20 M10 12 L14 20" />
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{filter: 'drop-shadow(0 2px 10px color-mix(in srgb, currentColor 40%, transparent))'}}>
+              <path d="M7 3.5 H13.8 C15.8 3.5, 17.8 5.5, 17.8 8 C17.8 10.5, 15.8 12.5, 13.8 12.5 H7 V20.5 M11.2 12.5 L17.8 20.5" />
             </svg>
           </div>
           <h1 className="chat-welcome-title">
