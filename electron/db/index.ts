@@ -1,0 +1,123 @@
+/*
+ * PURPOSE: SQLite connection management, schema definition, and migrations
+ *
+ * KEY DECISIONS:
+ * - Getter pattern: initDb() creates connection, getDb() retrieves it
+ * - WAL mode for concurrent reads from multiple IPC handlers
+ * - Schema version table for future migration support
+ * - Default settings seeded on first run
+ *
+ * DEPENDENCIES: better-sqlite3, electron (app path)
+ * CONSUMERS: all db/*.ts repository modules
+ */
+
+import Database from "better-sqlite3";
+import type { Database as DBType } from "better-sqlite3";
+import { join } from "path";
+import { mkdirSync, existsSync } from "fs";
+import { app } from "electron";
+
+import { DEFAULT_SETTINGS, DEFAULT_THEME } from "../../src/types";
+
+let instance: DBType | null = null;
+
+export function getDb(): DBType {
+  if (!instance) throw new Error("Database not initialized — call initDb() first");
+  return instance;
+}
+
+export function initDb(): void {
+  const dataDir = join(app.getPath("userData"), "data");
+  if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
+
+  instance = new Database(join(dataDir, "rcode.db"));
+  instance.pragma("journal_mode = WAL");
+  instance.pragma("foreign_keys = ON");
+
+  createSchema();
+  seedDefaults();
+}
+
+function createSchema(): void {
+  const db = getDb();
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS schema_version (
+      version INTEGER PRIMARY KEY
+    );
+
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      parent_id TEXT,
+      title TEXT NOT NULL DEFAULT 'New Chat',
+      task_type TEXT NOT NULL DEFAULT 'main',
+      status TEXT NOT NULL DEFAULT 'active',
+      model TEXT NOT NULL DEFAULT '',
+      provider TEXT NOT NULL DEFAULT '',
+      custom_instructions TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      FOREIGN KEY (parent_id) REFERENCES sessions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      session_id TEXT NOT NULL,
+      role TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS side_chat_tabs (
+      id TEXT PRIMARY KEY,
+      parent_session_id TEXT NOT NULL,
+      side_chat_id TEXT NOT NULL,
+      tab_order INTEGER NOT NULL DEFAULT 0,
+      is_closed INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      FOREIGN KEY (parent_session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+      FOREIGN KEY (side_chat_id) REFERENCES sessions(id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sessions_parent ON sessions(parent_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_type ON sessions(task_type);
+    CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions(status);
+    CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
+    CREATE INDEX IF NOT EXISTS idx_tabs_parent ON side_chat_tabs(parent_session_id);
+    CREATE INDEX IF NOT EXISTS idx_tabs_sidechat ON side_chat_tabs(side_chat_id);
+  `);
+
+  // Migration: add sort_order for drag-to-reorder persistence (advisory blocker)
+  try {
+    const cols = getDb().prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+    if (!cols.some(c => c.name === "sort_order")) {
+      getDb().exec("ALTER TABLE sessions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0");
+      getDb().exec("UPDATE sessions SET sort_order = updated_at WHERE sort_order = 0");
+      getDb().exec("CREATE INDEX IF NOT EXISTS idx_sessions_sort ON sessions(sort_order)");
+    }
+  } catch {}
+
+  const versionRow = db.prepare("SELECT COUNT(*) as c FROM schema_version").get() as { c: number };
+  if (versionRow.c === 0) {
+    db.prepare("INSERT INTO schema_version (version) VALUES (1)").run();
+  }
+}
+
+function seedDefaults(): void {
+  const db = getDb();
+  const existing = db.prepare("SELECT COUNT(*) as c FROM settings").get() as { c: number };
+  if (existing.c > 0) return;
+
+  const stmt = db.prepare("INSERT INTO settings (key, value) VALUES (?, ?)");
+  stmt.run("apiBase", DEFAULT_SETTINGS.apiBase);
+  stmt.run("apiKey", DEFAULT_SETTINGS.apiKey);
+  stmt.run("model", DEFAULT_SETTINGS.model);
+  stmt.run("providerName", DEFAULT_SETTINGS.providerName);
+  stmt.run("globalInstructions", DEFAULT_SETTINGS.globalInstructions);
+  stmt.run("theme", JSON.stringify(DEFAULT_THEME));
+}

@@ -1,0 +1,129 @@
+/*
+ * PURPOSE: Side chat + tabs repository — all SQL for side_chat_tabs table and
+ *          side chat session creation/promotion operations
+ *
+ * KEY DECISIONS:
+ * - createSideChat: atomically creates the side chat session + a tab linking it to parent
+ * - promoteSideChat: converts side_chat → main session, removes the linking tab
+ * - Closed tabs stay in DB (is_closed=1) so they can be reopened
+ * - Tab order managed explicitly via reorderSideChatTabs
+ *
+ * CONSUMERS: ipc/sideChats.ts
+ */
+
+import { randomUUID } from "crypto";
+import { getDb } from "./index";
+import { createSession, getSession } from "./sessions";
+
+import type { SideChatTab, CreateSideChatInput } from "../../src/types";
+import type { Session } from "../../src/types";
+
+interface TabRow {
+  id: string;
+  parent_session_id: string;
+  side_chat_id: string;
+  tab_order: number;
+  is_closed: number;
+  created_at: number;
+  side_chat_title: string;
+  side_chat_status: string;
+}
+
+function tabRowToSideChatTab(row: TabRow): SideChatTab {
+  return {
+    id: row.id,
+    parentSessionId: row.parent_session_id,
+    sideChatId: row.side_chat_id,
+    tabOrder: row.tab_order,
+    isClosed: row.is_closed === 1,
+    createdAt: row.created_at,
+    sideChatTitle: row.side_chat_title,
+    sideChatStatus: row.side_chat_status as SideChatTab["sideChatStatus"],
+    sideChatDepth: 0,
+  };
+}
+
+export function createSideChat(input: CreateSideChatInput): { session: Session; tab: SideChatTab } {
+  const db = getDb();
+  const parent = getSession(input.parentSessionId);
+  if (!parent) throw new Error("Parent session not found");
+
+  const session = createSession({
+    parentId: input.parentSessionId,
+    title: input.title ?? "Side chat",
+    taskType: "side_chat",
+    model: input.model ?? parent.model,
+    provider: input.provider ?? parent.provider,
+  });
+
+  const tabId = randomUUID();
+  const now = Date.now();
+  const countRow = db.prepare("SELECT COUNT(*) as c FROM side_chat_tabs WHERE parent_session_id = ?").get(input.parentSessionId) as { c: number };
+  const tabOrder = countRow.c;
+
+  db.prepare("INSERT INTO side_chat_tabs (id, parent_session_id, side_chat_id, tab_order, is_closed, created_at) VALUES (?, ?, ?, ?, 0, ?)")
+    .run(tabId, input.parentSessionId, session.id, tabOrder, now);
+
+  const tab: SideChatTab = {
+    id: tabId,
+    parentSessionId: input.parentSessionId,
+    sideChatId: session.id,
+    tabOrder,
+    isClosed: false,
+    createdAt: now,
+    sideChatTitle: session.title,
+    sideChatStatus: session.status,
+    sideChatDepth: session.depth,
+  };
+
+  return { session, tab };
+}
+
+export function getSideChatTabs(parentSessionId: string, includeClosed = false): SideChatTab[] {
+  const db = getDb();
+  const query = includeClosed
+    ? `SELECT t.*, s.title as side_chat_title, s.status as side_chat_status
+       FROM side_chat_tabs t JOIN sessions s ON t.side_chat_id = s.id
+       WHERE t.parent_session_id = ? ORDER BY t.tab_order ASC`
+    : `SELECT t.*, s.title as side_chat_title, s.status as side_chat_status
+       FROM side_chat_tabs t JOIN sessions s ON t.side_chat_id = s.id
+       WHERE t.parent_session_id = ? AND t.is_closed = 0 AND s.status = 'active'
+       ORDER BY t.tab_order ASC`;
+
+  const rows = db.prepare(query).all(parentSessionId) as TabRow[];
+  return rows.map(tabRowToSideChatTab);
+}
+
+export function getClosedSideChats(parentSessionId: string): SideChatTab[] {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT t.*, s.title as side_chat_title, s.status as side_chat_status
+    FROM side_chat_tabs t JOIN sessions s ON t.side_chat_id = s.id
+    WHERE t.parent_session_id = ? AND t.is_closed = 1 AND s.status = 'active'
+    ORDER BY t.created_at DESC
+  `).all(parentSessionId) as TabRow[];
+  return rows.map(tabRowToSideChatTab);
+}
+
+export function closeSideChatTab(tabId: string): void {
+  getDb().prepare("UPDATE side_chat_tabs SET is_closed = 1 WHERE id = ?").run(tabId);
+}
+
+export function reopenSideChatTab(tabId: string): void {
+  getDb().prepare("UPDATE side_chat_tabs SET is_closed = 0 WHERE id = ?").run(tabId);
+}
+
+export function promoteSideChat(sideChatId: string): void {
+  const db = getDb();
+  db.prepare("UPDATE sessions SET task_type = 'main', parent_id = NULL, status = 'active', updated_at = ? WHERE id = ?")
+    .run(Date.now(), sideChatId);
+  db.prepare("DELETE FROM side_chat_tabs WHERE side_chat_id = ?").run(sideChatId);
+}
+
+export function reorderSideChatTabs(parentSessionId: string, tabIds: string[]): void {
+  const db = getDb();
+  const stmt = db.prepare("UPDATE side_chat_tabs SET tab_order = ? WHERE id = ? AND parent_session_id = ?");
+  for (let i = 0; i < tabIds.length; i++) {
+    stmt.run(i, tabIds[i], parentSessionId);
+  }
+}
