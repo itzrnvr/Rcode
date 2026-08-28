@@ -85,6 +85,7 @@ export interface CreateSideChatInput {
   title?: string;
   model?: string;
   provider?: string;
+  selectedText?: string;
 }
 
 export interface ChatChunk {

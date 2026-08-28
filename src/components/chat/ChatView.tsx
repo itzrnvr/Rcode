@@ -117,7 +117,7 @@ export function ChatView() {
           <div className="chat-mascot">
             <div className="mascot-glow" />
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4 4 L20 4 L9 13 L20 13 L4 20" />
+              <path d="M6 4 H14 A4 4 0 0 1 14 12 H6 V20 M10 12 L14 20" />
             </svg>
           </div>
           <h1 className="chat-welcome-title">
