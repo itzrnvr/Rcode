@@ -55,7 +55,7 @@ class ErrorBoundary extends Component<
 }
 
 function AppInner() {
-  const { settings, showSettings, setShowSettings, hasSideChats, bumpSessionList } = useApp();
+  const { settings, showSettings, setShowSettings, bumpSessionList } = useApp();
   useTheme(settings.theme);
 
   const [route, setRoute] = useState<"chat" | "settings">("chat");
@@ -146,7 +146,7 @@ function AppInner() {
       sidebarWidth={sidebarWidth}
       onSidebarWidthChange={handleSidebarWidthChange}
       chat={<ChatView />}
-      sidePanel={hasSideChats ? <SidePanel /> : null}
+      sidePanel={<SidePanel />}
     />
   );
 }
