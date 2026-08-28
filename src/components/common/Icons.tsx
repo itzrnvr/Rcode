@@ -76,6 +76,8 @@ import {
   PanelLeftClose,
   Code2,
   FolderOpen,
+  Eye,
+  EyeOff,
   type LucideIcon,
 } from "lucide-react";
 
@@ -159,6 +161,11 @@ export const CheckIcon = (p: { size?: number; className?: string }) =>
   <Check size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2.5} />;
 export const PenIcon = (p: { size?: number; className?: string }) =>
   <Pencil size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const EyeIcon = (p: { size?: number; className?: string }) =>
+  <Eye size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const EyeOffIcon = (p: { size?: number; className?: string }) =>
+  <EyeOff size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const EditIcon = PenIcon;
 export const UserIcon = (p: { size?: number; className?: string }) =>
   <User size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const BeakerIcon = (p: { size?: number; className?: string }) =>

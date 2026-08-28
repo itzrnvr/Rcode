@@ -90,6 +90,19 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
     CREATE INDEX IF NOT EXISTS idx_tabs_parent ON side_chat_tabs(parent_session_id);
     CREATE INDEX IF NOT EXISTS idx_tabs_sidechat ON side_chat_tabs(side_chat_id);
+
+    CREATE TABLE IF NOT EXISTS providers (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      base_url TEXT NOT NULL DEFAULT '',
+      api_format TEXT NOT NULL DEFAULT 'openai-completions',
+      api_key TEXT NOT NULL DEFAULT '',
+      model_list TEXT NOT NULL DEFAULT '[]',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      is_custom INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_providers_enabled ON providers(enabled);
   `);
 
   // Migration: add sort_order for drag-to-reorder persistence (advisory blocker)
@@ -109,6 +122,26 @@ function createSchema(): void {
       getDb().exec("ALTER TABLE sessions ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0");
       getDb().exec("ALTER TABLE sessions ADD COLUMN pinned_at INTEGER NOT NULL DEFAULT 0");
       getDb().exec("CREATE INDEX IF NOT EXISTS idx_sessions_pinned ON sessions(is_pinned)");
+    }
+  } catch {}
+
+  // Seed default providers (mirrors DSH wandb + screenshot providers)
+  try {
+    const cnt = getDb().prepare("SELECT COUNT(*) as c FROM providers").get() as { c: number };
+    if (cnt.c === 0) {
+      const now = Date.now();
+      const defaults: Array<[string, string, string, string, string, string, number, number]> = [
+        ["zai", "Z.ai", "https://api.z.ai/api/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.5", vision:1, context:"128K"},{id:"glm-4.6", vision:1, context:"200K"}]), 1, 0],
+        ["meta", "meta", "https://api.meta.ai/v1", "responses", "sk-...meta", JSON.stringify([{id:"muse-spark-1.2", vision:1, context:"1M"}]), 1, 1],
+        ["minimax-proxy", "Minimax-Proxy", "http://127.0.0.1:3477/v1", "openai-completions", "", JSON.stringify([{id:"MiniMax-M3", vision:0, context:"128K"},{id:"MiniMax-M2.5", vision:0, context:"128K"}]), 1, 1],
+        ["wandb-proxy", "Wandb-Proxy", "http://127.0.0.1:3478/v1", "openai-completions", "", JSON.stringify([{id:"deepseek-ai/DeepSeek-V4-Flash-0731", vision:1, context:"128K"},{id:"zai-org/GLM-5.2", vision:1, context:"128K"},{id:"meta-llama/Llama-3.1-8B-Instruct", vision:0, context:"128K"}]), 1, 1],
+        ["firepass", "firepass", "https://api.firepass.ai/v1", "openai-completions", "", JSON.stringify([{id:"firepass-7b", vision:0, context:"32K"}]), 0, 1],
+        ["dashscope", "dashscope", "https://dashscope.aliyuncs.com/compatible-mode/v1", "openai-completions", "", JSON.stringify([{id:"qwen3-coder-480b", vision:0, context:"1M"}]), 1, 1],
+        ["zai-coding", "zai-coding", "https://api.z.ai/api/coding/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.6-coding", vision:1, context:"200K"}]), 1, 1],
+        ["baidu", "baidu", "https://qianfan.baidubce.com/v2", "openai-completions", "", JSON.stringify([{id:"ernie-4.5", vision:1, context:"128K"}]), 1, 1],
+      ];
+      const stmt = getDb().prepare("INSERT INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const row of defaults) stmt.run(...row);
     }
   } catch {}
 

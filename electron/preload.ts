@@ -8,6 +8,7 @@
  * touches ipcRenderer directly — it goes through this typed API surface.
  */
 
+import type { Provider } from "./db/providers";
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 
 import type {
@@ -95,6 +96,20 @@ const electronAPI = {
     ipcRenderer.on(channel, handler);
     return () => ipcRenderer.removeListener(channel, handler);
   },
+
+  // --- Providers ---
+  listProviders: (): Promise<Provider[]> =>
+    ipcRenderer.invoke("provider:list"),
+  getProvider: (id: string): Promise<Provider | null> =>
+    ipcRenderer.invoke("provider:get", id),
+  createProvider: (input: { name: string; baseUrl?: string; apiFormat?: string; apiKey?: string; modelList?: Provider["modelList"]; enabled?: number; isCustom?: number }): Promise<Provider> =>
+    ipcRenderer.invoke("provider:create", input),
+  updateProvider: (id: string, updates: Partial<Provider>): Promise<void> =>
+    ipcRenderer.invoke("provider:update", id, updates),
+  deleteProvider: (id: string): Promise<void> =>
+    ipcRenderer.invoke("provider:delete", id),
+  toggleProvider: (id: string): Promise<number> =>
+    ipcRenderer.invoke("provider:toggle", id),
 
   // --- Platform ---
   platform: process.platform,

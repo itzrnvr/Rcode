@@ -41,6 +41,7 @@ import {
   MessageCircleIcon,
 } from "../common/Icons";
 import { MODELS } from "../../models";
+import { useProviders } from "../../state/useProviders";
 import type { ModelEntry } from "../../models";
 
 const SLASH_COMMANDS = [
@@ -83,6 +84,7 @@ export function ChatInput({
   initialValue,
 }: ChatInputProps) {
   const { settings, setSetting } = useApp();
+  const { allModels: providerModels } = useProviders();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<AgentMode>("full-access");
   const ref = useRef<HTMLTextAreaElement>(null);
@@ -108,7 +110,8 @@ export function ChatInput({
     setSetting("providerName", m.provider);
   }, [setSetting]);
 
-  const currentModel = MODELS.find(m => m.id === settings.model) ?? MODELS[0];
+  const liveModels = providerModels.length > 0 ? providerModels : MODELS;
+  const currentModel = liveModels.find(m => m.id === settings.model) ?? liveModels[0];
   const currentMode = MODES.find(m => m.id === mode) ?? MODES[1];
 
   const send = useCallback(() => {
@@ -263,10 +266,10 @@ export function ChatInput({
               <PopoverContent align="end" sideOffset={8} style={{ minWidth: 440 }}>
                 <div className="model-picker-header">
                   <span>Choose a model</span>
-                  <span className="model-picker-count">{MODELS.length} available</span>
+                  <span className="model-picker-count">{liveModels.length} available</span>
                 </div>
                 <div className="model-picker-list" role="listbox" aria-label="Available models">
-                  {MODELS.map(m => {
+                  {liveModels.map(m => {
                     const isActive = m.id === settings.model;
                     return (
                       <PopoverClose asChild key={m.id}>

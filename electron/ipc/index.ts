@@ -11,6 +11,7 @@ import { registerSideChatHandlers } from "./sideChats";
 import { registerSettingsHandlers } from "./settings";
 import { registerChatHandler } from "./chat";
 import { registerTerminalHandlers } from "./terminal";
+import { registerProviderHandlers } from "./providers";
 
 export function registerAllHandlers(): void {
   registerSessionHandlers();
@@ -19,4 +20,5 @@ export function registerAllHandlers(): void {
   registerSettingsHandlers();
   registerChatHandler();
   registerTerminalHandlers();
+  registerProviderHandlers();
 }
