@@ -216,7 +216,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
       <div className="sidebar-section" style={{paddingTop:4}}>
         <button
           className="sidebar-nav-btn"
-          onClick={() => {}}
+          onClick={() => window.dispatchEvent(new CustomEvent("open-search-palette"))}
           title="Search"
           aria-label="Search"
         >

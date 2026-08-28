@@ -21,6 +21,7 @@ import { SessionList } from "./components/sessions/SessionList";
 import { ChatView } from "./components/chat/ChatView";
 import { SidePanel } from "./components/sidepanel/SidePanel";
 import { SettingsPage } from "./components/settings/SettingsPage";
+import { SearchPalette } from "./components/search/SearchPalette";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -114,6 +115,23 @@ function AppInner() {
     setRoute(showSettings ? "settings" : "chat");
   }, [showSettings]);
 
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  useEffect(() => {
+    const open = () => setIsSearchOpen(true);
+    window.addEventListener("open-search-palette", open as EventListener);
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setIsSearchOpen(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onKey as EventListener);
+    return () => {
+      window.removeEventListener("open-search-palette", open as EventListener);
+      window.removeEventListener("keydown", onKey as EventListener);
+    };
+  }, []);
+
   const openSettings = () => setShowSettings(true);
   const closeSettings = () => setShowSettings(false);
 
@@ -134,10 +152,16 @@ function AppInner() {
   };
 
   if (route === "settings") {
-    return <SettingsPage onClose={closeSettings} />;
+    return (
+      <>
+        <SettingsPage onClose={closeSettings} />
+        <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+      </>
+    );
   }
 
   return (
+    <>
     <AppShell
       titleBar={
         <TitleBar onToggleSidebar={toggleSidebar} onToggleSidePanel={toggleSidePanel} />
@@ -159,6 +183,8 @@ function AppInner() {
       onSidePanelWidthChange={handleSidePanelWidthChange}
       onToggleSidePanel={toggleSidePanel}
     />
+    <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+    </>
   );
 }
 

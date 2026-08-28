@@ -95,7 +95,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     const id = `${type}-${Date.now()}`;
     const title = TAB_DEFS[type].label + (type === "side-conversation" ? ` ${openTabs.filter(t => t.type === "side-conversation").length + 1}` : "");
     const nt: ZTab = { id, type, title };
-    setOpenTabs(prev => [...prev, nt]);
+    setOpenTabs(prev => [nt, ...prev]);
     setActiveId(id);
     setShowPicker(false);
   };
@@ -122,6 +122,15 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       console.error("closeSideChat failed", e);
     }
   };
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ type: ZTabType }>;
+      if (ce.detail?.type) openNewTab(ce.detail.type);
+    };
+    window.addEventListener("sidepanel:new-tab", handler as EventListener);
+    return () => window.removeEventListener("sidepanel:new-tab", handler as EventListener);
+  }, []);
+
   const handleReopenSideChat = async (tabId: string) => {
     try {
       await reopenSideChatTab(tabId);
