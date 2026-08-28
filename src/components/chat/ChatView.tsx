@@ -123,7 +123,16 @@ export function ChatView() {
       return;
     }
     return sendMessage(text);
-  }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, sendMessage]);
+  }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, setSidePanelCollapsed, sendMessage]);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ cmd: string }>;
+      if (ce.detail?.cmd) handleSend(ce.detail.cmd);
+  };
+    window.addEventListener("chat:slash", handler as EventListener);
+    return () => window.removeEventListener("chat:slash", handler as EventListener);
+  }, [handleSend]);
 
   const useQuickPrompt = (prompt: string) => {
     setDraftPrompt(prompt);

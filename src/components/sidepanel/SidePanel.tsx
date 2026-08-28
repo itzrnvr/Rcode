@@ -6,7 +6,7 @@
  * Matches Images 1-5: red-box pane with pill tabs Terminal / Side conversation 1.
  */
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 import { useApp } from "../../state/AppContext";
 import { useSideChats } from "../../state/useSideChats";
@@ -91,28 +91,28 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     });
   }, [sideClosedTabs, sideTabs]);
 
-  const openNewTab = (type: ZTabType) => {
+  const openNewTab = useCallback((type: ZTabType) => {
     const id = `${type}-${Date.now()}`;
     const title = TAB_DEFS[type].label + (type === "side-conversation" ? ` ${openTabs.filter(t => t.type === "side-conversation").length + 1}` : "");
     const nt: ZTab = { id, type, title };
     setOpenTabs(prev => [nt, ...prev]);
     setActiveId(id);
     setShowPicker(false);
-  };
+  }, [openTabs]);
 
-  const closeTab = (id: string) => {
+  const closeTab = useCallback((id: string) => {
     const closing = openTabs.find(t => t.id === id);
     if (closing) setRecentlyClosed(prev => [closing, ...prev].slice(0, 5));
     const next = openTabs.filter(t => t.id !== id);
     setOpenTabs(next);
     if (activeId === id && next.length) setActiveId(next[0].id);
-  };
+  }, [openTabs, activeId]);
 
-  const reopenRecent = (tab: ZTab) => {
+  const reopenRecent = useCallback((tab: ZTab) => {
     setOpenTabs(prev => [...prev, tab]);
     setActiveId(tab.id);
     setRecentlyClosed(prev => prev.filter(t => t.id !== tab.id));
-  };
+  }, []);
 
   // Local close/reopen already refreshes via useSideChats internal refresh() — no bump needed (avoids double fetch)
   const handleCloseSideChat = async (tabId: string) => {
@@ -129,7 +129,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     };
     window.addEventListener("sidepanel:new-tab", handler as EventListener);
     return () => window.removeEventListener("sidepanel:new-tab", handler as EventListener);
-  }, []);
+  }, [openNewTab]);
 
   const handleReopenSideChat = async (tabId: string) => {
     try {
