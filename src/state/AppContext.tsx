@@ -33,6 +33,10 @@ interface AppContextValue {
   bumpSideChats: () => void;
   hasSideChats: boolean;
   setHasSideChats: (v: boolean) => void;
+  sidePanelCollapsed: boolean;
+  setSidePanelCollapsed: (v: boolean) => void;
+  sidePanelWidth: number;
+  setSidePanelWidth: (n: number) => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -44,6 +48,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sessionListVersion, setSessionListVersion] = useState(0);
   const [sideChatVersion, setSideChatVersion] = useState(0);
   const [hasSideChats, setHasSideChats] = useState(false);
+  const [sidePanelCollapsed, setSidePanelCollapsedState] = useState(false);
+  const [sidePanelWidth, setSidePanelWidthState] = useState(380);
 
   const refreshSettings = useCallback(async () => {
     const s = await api.getSettings();
@@ -65,6 +71,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     refreshSettings();
   }, [refreshSettings]);
+
+  useEffect(() => {
+    api.getSetting("sidePanelCollapsed").then(v => { if (v === "true") setSidePanelCollapsedState(true); }).catch(() => {});
+    api.getSetting("sidePanelWidth").then(v => { const n = parseInt(v ?? "", 10); if (!isNaN(n) && n >= 240 && n <= 600) setSidePanelWidthState(n); }).catch(() => {});
+  }, []);
+
+  const setSidePanelCollapsed = useCallback(async (v: boolean) => {
+    setSidePanelCollapsedState(v);
+    await api.setSetting("sidePanelCollapsed", v ? "true" : "false");
+  }, []);
+  const setSidePanelWidth = useCallback(async (n: number) => {
+    setSidePanelWidthState(n);
+    await api.setSetting("sidePanelWidth", String(n));
+  }, []);
 
   const bumpSessionList = useCallback(() => {
     setSessionListVersion(v => v + 1);
@@ -88,6 +108,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     bumpSideChats,
     hasSideChats,
     setHasSideChats,
+    sidePanelCollapsed,
+    setSidePanelCollapsed,
+    sidePanelWidth,
+    setSidePanelWidth,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

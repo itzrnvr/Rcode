@@ -63,6 +63,7 @@ export function ChatView() {
     setHasSideChats,
     bumpSessionList,
     settings,
+    setSidePanelCollapsed,
   } = useApp();
   const { messages, streamingContent, isStreaming, error, sendMessage, sendTo, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
@@ -114,7 +115,7 @@ export function ChatView() {
         if (rest) await api.addMessage(result.session.id, "user", rest);
         bumpSideChats();
         setHasSideChats(true);
-        await api.setSetting("sidePanelCollapsed", "false");
+        await setSidePanelCollapsed(false);
         // Branch created — stays in main, side panel pill appears via sync
       } catch (e) {
         console.error("side branch failed", e);
