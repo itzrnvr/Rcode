@@ -96,6 +96,12 @@ const electronAPI = {
     ipcRenderer.on(channel, handler);
     return () => ipcRenderer.removeListener(channel, handler);
   },
+  sendTerminalResize: (id: string, cols: number, rows: number): Promise<void> =>
+    ipcRenderer.invoke("terminal:resize", id, cols, rows),
+
+  // --- Model Catalog (live) ---
+  modelCatalog: (): Promise<{ object: string; data: Array<{ id: string; object: string; created: number; owned_by: string }> }> =>
+    ipcRenderer.invoke("model:catalog"),
 
   // --- Providers ---
   listProviders: (): Promise<Provider[]> =>

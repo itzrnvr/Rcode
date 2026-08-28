@@ -138,9 +138,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           <span style={{opacity:0.6}}>⇄</span> {activeTab ? activeTab.title : "Terminal"} <span style={{marginLeft:'auto', opacity:0.5}}>▾</span>
         </button>
         <button onClick={() => setShowPicker(true)} style={{width:28, height:28, borderRadius:6, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', display:'flex', alignItems:'center', justifyContent:'center'}}><PlusIcon size={14} /></button>
-        {onToggleCollapse && (
-          <button onClick={onToggleCollapse} title="Collapse side panel" aria-label="Collapse side panel" style={{width:28, height:28, borderRadius:6, background:'transparent', border:'1px solid transparent', color:'#8a8a8a', display:'flex', alignItems:'center', justifyContent:'center'}}>›</button>
-        )}
+
         {showPicker && (
           <div style={{position:'absolute', top:44, right:10, width:320, background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:8, zIndex:20, boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
             <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#0f0f0f', borderRadius:8, marginBottom:8}}>

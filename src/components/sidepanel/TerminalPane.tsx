@@ -1,12 +1,15 @@
 /*
- * PURPOSE: Functional terminal pane for SidePanel — simple shell via IPC
+ * PURPOSE: Full terminal pane via xterm.js + node-pty — VS Code style
  *
- * Uses the main-process shell (powershell/cmd on Windows) via terminal:create/input.
- * No xterm.js to keep bundle small; renders output in <pre> and an input line.
- * Supports basic line editing, history (↑/↓), and Ctrl+C.
+ * No separate input widget — the xterm itself handles all key handling,
+ * cursor, selection, copy/paste, and renders ANSI. The shell is a real PTY
+ * (conpty on Windows) via main process, so vim, htop, etc. work.
  */
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef } from "react";
+import { Terminal } from "@xterm/xterm";
+import { FitAddon } from "@xterm/addon-fit";
+import "@xterm/xterm/css/xterm.css";
 
 import { api } from "../../api/client";
 
@@ -15,96 +18,128 @@ interface TerminalPaneProps {
 }
 
 export function TerminalPane({ terminalId }: TerminalPaneProps) {
-  const [output, setOutput] = useState<string>("Rcode Terminal — type a command and press Enter\r\n$ ");
-  const [input, setInput] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
-  const [histIdx, setHistIdx] = useState(-1);
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<Terminal | null>(null);
+  const fitRef = useRef<FitAddon | null>(null);
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (api as unknown as { createTerminal: (id: string) => Promise<void> }).createTerminal(terminalId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const off = (api as unknown as { onTerminalData: (id: string, cb: (d: string) => void) => () => void }).onTerminalData(terminalId, (data: string) => {
-      setOutput(prev => prev + data);
+    const el = containerRef.current;
+    if (!el) return;
+
+    const term = new Terminal({
+      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+      fontSize: 12,
+      lineHeight: 1.2,
+      cursorBlink: true,
+      cursorStyle: "block",
+      theme: {
+        background: "#0a0a0a",
+        foreground: "#e8e8e8",
+        cursor: "#e8e8e8",
+        selectionBackground: "#264f78",
+        black: "#000000",
+        red: "#cd3131",
+        green: "#0dbc79",
+        yellow: "#e5e510",
+        blue: "#2472c8",
+        magenta: "#bc3fbc",
+        cyan: "#11a8cd",
+        white: "#e5e5e5",
+        brightBlack: "#666666",
+        brightRed: "#f14c4c",
+        brightGreen: "#23d18b",
+        brightYellow: "#f5f543",
+        brightBlue: "#3b8eea",
+        brightMagenta: "#d670d6",
+        brightCyan: "#29b8db",
+        brightWhite: "#ffffff",
+      },
+      allowTransparency: false,
+      convertEol: true,
     });
+
+    const fit = new FitAddon();
+    term.loadAddon(fit);
+    term.open(el);
+    // Defer fit to next frame so container has size
+    requestAnimationFrame(() => {
+      try { fit.fit(); } catch {}
+      const dims = fit.proposeDimensions();
+      if (dims) (api as unknown as { createTerminal: (id: string) => Promise<void> }).createTerminal(terminalId);
+    });
+
+    termRef.current = term;
+    fitRef.current = fit;
+
+    // Handle user input -> send to PTY
+    const dataDisp = term.onData((data) => {
+      (api as unknown as { sendTerminalInput: (id: string, d: string) => Promise<void> }).sendTerminalInput(terminalId, data);
+    });
+
+    // Handle data from PTY -> write to xterm
+    const off = (api as unknown as { onTerminalData: (id: string, cb: (d: string) => void) => () => void }).onTerminalData(terminalId, (data) => {
+      term.write(data);
+    });
+
+    // Ensure shell exists (no-op if already)
+    (api as unknown as { createTerminal: (id: string) => Promise<void> }).createTerminal(terminalId);
+
+    const onResize = () => {
+      try {
+        fit.fit();
+        const d = fit.proposeDimensions();
+        if (d) {
+          (api as unknown as { sendTerminalResize?: (id: string, cols: number, rows: number) => Promise<void> }).sendTerminalResize?.(terminalId, d.cols, d.rows);
+          (window as unknown as { electron: { sendTerminalResize?: (id: string, c: number, r: number) => Promise<void> } }).electron?.sendTerminalResize?.(terminalId, d.cols, d.rows);
+        }
+      } catch {}
+    };
+
+    const ro = new ResizeObserver(() => onResize());
+    ro.observe(el);
+    window.addEventListener("resize", onResize);
+
+    // Focus on mount
+    term.focus();
+
     return () => {
+      dataDisp.dispose();
       off();
+      ro.disconnect();
+      window.removeEventListener("resize", onResize);
+      term.dispose();
+      termRef.current = null;
+      fitRef.current = null;
     };
   }, [terminalId]);
 
+  // Also handle explicit resize via IPC if available
   useEffect(() => {
-    scrollRef.current?.scrollTo(0, scrollRef.current.scrollHeight);
-  }, [output]);
-
-  const send = useCallback(() => {
-    const cmd = input;
-    if (cmd === "") {
-      setOutput(o => o + "\r\n$ ");
-      return;
-    }
-    setHistory(h => [...h, cmd]);
-    setHistIdx(-1);
-    setOutput(o => o + cmd + "\r\n");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (api as unknown as { sendTerminalInput: (id: string, d: string) => Promise<void> }).sendTerminalInput(terminalId, cmd + "\r\n");
-    setInput("");
-  }, [input, terminalId]);
-
-  const onKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      send();
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (history.length === 0) return;
-      const nextIdx = histIdx === -1 ? history.length - 1 : Math.max(0, histIdx - 1);
-      setHistIdx(nextIdx);
-      setInput(history[nextIdx]);
-    } else if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (histIdx === -1) return;
-      const nextIdx = histIdx + 1;
-      if (nextIdx >= history.length) {
-        setHistIdx(-1);
-        setInput("");
-      } else {
-        setHistIdx(nextIdx);
-        setInput(history[nextIdx]);
-      }
-    } else if (e.key === "c" && (e.ctrlKey || e.metaKey)) {
-      // Ctrl+C
-      e.preventDefault();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (api as unknown as { sendTerminalInput: (id: string, d: string) => Promise<void> }).sendTerminalInput(terminalId, "\x03");
-      setOutput(o => o + "^C\r\n$ ");
-      setInput("");
-    }
-  }, [send, history, histIdx, terminalId]);
+    const fit = fitRef.current;
+    if (!fit) return;
+    const t = setTimeout(() => {
+      try {
+        fit.fit();
+        const d = fit.proposeDimensions();
+        if (d) (api as unknown as { sendTerminalResize?: (id: string, cols: number, rows: number) => Promise<void> }).sendTerminalResize?.(terminalId, d.cols, d.rows);
+      } catch {}
+    }, 100);
+    return () => clearTimeout(t);
+  }, [terminalId]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "#0f0f0f", border: "1px solid #262626", borderRadius: 8, overflow: "hidden" }}>
-      <div style={{ padding: "6px 10px", fontSize: 11, color: "#8a8a8a", borderBottom: "1px solid #1f1f1f", display: "flex", justifyContent: "space-between" }}>
-        <span>Terminal — {terminalId}</span>
-        <span style={{ opacity: 0.6 }}>pwsh</span>
-      </div>
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: 10, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace", fontSize: 12, lineHeight: 1.5, whiteSpace: "pre-wrap", wordBreak: "break-all", color: "#e8e8e8" }}>
-        {output}
-      </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", borderTop: "1px solid #1f1f1f", background: "#0a0a0a" }}>
-        <span style={{ color: "#22c55e", fontFamily: "monospace", fontSize: 12 }}>$</span>
-        <input
-          ref={inputRef}
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Type a command…"
-          autoFocus
-          spellCheck={false}
-          style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "#e8e8e8", fontFamily: "monospace", fontSize: 12 }}
-        />
-      </div>
-    </div>
+    <div
+      ref={containerRef}
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: 200,
+        background: "#0a0a0a",
+        padding: 8,
+        borderRadius: 8,
+        border: "1px solid #262626",
+      }}
+      onClick={() => termRef.current?.focus()}
+    />
   );
 }
