@@ -59,9 +59,11 @@ export function SidePanel() {
         type: "side-conversation" as const,
         title: st.sideChatTitle?.trim() ? st.sideChatTitle : st.sideChatId.slice(0, 8),
       }));
-      // If no real side chats, preserve a single placeholder pill so the picker/list has a target
-      if (mapped.length === 0 && keep.length === prev.length) return prev;
-      if (mapped.length === 0) return keep.length ? keep : prev;
+      if (mapped.length === 0) {
+        const hasPlaceholder = prev.some(t => t.type === "side-conversation");
+        if (hasPlaceholder) return prev;
+        return [...keep, { id: "side-conversation", type: "side-conversation" as const, title: "Side conversation" }];
+      }
       return [...keep, ...mapped];
     });
     // Auto-select first side chat when it appears and terminal was active (so selection→Create is visible)
