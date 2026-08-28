@@ -18,8 +18,11 @@ import { getMessages, addMessage } from "../db/messages";
 import { getSettings } from "../db/settings";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
+import { runDshTask } from "../agent/dsh-bridge";
 
 import type { ChatRequest, ChatChunk } from "../../src/types";
+
+const USE_DSH = process.env.RCODE_USE_DSH === "1" || true; // park Rcode loop, DSH is core
 
 export function registerChatHandler(): void {
   ipcMain.handle("chat:send", async (event: IpcMainInvokeEvent, request: ChatRequest) => {
@@ -38,6 +41,25 @@ export function registerChatHandler(): void {
 
     // Persist user message
     addMessage(request.sessionId, "user", request.userMessage);
+
+    // Parked Rcode loop — delegate to DSH headless when enabled
+    if (USE_DSH) {
+      const sendChunk = (chunk: ChatChunk) => {
+        event.sender.send(`chat:chunk:${request.sessionId}`, chunk);
+      };
+      let fullContent = "";
+      const prompt = apiMessages.map(m => `${m.role}: ${m.content}`).join("\n\n");
+      for await (const chunk of runDshTask(prompt)) {
+        if (!chunk.done && chunk.content) {
+          fullContent += chunk.content;
+          sendChunk({ content: chunk.content, done: false });
+        }
+        if (chunk.done) break;
+      }
+      addMessage(request.sessionId, "assistant", fullContent);
+      sendChunk({ content: "", done: true });
+      return;
+    }
 
     const response = await fetch(`${settings.apiBase}/chat/completions`, {
       method: "POST",

@@ -60,7 +60,7 @@ export interface Theme {
   darkMode: boolean;
 }
 
-export type ThemePreset = "unsloth-mint" | "zcode-blue" | "classic-dark" | "light-classic";
+export type ThemePreset = "unsloth-mint" | "rcode-blue" | "classic-dark" | "light-classic";
 
 export interface Settings {
   apiBase: string;
@@ -97,7 +97,6 @@ export interface ChatRequest {
   sessionId: string;
   userMessage: string;
 }
-export type ThemePreset = "unsloth-mint" | "rcode-blue" | "classic-dark" | "light-classic";
 
 export const DEFAULT_THEME: Theme = {
   preset: "rcode-blue",

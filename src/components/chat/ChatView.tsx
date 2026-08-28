@@ -1,7 +1,7 @@
 /*
  * PURPOSE: Center panel — message thread + composer with streaming
  *
- * Design inspirations: ZCode (depth indicators, breadcrumb) + Unsloth
+ * Design inspirations: depth indicators, breadcrumb, plus local model picker
  * (mascot welcome screen, tool-call transparency panels, quick prompts).
  *
  * Features:
@@ -36,22 +36,22 @@ const QUICK_PROMPTS = [
   {
     icon: CompassIcon,
     title: "Explore an idea",
-    prompt: "Help me explore an idea about distributed systems…",
+    prompt: "Help me explore an idea about distributed systems...",
   },
   {
     icon: CodeIcon,
     title: "Refactor code",
-    prompt: "Review this code and suggest improvements: ",
+    prompt: "Review this code and suggest improvements:",
   },
   {
     icon: BeakerIcon,
     title: "Debug an issue",
-    prompt: "I'm getting an error. Here's the stack trace: ",
+    prompt: "I'm getting an error. Here's the stack trace:",
   },
   {
     icon: SparkleIcon,
     title: "Brainstorm",
-    prompt: "Brainstorm 10 creative names for a project that…",
+    prompt: "Brainstorm 10 creative names for a project that...",
   },
 ];
 
@@ -80,26 +80,20 @@ export function ChatView() {
   }, [messages, streamingContent]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    const sel = window.getSelection()?.toString();
-    if (sel) {
-      e.preventDefault();
-      setMenu({ x: e.clientX, y: e.clientY });
-    }
+    const sel = window.getSelection()?.toString().trim();
+    if (!sel) return;
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
   const createSideChat = useCallback(async () => {
-    const sel = window.getSelection()?.toString() ?? "";
-    if (!currentSessionId || !session) return;
-    const result = await api.createSideChat({
-      parentSessionId: currentSessionId,
-      selectedText: sel,
-      model: settings.model,
-      provider: settings.providerName,
-    });
-    setCurrentSessionId(result.session.id);
-    setHasSideChats(true);
+    const sel = window.getSelection()?.toString().trim();
+    if (!sel || !currentSessionId || !session) return;
+    const result = await api.createSideChat({ parentSessionId: currentSessionId, title: sel.slice(0, 40), model: settings.model, provider: settings.providerName });
     bumpSideChats();
+    setHasSideChats(true);
     setMenu(null);
+    setCurrentSessionId(result.session.id);
   }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, setCurrentSessionId]);
 
   const menuItems: ContextMenuItem[] = [

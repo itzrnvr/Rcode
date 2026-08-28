@@ -1,11 +1,11 @@
 /*
- * OpenZCode — global styles + theme CSS variables
+ * Rcode — global styles + theme CSS variables
  *
  * Theme colors are set on :root by the useTheme hook.
  * All components reference these variables, so theme changes
  * are instantly reflected across the entire app.
  *
- * Design inspired by ZCode: dark, minimal, professional.
+ * Design inspired by minimal, professional dark theme.
  */
 
 @tailwind base;
@@ -278,7 +278,7 @@ body {
 
 /* Model selector (Unsloth-style pill in title bar) */
 
-/* ZCode-style compact model pill */
+/* Compact model pill */
 .model-pill {
   display: inline-flex;
   align-items: center;
