@@ -109,6 +109,22 @@ export function ChatView() {
     setDraftPrompt(prompt);
   };
 
+  const handleWelcomeSend = useCallback(async (text: string) => {
+    if (!text.trim()) return;
+    const session = await api.createSession({ model: settings.model, provider: settings.providerName, title: text.slice(0, 40) });
+    setCurrentSessionId(session.id);
+    bumpSessionList();
+    // Send the first message via the same path — wait a tick for session to be set, then use api directly
+    // to avoid race with useChat's sessionId still being null
+    await api.addMessage(session.id, "user", text);
+    // Trigger the assistant response via chat:send (useChat will pick up the new session on next render,
+    // but we also kick it here for immediate streaming)
+    try {
+      await api.sendChat({ sessionId: session.id, userMessage: text });
+    } catch {}
+    bumpSessionList();
+  }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList]);
+
   // Welcome screen
   if (!currentSessionId) {
     return (
@@ -116,11 +132,17 @@ export function ChatView() {
         <div className="chat-welcome">
           <div className="chat-mascot">
             <div className="mascot-glow" />
-            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{filter: 'drop-shadow(0 3px 12px color-mix(in srgb, currentColor 42%, transparent))'}}>
-              <path d="M7 3.8 V20.2 M7 3.8 H13 C15 3.8, 17 5.8, 17 8 C17 10.2, 15 12.2, 13 12.2 H7" />
-              <path d="M11.5 12.2 C12.8 14.5, 14.2 16.8, 15.5 18.5 L17.8 20.8" strokeLinecap="round" />
-              <path d="M7 8.2 H12.8" opacity="0.32" strokeWidth="1.15" />
-              <path d="M7 3.8 H7" strokeWidth="3.4" strokeLinecap="square" opacity="0.95" />
+            <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" style={{filter: 'drop-shadow(0 3px 12px color-mix(in srgb, currentColor 42%, transparent))'}}>
+              <g strokeLinecap="square" strokeLinejoin="miter">
+                <path d="M7 3.8 V20.2" strokeWidth="2.8" />
+                <path d="M6.2 3.8 H7.8" strokeWidth="2.8" />
+                <path d="M6.2 20.2 H7.8" strokeWidth="2.8" />
+              </g>
+              <g strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 3.8 H13.1 C15.3 3.8, 17.2 5.4, 17.2 8 C17.2 10.6, 15.3 12.2, 13.1 12.2 H7" strokeWidth="2.6" />
+                <path d="M11.8 12.2 C13 14.2, 14.6 16.5, 15.8 18.2 L17.9 20.6" strokeWidth="2.6" />
+                <path d="M7 8.2 H12.6" opacity="0.28" strokeWidth="1.15" />
+              </g>
             </svg>
           </div>
           <h1 className="chat-welcome-title">
@@ -150,9 +172,10 @@ export function ChatView() {
 
           <div className="chat-welcome-input">
             <ChatInput
-              onSend={sendMessage}
+              onSend={handleWelcomeSend}
               disabled={false}
               placeholder="Do anything"
+              initialValue={draftPrompt}
             />
           </div>
         </div>

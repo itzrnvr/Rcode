@@ -91,11 +91,9 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
   })();
 
   const newChat = useCallback(async () => {
-    const session = await api.createSession({ model: settings.model, provider: settings.providerName });
-    setCurrentSessionId(session.id);
+    setCurrentSessionId(null);
     setActiveNav("chat");
-    bumpSessionList();
-  }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList]);
+  }, [setCurrentSessionId]);
 
   const handleDelete = useCallback(async () => {
     if (!menu) return;

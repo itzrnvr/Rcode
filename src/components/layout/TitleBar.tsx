@@ -31,11 +31,20 @@ export function TitleBar({ onToggleSidebar }: TitleBarProps) {
         </button>
 
         <div className="titlebar-logo">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{filter: 'drop-shadow(0 0 7px color-mix(in srgb, currentColor 38%, transparent))'}}>
-            <path d="M7 3.8 V20.2 M7 3.8 H13 C15 3.8, 17 5.8, 17 8 C17 10.2, 15 12.2, 13 12.2 H7" />
-            <path d="M11.5 12.2 C12.8 14.5, 14.2 16.8, 15.5 18.5 L17.8 20.8" strokeLinecap="round" />
-            <path d="M7 8.2 H12.8" opacity="0.32" strokeWidth="1.05" />
-            <path d="M7 3.8 H7" strokeWidth="3.2" strokeLinecap="square" opacity="0.95" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true" style={{filter: 'drop-shadow(0 0 7px color-mix(in srgb, currentColor 38%, transparent))'}}>
+            <g strokeLinecap="square" strokeLinejoin="miter">
+              {/* Left half — formal straight stem with serif */}
+              <path d="M7 3.8 V20.2" strokeWidth="2.8" strokeLinecap="square" />
+              <path d="M6.2 3.8 H7.8" strokeWidth="2.8" />
+              <path d="M6.2 20.2 H7.8" strokeWidth="2.8" />
+            </g>
+            <g strokeLinecap="round" strokeLinejoin="round">
+              {/* Right half — sharp cursive bowl + leg */}
+              <path d="M7 3.8 H13.1 C15.3 3.8, 17.2 5.4, 17.2 8 C17.2 10.6, 15.3 12.2, 13.1 12.2 H7" strokeWidth="2.6" />
+              <path d="M11.8 12.2 C13 14.2, 14.6 16.5, 15.8 18.2 L17.9 20.6" strokeWidth="2.6" />
+              {/* Hairline spine where halves meet — personality split */}
+              <path d="M7 8.2 H12.6" opacity="0.28" strokeWidth="1.0" />
+            </g>
           </svg>
         </div>
         <span className="titlebar-name">Rcode</span>

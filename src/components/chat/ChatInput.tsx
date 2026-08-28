@@ -17,7 +17,7 @@
  * Enter sends, Shift+Enter inserts newline.
  */
 
-import { useState, useRef, useCallback, type KeyboardEvent } from "react";
+import { useState, useRef, useCallback, useEffect, type KeyboardEvent } from "react";
 
 import { useApp } from "../../state/AppContext";
 
@@ -38,66 +38,67 @@ import {
   RestrictedModeIcon,
 } from "../common/Icons";
 
+import type { AgentMode } from "../../types";
+
+const MODELS: ModelEntry[] = [
+  {
+    id: "glm-5.2",
+    name: "GLM-5.2",
+    provider: "z-ai",
+    providerLabel: "Z.AI",
+    description: "Strong multilingual, fast, 128K context",
+  },
+  {
+    id: "glm-4.5",
+    name: "GLM-4.5",
+    provider: "z-ai",
+    providerLabel: "Z.AI",
+    description: "Previous gen, stable",
+  },
+  {
+    id: "kimi-k3",
+    name: "Kimi K3",
+    provider: "kimi",
+    providerLabel: "KIMI",
+    description: "1T MoE, strong reasoning + coding",
+  },
+  {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek-V4-Flash",
+    provider: "deepseek",
+    providerLabel: "DEEPSEEK",
+    description: "Sparse MoE, fast inference, code-focused",
+  },
+  {
+    id: "qwen3.6-27b-mtp",
+    name: "Qwen3.6-27B-MTP",
+    provider: "unsloth",
+    providerLabel: "UNSLOTH",
+    description: "Alibaba Qwen3.6 with speculative MTP",
+  },
+  {
+    id: "minimax-h3",
+    name: "MiniMax-H3",
+    provider: "unsloth",
+    providerLabel: "UNSLOTH",
+    description: "H3 hybrid SSM+attention, fast long-context",
+  },
+  {
+    id: "muse-glimmer-30b",
+    name: "Muse-Glimmer-30B",
+    provider: "unsloth",
+    providerLabel: "UNSLOTH",
+    description: "Creative writing + roleplay tuned",
+  },
+];
+
 interface ModelEntry {
   id: string;
   name: string;
   provider: string;
   providerLabel: string;
   description: string;
-  badge?: string;
 }
-
-const MODELS: ModelEntry[] = [
-  {
-    id: "glm-5.2",
-    name: "GLM-5.2",
-    provider: "zai",
-    providerLabel: "Z.AI",
-    description: "Strong multilingual, fast, 128K context",
-    badge: "CHAT",
-  },
-  {
-    id: "kimi-k3",
-    name: "Kimi K3",
-    provider: "kimi",
-    providerLabel: "Kimi",
-    description: "1T MoE, strong reasoning + coding",
-    badge: "CHAT",
-  },
-  {
-    id: "deepseek-v4-flash",
-    name: "DeepSeek-V4-Flash",
-    provider: "deepseek",
-    providerLabel: "DeepSeek",
-    description: "Sparse MoE, fast inference, code-focused",
-    badge: "UD-Q4_K_XL",
-  },
-  {
-    id: "qwen3.6-27b-mtp",
-    name: "Qwen3.6-27B-MTP",
-    provider: "unsloth",
-    providerLabel: "Unsloth",
-    description: "Alibaba Qwen3.6 with speculative MTP",
-    badge: "UD-Q4_K_XL",
-  },
-  {
-    id: "MiniMax-H3",
-    name: "MiniMax-H3",
-    provider: "unsloth",
-    providerLabel: "Unsloth",
-    description: "H3 hybrid SSM+attention, fast long-context",
-    badge: "UD-Q4_K_XL",
-  },
-  {
-    id: "muse-glimmer-30b",
-    name: "Muse-Glimmer-30B",
-    provider: "unsloth",
-    providerLabel: "Unsloth",
-    description: "Creative writing + roleplay tuned",
-    badge: "GGUF",
-  },
-];
-
 
 type AgentMode = "plan" | "full-access" | "restricted";
 
@@ -109,24 +110,9 @@ interface ModeOption {
 }
 
 const MODES: ModeOption[] = [
-  {
-    id: "plan",
-    label: "Plan",
-    description: "Read-only. Agent proposes a plan before taking action.",
-    Icon: PlanModeIcon,
-  },
-  {
-    id: "full-access",
-    label: "Full access",
-    description: "Agent can read, write, and execute commands without prompts.",
-    Icon: FullAccessModeIcon,
-  },
-  {
-    id: "restricted",
-    label: "Restricted",
-    description: "Every file write and shell command requires explicit approval.",
-    Icon: RestrictedModeIcon,
-  },
+  { id: "plan", label: "Plan", description: "Read-only. Agent proposes a plan before taking action.", Icon: PlanModeIcon },
+  { id: "full-access", label: "Full access", description: "Agent can read, write, and execute commands without prompts.", Icon: FullAccessModeIcon },
+  { id: "restricted", label: "Restricted", description: "Every file write and shell command requires explicit approval.", Icon: RestrictedModeIcon },
 ];
 
 interface ChatInputProps {
@@ -135,6 +121,7 @@ interface ChatInputProps {
   onStop?: () => void;
   streaming?: boolean;
   placeholder?: string;
+  initialValue?: string;
 }
 
 export function ChatInput({
@@ -143,11 +130,16 @@ export function ChatInput({
   onStop,
   streaming = false,
   placeholder = "Do anything",
+  initialValue,
 }: ChatInputProps) {
   const { settings, setSetting } = useApp();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<AgentMode>("full-access");
   const ref = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (initialValue) setText(initialValue);
+  }, [initialValue]);
 
   const handleInput = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const el = e.target;
@@ -156,32 +148,35 @@ export function ChatInput({
     setText(el.value);
   }, []);
 
+  const chooseModel = useCallback((m: ModelEntry) => {
+    setSetting("model", m.id);
+    setSetting("providerName", m.provider);
+  }, [setSetting]);
+
+  const currentModel = MODELS.find(m => m.id === settings.model) ?? MODELS[0];
+  const currentMode = MODES.find(m => m.id === mode) ?? MODES[1];
+
   const send = useCallback(() => {
-    const t = text.trim();
-    if (t && !disabled && !streaming) {
-      onSend(t);
-      setText("");
-      if (ref.current) ref.current.style.height = "auto";
+    const trimmed = text.trim();
+    if (!trimmed || disabled || streaming) return;
+    onSend(trimmed);
+    setText("");
+    if (ref.current) {
+      ref.current.style.height = "auto";
+      ref.current.focus();
     }
   }, [text, disabled, streaming, onSend]);
 
-  const stop = useCallback(() => onStop?.(), [onStop]);
+  const stop = useCallback(() => {
+    onStop?.();
+  }, [onStop]);
 
-  const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const onKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       send();
     }
   }, [send]);
-
-  const chooseModel = async (m: ModelEntry) => {
-    await setSetting("model", m.id);
-    await setSetting("providerName", m.provider);
-  };
-
-  const currentModel = MODELS.find(m => m.id === settings.model) ?? MODELS[0];
-  const currentMode = MODES.find(m => m.id === mode) ?? MODES[1];
-  const charCount = text.length;
 
   return (
     <div className="chat-input-wrap">
@@ -191,9 +186,9 @@ export function ChatInput({
           className="chat-input"
           value={text}
           onChange={handleInput}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
+          onKeyDown={onKeyDown}
           placeholder={placeholder}
+          disabled={disabled || streaming}
           rows={1}
         />
 
@@ -336,7 +331,7 @@ export function ChatInput({
       </div>
 
       <div className="chat-input-meta">
-        <span>{currentMode.label} mode · {charCount > 0 ? `${charCount} chars` : "Ready"}</span>
+        <span>{currentMode.label} mode · {text.length > 0 ? `${text.length} chars` : "Ready"}</span>
         <span>
           <kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline
         </span>
