@@ -139,7 +139,7 @@ function createSchema(): void {
         ["baidu", "baidu", "https://qianfan.baidubce.com/v2", "openai-completions", "", JSON.stringify([{id:"ernie-4.5", vision:1, context:"128K"}]), 1, 1],
       ];
       const stmt = getDb().prepare("INSERT OR IGNORE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      for (const row of defaults) stmt.run(...row);
+      for (const row of defaults) stmt.run(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], now);
   } catch (e) {
     console.error("provider seed failed", e);
   }
