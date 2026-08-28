@@ -100,12 +100,12 @@ interface SettingsPageProps {
 export function SettingsPage({ onClose }: SettingsPageProps) {
   const [active, setActive] = useState<SettingsCategory>("api");
   const { settings, updateSetting } = useSettings();
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
 
   useEffect(() => {
     api.getSetting("settingsSidebarWidth").then(v => {
       const n = parseInt(v ?? "", 10);
-      if (!isNaN(n) && n >= 180 && n <= 360) setSidebarWidth(n);
+      if (!isNaN(n) && n >= 200 && n <= 480) setSidebarWidth(n);
     }).catch(() => {});
   }, []);
 
@@ -114,7 +114,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
     const startW = sidebarWidth;
     const onMove = (ev: MouseEvent) => {
       const delta = ev.clientX - startX;
-      const next = Math.min(360, Math.max(180, startW + delta));
+      const next = Math.min(480, Math.max(200, startW + delta));
       setSidebarWidth(next);
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
@@ -125,7 +125,7 @@ export function SettingsPage({ onClose }: SettingsPageProps) {
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
       const delta = ev.clientX - startX;
-      const finalW = Math.min(360, Math.max(180, startW + delta));
+      const finalW = Math.min(480, Math.max(200, startW + delta));
       setSidebarWidth(finalW);
       api.setSetting("settingsSidebarWidth", String(finalW));
     };

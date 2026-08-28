@@ -2163,7 +2163,7 @@ body {
   background: var(--color-bg);
 }
 .settings-sidebar {
-  width: 220px;
+  width: 280px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
