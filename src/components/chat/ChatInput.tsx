@@ -38,6 +38,7 @@ import {
   RestrictedModeIcon,
   SparkleIcon,
   TrashIcon,
+  MessageCircleIcon,
 } from "../common/Icons";
 import { MODELS } from "../../models";
 import type { ModelEntry } from "../../models";
@@ -46,6 +47,7 @@ const SLASH_COMMANDS = [
   { name: "/compact", label: "Compact", desc: "Summarize and compact the conversation", Icon: SparkleIcon },
   { name: "/clear", label: "Clear", desc: "Clear the current chat", Icon: TrashIcon },
   { name: "/help", label: "Help", desc: "Show available commands", Icon: SparkleIcon },
+  { name: "/side", label: "Side", desc: "Branch off a side conversation (fork)", Icon: MessageCircleIcon },
 ] as const;
 
 type AgentMode = "plan" | "full-access" | "restricted";

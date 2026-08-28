@@ -11,13 +11,14 @@
  */
 
 import { api } from "../../api/client";
-import { PanelLeftIcon } from "../common/Icons";
+import { PanelLeftIcon, PanelRightIcon } from "../common/Icons";
 
 interface TitleBarProps {
   onToggleSidebar: () => void;
+  onToggleSidePanel?: () => void;
 }
 
-export function TitleBar({ onToggleSidebar }: TitleBarProps) {
+export function TitleBar({ onToggleSidebar, onToggleSidePanel }: TitleBarProps) {
   return (
     <div className="titlebar">
       <div className="titlebar-left">
@@ -51,6 +52,17 @@ export function TitleBar({ onToggleSidebar }: TitleBarProps) {
       </div>
 
       <div className="titlebar-right">
+        {onToggleSidePanel && (
+          <button
+            className="titlebar-sidebar-toggle"
+            onClick={onToggleSidePanel}
+            title="Toggle side panel"
+            aria-label="Toggle side panel"
+            style={{ marginRight: 8 }}
+          >
+            <PanelRightIcon size={16} />
+          </button>
+        )}
         <div className="traffic-group">
           <button
             className="traffic-light traffic-close"

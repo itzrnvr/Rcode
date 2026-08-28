@@ -100,6 +100,30 @@ export function ChatView() {
     { label: "Create side chat from selection", onClick: createSideChat },
   ];
 
+  const handleSend = useCallback(async (text: string) => {
+    const trimmed = text.trim();
+    if (trimmed.toLowerCase().startsWith("/side")) {
+      if (!currentSessionId) {
+        // No session to branch from — create a new main session first
+        return sendMessage(text);
+      }
+      const rest = trimmed.slice(5).trim();
+      const title = rest ? rest.slice(0, 40) : `Side: ${session?.title?.slice(0, 24) ?? "branch"}`;
+      try {
+        const result = await api.createSideChat({ parentSessionId: currentSessionId, title, model: settings.model, provider: settings.providerName });
+        if (rest) await api.addMessage(result.session.id, "user", rest);
+        bumpSideChats();
+        setHasSideChats(true);
+        await api.setSetting("sidePanelCollapsed", "false");
+        // Branch created — stays in main, side panel pill appears via sync
+      } catch (e) {
+        console.error("side branch failed", e);
+      }
+      return;
+    }
+    return sendMessage(text);
+  }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, sendMessage]);
+
   const useQuickPrompt = (prompt: string) => {
     setDraftPrompt(prompt);
   };
@@ -220,7 +244,7 @@ export function ChatView() {
 
       {/* Input */}
       <ChatInput
-        onSend={sendMessage}
+        onSend={handleSend}
         onStop={stopStream}
         streaming={isStreaming}
         disabled={isStreaming}

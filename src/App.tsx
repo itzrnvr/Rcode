@@ -150,7 +150,7 @@ function AppInner() {
   return (
     <AppShell
       titleBar={
-        <TitleBar onToggleSidebar={toggleSidebar} />
+        <TitleBar onToggleSidebar={toggleSidebar} onToggleSidePanel={toggleSidePanel} />
       }
       sessions={
         <SessionList
