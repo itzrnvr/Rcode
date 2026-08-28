@@ -38,10 +38,8 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
 };
 
 export function SidePanel() {
-  const { currentSessionId } = useApp();
-  // Keep existing sidechat hook for data, but wrap in Z tabs
-  // (sideTabs kept for wiring; not rendered directly — Z tabs handle UI)
-  useSideChats(currentSessionId, 0);
+  const { currentSessionId, sideChatVersion, bumpSideChats } = useApp();
+  const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([
     { id: "zcode", type: "terminal", title: "zcode" },
   ]);
@@ -75,6 +73,15 @@ export function SidePanel() {
     setOpenTabs(prev => [...prev, tab]);
     setActiveId(tab.id);
     setRecentlyClosed(prev => prev.filter(t => t.id !== tab.id));
+  };
+
+  const handleCloseSideChat = async (tabId: string) => {
+    await closeSideChatTab(tabId);
+    bumpSideChats();
+  };
+  const handleReopenSideChat = async (tabId: string) => {
+    await reopenSideChatTab(tabId);
+    bumpSideChats();
   };
 
   return (
@@ -129,14 +136,41 @@ export function SidePanel() {
         {!activeTab && <div style={{color:'#8a8a8a', textAlign:'center', marginTop:40}}>Open tab<br/><span style={{fontSize:12}}>Choose a tab to open in the side pane.</span></div>}
         {activeTab?.type === "side-conversation" && (
           <div>
-            <div style={{fontSize:13, color:'#8a8a8a', marginBottom:8}}>Side conversation — {activeTab.title}</div>
-            <div style={{background:'#1a1a1a', border:'1px solid #262626', borderRadius:8, padding:12, minHeight:120}}>
-              <div style={{fontSize:13, color:'#e8e8e8'}}>Side chats from selection will appear here. Select text in the main chat and right-click → Create side chat.</div>
-            </div>
-            <div style={{marginTop:12, background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:12, display:'flex', gap:8, alignItems:'center'}}>
-              <input placeholder="Ask for follow-up changes" style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
-              <span style={{fontSize:11, color:'#8a8a8a'}}>Full access</span><span style={{width:28, height:28, borderRadius:8, background:'#e8e8e8', display:'flex', alignItems:'center', justifyContent:'center', color:'#0a0a0a'}}>↑</span>
-            </div>
+            <div style={{fontSize:11, color:'#8a8a8a', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5}}>Side conversations • {sideTabs.length} open • {sideClosedTabs.length} closed</div>
+            {sideTabs.length === 0 && sideClosedTabs.length === 0 ? (
+              <div style={{background:'#1a1a1a', border:'1px solid #262626', borderRadius:8, padding:12, minHeight:80}}>
+                <div style={{fontSize:13, color:'#e8e8e8'}}>No side chats yet. Select text in the main chat and right-click → Create side chat.</div>
+                <div style={{fontSize:12, color:'#8a8a8a', marginTop:6}}>Active tab: {activeTab.title}</div>
+              </div>
+            ) : (
+              <>
+                {sideTabs.length > 0 && (
+                  <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                    {sideTabs.map(t => (
+                      <div key={t.id} style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#1a1a1a', border:'1px solid #262626', borderRadius:8}}>
+                        <MessageCircleIcon size={12} />
+                        <span style={{flex:1, fontSize:13, color:'#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.sideChatTitle ?? t.sideChatId.slice(0,8)}</span>
+                        <button onClick={() => handleCloseSideChat(t.id)} title="Close" style={{background:'transparent', border:'none', color:'#8a8a8a', cursor:'pointer', padding:2}}><XIcon size={12} /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {sideClosedTabs.length > 0 && (
+                  <div style={{marginTop:10}}>
+                    <div style={{fontSize:11, color:'#8a8a8a', marginBottom:6}}>Recently closed</div>
+                    <div style={{display:'flex', flexDirection:'column', gap:6}}>
+                      {sideClosedTabs.map(t => (
+                        <div key={t.id} style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#0f0f0f', border:'1px solid #1f1f1f', borderRadius:8, opacity:0.7}}>
+                          <HistoryIcon size={12} />
+                          <span style={{flex:1, fontSize:13, color:'#8a8a8a', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.sideChatTitle ?? t.sideChatId.slice(0,8)}</span>
+                          <button onClick={() => handleReopenSideChat(t.id)} title="Reopen" style={{background:'transparent', border:'1px solid #262626', borderRadius:6, color:'#e8e8e8', cursor:'pointer', padding:'2px 6px', fontSize:11}}>Reopen</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
         {activeTab?.type === "terminal" && (
