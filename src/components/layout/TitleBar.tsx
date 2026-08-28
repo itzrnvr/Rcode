@@ -31,8 +31,10 @@ export function TitleBar({ onToggleSidebar }: TitleBarProps) {
         </button>
 
         <div className="titlebar-logo">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{filter: 'drop-shadow(0 0 6px color-mix(in srgb, currentColor 35%, transparent))'}}>
-            <path d="M7 3.5 H13.8 C15.8 3.5, 17.8 5.5, 17.8 8 C17.8 10.5, 15.8 12.5, 13.8 12.5 H7 V20.5 M11.2 12.5 L17.8 20.5" />
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{filter: 'drop-shadow(0 0 7px color-mix(in srgb, currentColor 38%, transparent))'}}>
+            <path d="M7 3.8 H13.2 C15.4 3.8, 17.6 5.6, 17.6 8.2 C17.6 10.8, 15.4 12.6, 13.2 12.6 H7 V20.2" />
+            <path d="M11.4 12.6 L17.9 20.2" />
+            <path d="M7 8.2 H12.6" opacity="0.35" strokeWidth="1.1" />
           </svg>
         </div>
         <span className="titlebar-name">Rcode</span>
