@@ -1,7 +1,7 @@
 /*
  * PURPOSE: Theme customization panel — preset cards + live color customization
  *
- * Design: presents 4 curated theme presets (Unsloth Mint, ZCode Blue,
+ * Design: presents 4 curated theme presets (Unsloth Mint, Rcode Blue,
  * Classic Dark, Light Classic) as visual cards. Each card shows a live
  * preview of accent/bg/sidebar colors. Click applies all preset tokens.
  *
@@ -24,7 +24,7 @@ const PRESETS: Array<{
   description: string;
 }> = [
   { id: "unsloth-mint", label: "Unsloth Mint", description: "Mint accent, warm gray cards" },
-  { id: "zcode-blue", label: "ZCode Blue", description: "Cyan accent, dark minimal" },
+  { id: "rcode-blue", label: "Rcode Blue", description: "Cyan accent, dark minimal" },
   { id: "classic-dark", label: "Classic Dark", description: "Blue accent, high contrast" },
   { id: "light-classic", label: "Light Classic", description: "Light surfaces, blue accent" },
 ];
@@ -40,8 +40,9 @@ const UI_FONTS = [
 const CODE_FONTS = [
   "'JetBrains Mono', monospace",
   "'Cascadia Code', monospace",
-  "'Fira Code', monospace",
+  "Menlo, monospace",
   "Consolas, monospace",
+  "'Fira Code', monospace",
 ];
 
 function PresetCard({
@@ -51,45 +52,28 @@ function PresetCard({
 }: {
   presetId: ThemePreset;
   current: Theme;
-  onApply: (p: ThemePreset) => void;
+  onApply: (id: ThemePreset) => void;
 }) {
   const preset = THEME_PRESETS[presetId];
   const isActive = current.preset === presetId;
-
   return (
     <button
       className={`preset-card ${isActive ? "active" : ""}`}
       onClick={() => onApply(presetId)}
-      title={`Apply ${presetId} preset`}
+      aria-pressed={isActive}
     >
-      <div className="preset-preview">
-        <div
-          className="preset-bg"
-          style={{
-            background: `linear-gradient(135deg, ${preset.background}, ${preset.surface})`,
-          }}
-        >
-          <div className="preset-sidebar" style={{ background: preset.sidebar }}>
-            <div className="preset-dots">
-              <span style={{ background: preset.danger }} />
-              <span style={{ background: preset.warning }} />
-              <span style={{ background: preset.success }} />
-            </div>
-          </div>
-          <div className="preset-accent-bar" style={{ background: preset.accent }} />
+      <div className="preset-card-preview">
+        <div className="preset-preview-bg" style={{ background: preset.background }} />
+        <div className="preset-preview-sidebar" style={{ background: preset.sidebar }} />
+        <div className="preset-preview-accent" style={{ background: preset.accent }} />
+      </div>
+      <div className="preset-card-label">{PRESETS.find(p => p.id === presetId)?.label}</div>
+      <div className="preset-card-desc">{PRESETS.find(p => p.id === presetId)?.description}</div>
+      {isActive && (
+        <div className="preset-card-check">
+          <CheckIcon size={12} />
         </div>
-      </div>
-      <div className="preset-label">
-        <span>{PRESETS.find(p => p.id === presetId)?.label}</span>
-        {isActive && (
-          <span className="preset-check">
-            <CheckIcon size={12} />
-          </span>
-        )}
-      </div>
-      <div className="preset-description">
-        {PRESETS.find(p => p.id === presetId)?.description}
-      </div>
+      )}
     </button>
   );
 }
@@ -103,7 +87,6 @@ export function ThemeSettings() {
   };
 
   const applyPresetById = (id: ThemePreset) => {
-    // Apply preset but preserve accent if user has tweaked it
     const merged = applyPreset(id, {
       accent: theme.accent === THEME_PRESETS[theme.preset].accent
         ? THEME_PRESETS[id].accent
@@ -114,7 +97,7 @@ export function ThemeSettings() {
 
   return (
     <div className="theme-settings">
-      <h3 className="settings-h3">Theme</h3>
+      <h3 className="settings-h3">Presets</h3>
       <div className="preset-grid">
         {PRESETS.map(({ id }) => (
           <PresetCard
@@ -125,6 +108,7 @@ export function ThemeSettings() {
           />
         ))}
       </div>
+
       <div className="theme-code-preview">
         <div className="theme-code-pane theme-code-old">
           <div className="theme-code-line"><span className="ln">1</span><span className="kw">const</span> themePreview: <span className="tp">ThemeConfig</span> = {"{"}</div>

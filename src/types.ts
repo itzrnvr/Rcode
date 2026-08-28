@@ -97,9 +97,10 @@ export interface ChatRequest {
   sessionId: string;
   userMessage: string;
 }
+export type ThemePreset = "unsloth-mint" | "rcode-blue" | "classic-dark" | "light-classic";
 
 export const DEFAULT_THEME: Theme = {
-  preset: "zcode-blue",
+  preset: "rcode-blue",
   accent: "#5DD1FF",
   background: "#151718",
   foreground: "#FFFFFF",
@@ -149,8 +150,8 @@ export const THEME_PRESETS: Record<ThemePreset, Theme> = {
     contrast: "medium",
     darkMode: true,
   },
-  "zcode-blue": {
-    preset: "zcode-blue",
+  "rcode-blue": {
+    preset: "rcode-blue",
     accent: "#5DD1FF",
     background: "#151718",
     foreground: "#FFFFFF",
