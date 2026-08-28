@@ -615,16 +615,6 @@ body {
   background: var(--color-accent-soft);
   color: var(--color-accent);
 }
-.session-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 2px;
-  background: var(--color-accent);
-}
 .session-item-title {
   flex: 1;
   min-width: 0;
