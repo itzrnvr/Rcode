@@ -1,9 +1,9 @@
 /*
  * PURPOSE: Right side panel — ZCode-like tab system
  *
- * Tabs are dynamic instances: zcode (terminal), Side conversation, Review, Browser, Terminal.
+ * Tabs are dynamic instances: Terminal, Side conversation, Review, Browser.
  * Header has a dropdown (Search tabs... + Open tabs + Recently closed + New tab types).
- * Matches Images 1-5: red-box pane with pill tabs zcode / Side conversation 1.
+ * Matches Images 1-5: red-box pane with pill tabs Terminal / Side conversation 1.
  */
 
 import { useState, useEffect } from "react";
@@ -132,7 +132,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
 
   return (
     <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', flexDirection:'column', background:'#0a0a0a', borderLeft:'1px solid #1f1f1f', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
-      {/* Header — zcode pill + + + dropdown (Image 2,3) */}
+      {/* Header — Terminal pill + dropdown (Image 2,3) */}
       <div style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderBottom:'1px solid #1f1f1f'}}>
         <button onClick={() => setShowPicker(v => !v)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', fontSize:13, flex:1}}>
           <span style={{opacity:0.6}}>⇄</span> {activeTab ? activeTab.title : "Terminal"} <span style={{marginLeft:'auto', opacity:0.5}}>▾</span>
@@ -171,7 +171,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         )}
       </div>
 
-      {/* Pill tabs bar — zcode / Side conversation 1 (Image 5) */}
+      {/* Pill tabs bar — Terminal / Side conversation 1 (Image 5) */}
       <div style={{display:'flex', gap:6, padding:'8px 10px', borderBottom:'1px solid #1f1f1f', overflowX:'auto'}}>
         {openTabs.map(t => (
           <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background: t.id===activeId ? '#252525' : '#1a1a1a', border:'1px solid #262626', color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap'}}>
