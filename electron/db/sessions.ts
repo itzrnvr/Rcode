@@ -12,7 +12,7 @@
 import { randomUUID } from "crypto";
 import { getDb } from "./index";
 
-import type { Session, CreateSessionInput, TaskType } from "../../src/types";
+import type { Session, CreateSessionInput, TaskType, MessageRole } from "../../src/types";
 
 interface SessionRow {
   id: string;
@@ -166,4 +166,25 @@ export function updateSession(id: string, updates: SessionUpdate): void {
 
 export function deleteSession(id: string): void {
   getDb().prepare("DELETE FROM sessions WHERE id = ?").run(id);
+}
+
+// Fork a whole session up to (and including) a message into a new MAIN session
+// that appears in the Recents list. Keeps parentId for lineage.
+export function forkSession(sessionId: string, upToMessageId: string): Session {
+  const db = getDb();
+  const parent = getSession(sessionId);
+  if (!parent) throw new Error("Session not found");
+  const fork = createSession({
+    parentId: sessionId,
+    title: `${parent.title} (fork)`,
+    taskType: "main",
+    model: parent.model,
+    provider: parent.provider,
+  });
+  const rows = db.prepare(
+    "SELECT role, content, versions, version_index FROM messages WHERE session_id = ? AND rowid <= (SELECT rowid FROM messages WHERE id = ?) ORDER BY rowid"
+  ).all(sessionId, upToMessageId) as Array<{ role: MessageRole; content: string; versions: string; version_index: number }>;
+  const ins = db.prepare("INSERT INTO messages (session_id, role, content, versions, version_index, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const r of rows) ins.run(fork.id, r.role, r.content, r.versions, r.version_index, Date.now());
+  return fork;
 }

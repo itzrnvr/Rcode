@@ -16,7 +16,7 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 
 import type { MessageRole } from "../../types";
-import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon } from "../common/Icons";
+import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon , GitForkIcon} from "../common/Icons";
 import { parseTurn, ToolRow, TurnHeader, type LiveStep } from "./AgentTurn";
 
 interface ChatMessageProps {
@@ -35,6 +35,8 @@ interface ChatMessageProps {
   liveSteps?: LiveStep[];
   workedSecs?: number | null;
   liveUsage?: import("./AgentTurn").TurnUsage | null;
+  onFork?: () => void;
+  mid?: string;
 }
 
 // Kept for non-markdown code blocks (tool args) and copy header — markdown code uses rehype-highlight
@@ -145,7 +147,7 @@ function renderContent(content: string): ReactNode[] {
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, liveSteps, workedSecs, liveUsage }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
@@ -189,7 +191,7 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
       );
     }
     return (
-      <div className="message-group message-group-user">
+      <div className="message-group message-group-user" data-mid={mid}>
         <div className="message-user">{content}</div>
         <div className="message-actions">
           <button className="message-action-btn" onClick={onCopyMessage} title={copied ? "Copied" : "Copy"}>
@@ -211,7 +213,7 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
   }
 
   return (
-    <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`}>
+    <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
       {model && <div className="message-model">{model}</div>}
       {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
       {streaming && liveSteps?.map((s, i) => s.kind === "tool"
@@ -253,6 +255,11 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
               <ChevronRightIcon size={12} />
             </button>
           </span>
+        )}
+        {onFork && !streaming && (
+          <button className="message-action-btn" onClick={onFork} title="Fork session from here">
+            <GitForkIcon size={12} />
+          </button>
         )}
         {onEdit && !isEditing && (
           <button className="message-action-btn" onClick={() => setIsEditing(true)} title="Edit">

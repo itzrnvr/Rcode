@@ -22,4 +22,5 @@ export function registerSessionHandlers(): void {
   ipcMain.handle("session:pin", (_e, id: string) => sessions.pinSession(id));
   ipcMain.handle("session:unpin", (_e, id: string) => sessions.unpinSession(id));
   ipcMain.handle("session:togglePin", (_e, id: string) => sessions.togglePinSession(id));
+  ipcMain.handle("session:fork", (_e, sessionId: string, upToMessageId: string) => sessions.forkSession(sessionId, upToMessageId));
 }

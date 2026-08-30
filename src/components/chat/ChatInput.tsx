@@ -26,6 +26,10 @@ import {
   PopoverTrigger,
   PopoverContent,
   PopoverClose,
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
 } from "../primitives/RadixWrappers";
 import {
   ArrowUpIcon,
@@ -69,6 +73,7 @@ const MODES: ModeOption[] = [
 interface ChatInputProps {
   onSend: (text: string, meta?: { mode?: string; reasoningEffort?: string }) => void;
   contextUsed?: number;
+  contextInfo?: { system: number; tools: number; messages: number; cacheRate: number | null } | null;
   disabled: boolean;
   onStop?: () => void;
   streaming?: boolean;
@@ -86,11 +91,13 @@ export function ChatInput({
   initialValue,
   compact = false,
   contextUsed,
+  contextInfo,
 }: ChatInputProps) {
   const { settings, setSetting } = useApp();
   const { allModels: providerModels } = useProviders();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<AgentMode>("full-access");
+  const [ctxHover, setCtxHover] = useState(false);
   const [effort, setEffort] = useState<string>(settings.reasoningEffort || "max");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -303,11 +310,47 @@ export function ChatInput({
           </div>
 
           <div className="chat-input-toolbar-right">
-            {contextUsed != null && (
-              <span className="context-usage" title="Estimated context usage">
-                {fmtK(contextUsed)}{contextMax ? ` / ${fmtK(contextMax)}` : ""}
-              </span>
-            )}
+            {contextUsed != null && (() => {
+              const total = contextInfo ? contextInfo.system + contextInfo.tools + contextInfo.messages : contextUsed;
+              const pct = contextMax ? Math.min(total / contextMax, 1) : 0;
+              const C = 2 * Math.PI * 6;
+              const color = pct > 0.9 ? "var(--color-danger)" : pct > 0.7 ? "var(--color-warning, #e5a50a)" : "var(--color-accent)";
+              const pctOf = (n: number) => (total > 0 ? Math.round((n / total) * 1000) / 10 : 0);
+              return (
+                <span
+                  className="context-ring"
+                  role="img"
+                  aria-label={`Context usage ${Math.round(pct * 100)}%`}
+                  onMouseEnter={() => setCtxHover(true)}
+                  onMouseLeave={() => setCtxHover(false)}
+                >
+                  <svg width="16" height="16" viewBox="0 0 16 16">
+                    <circle cx="8" cy="8" r="6" fill="none" stroke="var(--color-border)" strokeWidth="2.5" />
+                    <circle cx="8" cy="8" r="6" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round"
+                      strokeDasharray={C} strokeDashoffset={C * (1 - pct)} transform="rotate(-90 8 8)" />
+                  </svg>
+                  {ctxHover && (
+                    <span className="ctx-card" role="tooltip">
+                      <span className="ctx-card-head">
+                        <span>Context window</span>
+                        <span>{fmtK(total)}{contextMax ? `/${fmtK(contextMax)}` : ""} ({Math.round(pct * 1000) / 10}%)</span>
+                      </span>
+                      <span className="ctx-card-bar"><span style={{ width: `${Math.round(pct * 100)}%`, background: color }} /></span>
+                      {contextInfo && (
+                        <>
+                          <span className="ctx-card-row"><span>Messages</span><span>{pctOf(contextInfo.messages)}%</span></span>
+                          <span className="ctx-card-row"><span>Tools</span><span>{pctOf(contextInfo.tools)}%</span></span>
+                          <span className="ctx-card-row"><span>System prompt</span><span>{pctOf(contextInfo.system)}%</span></span>
+                        </>
+                      )}
+                      {contextInfo?.cacheRate != null && (
+                        <span className="ctx-card-row ctx-card-cache"><span>Cache hit rate</span><span>{Math.round(contextInfo.cacheRate * 100)}%</span></span>
+                      )}
+                    </span>
+                  )}
+                </span>
+              );
+            })()}
             <Popover>
               <PopoverTrigger asChild>
                 <button className="effort-badge" title="Reasoning effort">

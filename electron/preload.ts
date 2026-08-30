@@ -84,6 +84,10 @@ const electronAPI = {
     ipcRenderer.invoke("chat:approvalResponse", approvalId, ok),
   traceList: (sessionId: string): Promise<unknown[]> =>
     ipcRenderer.invoke("trace:list", sessionId),
+  forkSession: (sessionId: string, upToMessageId: string): Promise<import("../src/types").Session> =>
+    ipcRenderer.invoke("session:fork", sessionId, upToMessageId),
+  contextInfo: (sessionId: string): Promise<{ system: number; tools: number; messages: number; cacheRate: number | null }> =>
+    ipcRenderer.invoke("chat:contextInfo", sessionId),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);

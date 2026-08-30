@@ -201,6 +201,22 @@ async function streamOnce(
   return { content, reasoning, toolCalls, firstChunkMs, totalMs: Date.now() - t0, chunks, usage };
 }
 
+ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
+  const settings = getSettings();
+  const session = getSession(sessionId);
+  const est = (s: string) => Math.round(s.length / 4);
+  const system = est(buildSystemPrompt(settings.globalInstructions, session?.customInstructions ?? null));
+  const tools = est(JSON.stringify(TOOL_DEFS));
+  const messages = getMessages(sessionId).reduce((a, m) => a + est(m.content), 0);
+  let cacheRate: number | null = null;
+  const evts = readTrace(sessionId);
+  for (let i = evts.length - 1; i >= 0; i--) {
+    const u = (evts[i] as { usage?: { prompt_tokens?: number; prompt_tokens_details?: { cached_tokens?: number } } }).usage;
+    if (u?.prompt_tokens) { cacheRate = (u.prompt_tokens_details?.cached_tokens ?? 0) / u.prompt_tokens; break; }
+  }
+  return { system, tools, messages, cacheRate };
+});
+
 export function registerChatHandler(): void {
   // renderer approval round-trip for restricted mode
   const pendingApprovals = new Map<string, (ok: boolean) => void>();

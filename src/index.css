@@ -949,6 +949,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-left: 26px;
 }
 .chat-messages > * {
   width: 100%;
@@ -3246,3 +3247,23 @@ body {
 }
 
 .thinking-row { display: flex; align-items: center; gap: 8px; color: var(--color-muted); font-size: 12px; padding: 6px 2px; }
+
+.context-ring { display: inline-flex; align-items: center; cursor: default; position: relative; }
+.context-ring svg { display: block; }
+.ctx-card { position: absolute; bottom: calc(100% + 10px); right: -8px; min-width: 230px; padding: 10px 12px; background: #1c1c1c; border: 1px solid var(--color-border); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.45); z-index: 1300; display: flex; flex-direction: column; }
+.ctx-card-head { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+.ctx-card-head span:last-child { color: var(--color-muted); font-family: var(--font-mono, monospace); font-weight: 500; }
+.ctx-card-bar { height: 4px; border-radius: 2px; background: var(--color-border); overflow: hidden; margin-bottom: 8px; display: block; }
+.ctx-card-bar > span { display: block; height: 100%; border-radius: 2px; }
+.ctx-card-row { display: flex; justify-content: space-between; gap: 16px; font-size: 11px; color: var(--color-muted); padding: 2px 0; }
+.ctx-card-row span:last-child { font-family: var(--font-mono, monospace); color: var(--color-text); }
+.ctx-card-cache { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); }
+
+.msg-rail { position: absolute; left: 2px; top: 56px; bottom: 120px; width: 22px; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 5px; padding: 10px 0; z-index: 5; overflow: hidden; }
+.msg-tick { height: 11px; width: 20px; background: transparent; border: none; padding: 0; cursor: pointer; position: relative; flex: none; }
+.msg-tick::before { content: ""; position: absolute; left: 2px; right: 8px; top: 4px; height: 3px; background: #3a3a3a; border-radius: 2px; }
+.msg-tick:hover::before { background: #8a8a8a; right: 4px; }
+.msg-tick.active::before { background: #e8e8e8; right: 0; }
+.msg-rail-card { position: fixed; left: 30px; width: 280px; background: #232323; border: 1px solid #333; border-radius: 10px; padding: 10px 12px; z-index: 1400; box-shadow: 0 8px 24px rgba(0,0,0,.45); pointer-events: none; }
+.msg-rail-title { font-size: 12px; font-weight: 700; color: #e8e8e8; margin-bottom: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.msg-rail-preview { font-size: 11px; color: #9a9a9a; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

@@ -154,6 +154,53 @@ export function ChatView() {
 
   const contextUsed = useMemo(() => Math.round((messages.reduce((a, m) => a + m.content.length, 0) + streamingContent.length) / 4), [messages, streamingContent]);
 
+  const [contextInfo, setContextInfo] = useState<{ system: number; tools: number; messages: number; cacheRate: number | null } | null>(null);
+  useEffect(() => {
+    if (!currentSessionId) return;
+    let cancelled = false;
+    (api as unknown as { contextInfo: (id: string) => Promise<{ system: number; tools: number; messages: number; cacheRate: number | null }> })
+      .contextInfo(currentSessionId)
+      .then(info => { if (!cancelled) setContextInfo(info); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [currentSessionId, messages]);
+
+  const [railHover, setRailHover] = useState<{ i: number; top: number } | null>(null);
+  const [activeMsgIdx, setActiveMsgIdx] = useState(0);
+
+  const stripMarkers = (s: string) => s
+    .replace(/\[worked:\d+s\]/g, "")
+    .replace(/\[usage:[\d/]+\]/g, "")
+    .replace(/<\/?think>/g, "")
+    .replace(/\[tool:[\s\S]*?<\/toolresult>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const scrollToMsg = useCallback((id: string) => {
+    document.querySelector(`[data-mid="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const handleMsgScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const nodes = [...el.querySelectorAll<HTMLElement>("[data-mid]")];
+    let idx = 0;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].getBoundingClientRect().top - el.getBoundingClientRect().top <= 90) idx = i;
+    }
+    setActiveMsgIdx(idx);
+  }, []);
+
+  const handleFork = useCallback(async (messageId: string) => {
+    if (!currentSessionId) return;
+    try {
+      const fork = await (api as unknown as { forkSession: (sid: string, mid: string) => Promise<{ id: string }> }).forkSession(currentSessionId, messageId);
+      bumpSessionList();
+      setCurrentSessionId(fork.id);
+    } catch (e) {
+      console.error("fork failed", e);
+    }
+  }, [currentSessionId, bumpSessionList, setCurrentSessionId]);
+
   // Welcome screen
   if (!currentSessionId) {
     return (
@@ -206,6 +253,7 @@ export function ChatView() {
               placeholder="Do anything"
               initialValue={draftPrompt}
             contextUsed={contextUsed}
+            contextInfo={contextInfo}
           />
           </div>
         </div>
@@ -243,7 +291,28 @@ export function ChatView() {
       </div>
 
       {/* Messages */}
-      <div className="chat-messages" onContextMenu={handleContextMenu}>
+      <div className="msg-rail" aria-label="Message navigator">
+        {messages.map((m, i) => m.role === "user" ? (
+          <button
+            key={m.id}
+            className={`msg-tick ${i <= activeMsgIdx ? "active" : ""}`}
+            title=""
+            onMouseEnter={e => setRailHover({ i, top: e.currentTarget.getBoundingClientRect().top })}
+            onMouseLeave={() => setRailHover(null)}
+            onClick={() => scrollToMsg(m.id)}
+          />
+        ) : null)}
+      </div>
+      {railHover != null && messages[railHover.i] && (() => {
+        const reply = messages.slice(railHover.i + 1).find(x => x.role === "assistant");
+        return (
+          <div className="msg-rail-card" style={{ top: Math.max(60, railHover.top - 20) }}>
+            <div className="msg-rail-title">{stripMarkers(messages[railHover.i].content).slice(0, 60) || "(empty)"}</div>
+            <div className="msg-rail-preview">{reply ? stripMarkers(reply.content).slice(0, 200) : "No reply yet."}</div>
+          </div>
+        );
+      })()}
+      <div className="chat-messages" onContextMenu={handleContextMenu} onScroll={handleMsgScroll}>
         {messages.map((msg, i) => {
           const prevUser = msg.role === "assistant"
             ? messages.slice(0, i).reverse().find(m => m.role === "user")
@@ -252,6 +321,7 @@ export function ChatView() {
           return (
             <ChatMessage
               key={msg.id}
+              mid={msg.id}
               role={msg.role}
               content={msg.content}
               model={msg.role === "assistant" ? session?.model : undefined}
@@ -265,6 +335,7 @@ export function ChatView() {
               }}
               onDelete={() => deleteMessage(msg.id)}
               onRetry={msg.role === "assistant" && prevUser ? () => resend(prevUser.id) : undefined}
+              onFork={() => handleFork(msg.id)}
               versionIndex={msg.versionIndex}
               versionCount={versionCount}
               onPrevVersion={() => setVersion(msg.id, (msg.versionIndex ?? 0) - 1)}
@@ -291,6 +362,7 @@ export function ChatView() {
         streaming={isStreaming}
         disabled={isStreaming}
         contextUsed={contextUsed}
+        contextInfo={contextInfo}
       />
 
       {menu && (
