@@ -1060,6 +1060,10 @@ body {
 .message-group:focus-within .message-actions {
   opacity: 1;
 }
+/* Retry + response-version nav must be discoverable without hovering */
+.message-group-assistant .message-actions {
+  opacity: 1;
+}
 .message-action-btn {
   display: inline-flex;
   align-items: center;
@@ -1311,7 +1315,7 @@ body {
 }
 
 .chat-input-row:focus-within {
-  border-color: var(--color-accent);
+  border-color: var(--color-border);
 }
 
 .chat-input {
@@ -1384,8 +1388,9 @@ body {
   position: relative;
 }
 .chat-input-pill:focus-within {
-  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 12%, transparent), 0 2px 16px rgba(0,0,0,0.25);
+  /* No selection highlight — user request; streaming state still accents */
+  border-color: var(--color-border);
+  box-shadow: 0 4px 24px rgba(0,0,0,0.32);
 }
 .chat-input-pill.streaming {
   border-color: var(--color-accent);

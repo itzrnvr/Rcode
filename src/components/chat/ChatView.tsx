@@ -65,7 +65,7 @@ export function ChatView() {
     settings,
     setSidePanelCollapsed,
   } = useApp();
-  const { messages, streamingContent, isStreaming, error, sendMessage, sendTo, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
+  const { messages, streamingContent, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -230,16 +230,34 @@ export function ChatView() {
 
       {/* Messages */}
       <div className="chat-messages" onContextMenu={handleContextMenu}>
-        {messages.map(msg => (
-          <ChatMessage
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            model={msg.role === "assistant" ? session?.model : undefined}
-            onEdit={newContent => editMessage(msg.id, newContent)}
-            onDelete={() => deleteMessage(msg.id)}
-          />
-        ))}
+        {messages.map((msg, i) => {
+          const prevUser = msg.role === "assistant"
+            ? messages.slice(0, i).reverse().find(m => m.role === "user")
+            : undefined;
+          const versionCount = msg.versions?.length ?? 1;
+          return (
+            <ChatMessage
+              key={msg.id}
+              role={msg.role}
+              content={msg.content}
+              model={msg.role === "assistant" ? session?.model : undefined}
+              onEdit={newContent => {
+                // Editing a user prompt re-sends the turn; assistant edits just save.
+                if (msg.role === "user") {
+                  editMessage(msg.id, newContent).then(() => resend(msg.id));
+                } else {
+                  editMessage(msg.id, newContent);
+                }
+              }}
+              onDelete={() => deleteMessage(msg.id)}
+              onRetry={msg.role === "assistant" && prevUser ? () => resend(prevUser.id) : undefined}
+              versionIndex={msg.versionIndex}
+              versionCount={versionCount}
+              onPrevVersion={() => setVersion(msg.id, (msg.versionIndex ?? 0) - 1)}
+              onNextVersion={() => setVersion(msg.id, (msg.versionIndex ?? 0) + 1)}
+            />
+          );
+        })}
         {isStreaming && streamingContent && (
           <ChatMessage role="assistant" content={streamingContent} streaming model={session?.model} />
         )}

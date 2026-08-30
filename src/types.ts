@@ -27,6 +27,8 @@ export interface Message {
   role: MessageRole;
   content: string;
   createdAt: number;
+  versions?: string[];
+  versionIndex?: number;
 }
 
 export interface SideChatTab {

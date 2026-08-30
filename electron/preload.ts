@@ -44,6 +44,8 @@ const electronAPI = {
     ipcRenderer.invoke("message:list", sessionId),
   updateMessage: (id: string, content: string): Promise<void> =>
     ipcRenderer.invoke("message:update", id, content),
+  setMessageVersion: (id: string, index: number): Promise<void> =>
+    ipcRenderer.invoke("message:setVersion", id, index),
   deleteMessage: (id: string): Promise<void> =>
     ipcRenderer.invoke("message:delete", id),
 
@@ -76,6 +78,8 @@ const electronAPI = {
   // --- Chat Streaming ---
   sendChat: (request: ChatRequest): Promise<void> =>
     ipcRenderer.invoke("chat:send", request),
+  resendChat: (request: { sessionId: string; anchorUserMessageId: string; model?: string }): Promise<void> =>
+    ipcRenderer.invoke("chat:resend", request),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);

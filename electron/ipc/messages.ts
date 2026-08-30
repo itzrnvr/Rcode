@@ -17,6 +17,8 @@ export function registerMessageHandlers(): void {
     messages.getMessages(sessionId));
   ipcMain.handle("message:update", (_e, id: string, content: string) =>
     messages.updateMessage(id, content));
+  ipcMain.handle("message:setVersion", (_e, id: string, index: number) =>
+    messages.setMessageVersionIndex(id, index));
   ipcMain.handle("message:delete", (_e, id: string) =>
     messages.deleteMessage(id));
 }

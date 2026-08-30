@@ -125,6 +125,15 @@ function createSchema(): void {
     }
   } catch {}
 
+  // Migration: response versions for retry / edit-resend (versions JSON + active index)
+  try {
+    const cols3 = getDb().prepare("PRAGMA table_info(messages)").all() as { name: string }[];
+    if (!cols3.some(c => c.name === "versions")) {
+      getDb().exec("ALTER TABLE messages ADD COLUMN versions TEXT NOT NULL DEFAULT '[]'");
+      getDb().exec("ALTER TABLE messages ADD COLUMN version_index INTEGER NOT NULL DEFAULT 0");
+    }
+  } catch {}
+
   // Seed providers from the live wandb proxy fleet (3478) only, for now.
   // Old models (glm-4*, llama*, gpt-oss*) are excluded per user request.
   try {

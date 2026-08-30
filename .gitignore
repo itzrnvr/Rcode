@@ -9,3 +9,4 @@ refs/
 *.db
 *.db-journal
 .DS_Store
+.project-context/zcode-side-chat-backup/

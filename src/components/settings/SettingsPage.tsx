@@ -97,10 +97,14 @@ const CATEGORIES: CategoryDef[] = [
 
 interface SettingsPageProps {
   onClose: () => void;
+  initialCategory?: SettingsCategory;
 }
 
-export function SettingsPage({ onClose }: SettingsPageProps) {
-  const [active, setActive] = useState<SettingsCategory>("api");
+export function SettingsPage({ onClose, initialCategory }: SettingsPageProps) {
+  const [active, setActive] = useState<SettingsCategory>(initialCategory ?? "api");
+  useEffect(() => {
+    if (initialCategory) setActive(initialCategory);
+  }, [initialCategory]);
   const { settings, updateSetting } = useSettings();
   const [sidebarWidth, setSidebarWidth] = useState(280);
 

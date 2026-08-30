@@ -16,7 +16,7 @@ import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 
 import type { MessageRole } from "../../types";
-import { CopyIcon, CheckIcon, ChevronDownIcon, PenIcon, TrashIcon } from "../common/Icons";
+import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon } from "../common/Icons";
 
 interface ChatMessageProps {
   role: MessageRole;
@@ -25,6 +25,11 @@ interface ChatMessageProps {
   model?: string;
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
+  versionIndex?: number;
+  versionCount?: number;
+  onPrevVersion?: () => void;
+  onNextVersion?: () => void;
+  onRetry?: () => void;
 }
 
 // Kept for non-markdown code blocks (tool args) and copy header — markdown code uses rehype-highlight
@@ -149,7 +154,7 @@ function renderContent(content: string): ReactNode[] {
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, onEdit, onDelete }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, model, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
@@ -234,6 +239,22 @@ export function ChatMessage({ role, content, streaming, model, onEdit, onDelete 
         <button className="message-action-btn" onClick={onCopyMessage} title={copied ? "Copied" : "Copy"}>
           {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
         </button>
+        {onRetry && !streaming && (
+          <button className="message-action-btn" onClick={onRetry} title="Retry — generate a new response">
+            <RefreshIcon size={12} />
+          </button>
+        )}
+        {(versionCount ?? 1) > 1 && (
+          <span className="message-version-nav" style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+            <button className="message-action-btn" onClick={onPrevVersion} disabled={(versionIndex ?? 0) <= 0} title="Previous response" style={{ opacity: (versionIndex ?? 0) <= 0 ? 0.35 : 1 }}>
+              <ChevronLeftIcon size={12} />
+            </button>
+            <span style={{ fontSize: 11, color: "var(--color-muted)" }}>{(versionIndex ?? 0) + 1}/{versionCount}</span>
+            <button className="message-action-btn" onClick={onNextVersion} disabled={(versionIndex ?? 0) >= (versionCount ?? 1) - 1} title="Next response" style={{ opacity: (versionIndex ?? 0) >= (versionCount ?? 1) - 1 ? 0.35 : 1 }}>
+              <ChevronRightIcon size={12} />
+            </button>
+          </span>
+        )}
         {onEdit && !isEditing && (
           <button className="message-action-btn" onClick={() => setIsEditing(true)} title="Edit">
             <PenIcon size={12} />

@@ -180,17 +180,6 @@ export function ChatInput({
         }
         return;
       }
-      if (e.key === "Enter" && !e.shiftKey) {
-        // If slash menu is open, Enter executes the selected command
-        const picked = filteredSlash[slashIdx];
-        if (picked && text.trim().toLowerCase() !== picked.name) {
-          // If user hasn't fully typed the command, complete it first
-          e.preventDefault();
-          setText(picked.name + " ");
-          return;
-        }
-        // Otherwise let send() handle it (will execute /side, /compact, etc.)
-      }
       if (e.key === "Escape") {
         e.preventDefault();
         setText("");
@@ -206,19 +195,6 @@ export function ChatInput({
   const pickSlash = useCallback((name: string) => {
     setText(name + " ");
     ref.current?.focus();
-  }, []);
-
-  const pickAndSend = useCallback((name: string) => {
-    // For Enter on a slash item: set text and immediately send if it is a full command
-    setText(name + " ");
-    // Let the next tick send - or just call onSend directly for slash commands that fork
-    setTimeout(() => {
-      const el = ref.current;
-      if (el) {
-        el.style.height = "auto";
-        el.focus();
-      }
-    }, 0);
   }, []);
 
   return (

@@ -107,6 +107,37 @@ export function useChat(sessionId: string | null) {
     }
   }, [settings.model]);
 
+  // Re-run the turn anchored at a user message (retry / edit-and-resend).
+  // The new answer lands as an extra version on the existing assistant message.
+  const resend = useCallback(async (anchorUserMessageId: string) => {
+    if (!sessionId) return;
+    setError(null);
+    const removeListener = api.onChatChunk(sessionId, (chunk) => {
+      if (chunk.done) return;
+      setStreamingContent(prev => prev + chunk.content);
+    });
+    setIsStreaming(true);
+    setStreamingContent("");
+    try {
+      await api.resendChat({ sessionId, anchorUserMessageId, model: settings.model });
+      const msgs = await api.getMessages(sessionId);
+      setMessages(msgs);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      removeListener();
+      setIsStreaming(false);
+      setStreamingContent("");
+    }
+  }, [sessionId, settings.model]);
+
+  const setVersion = useCallback(async (messageId: string, index: number) => {
+    if (!sessionId) return;
+    await api.setMessageVersion(messageId, index);
+    const msgs = await api.getMessages(sessionId);
+    setMessages(msgs);
+  }, [sessionId]);
+
   // Stop the local streaming state. The actual main-process stream may
   // continue in the background until the upstream model finishes or times out;
   // we just hide it from the UI immediately so the user can keep typing.
@@ -129,5 +160,5 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, [sessionId]);
 
-  return { messages, streamingContent, isStreaming, error, sendMessage, sendTo, stopStream, editMessage, deleteMessage };
+  return { messages, streamingContent, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage };
 }

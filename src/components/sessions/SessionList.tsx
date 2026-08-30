@@ -231,7 +231,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
       {(() => {
         const pinned = orderedSessions.filter(s => s.isPinned);
         if (pinned.length === 0) {
-          return <div className="sidebar-empty-hint" style={{fontSize:12, color:'var(--color-muted)', padding:'4px 8px'}}>No pinned chats</div>;
+          return <div className="sidebar-empty-hint">No pinned chats</div>;
         }
         return (
           <div className="sidebar-pinned">
