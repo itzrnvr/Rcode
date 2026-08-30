@@ -1541,6 +1541,16 @@ body {
 .mode-badge-label { line-height: 1; }
 .mode-badge svg { opacity: 0.5; }
 
+/* Compact composer (side panel) — no wrapping, tighter toolbar, no meta footer */
+.chat-input-wrap.compact .chat-input-pill { padding: 10px 12px; }
+.chat-input-wrap.compact .chat-input { min-height: 32px; font-size: 13px; }
+.chat-input-wrap.compact .chat-input-toolbar { gap: 4px; }
+.chat-input-wrap.compact .mode-badge,
+.chat-input-wrap.compact .mode-badge-label { white-space: nowrap; }
+.chat-input-wrap.compact .mode-badge { padding: 5px 8px; }
+.chat-input-wrap.compact .model-pill { max-width: 132px; padding: 6px 8px; }
+.chat-input-wrap.compact .chat-input-send { width: 28px; height: 28px; }
+
 .mode-picker-header {
   padding: 12px 14px 8px;
   font-size: 10.5px;

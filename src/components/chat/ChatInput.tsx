@@ -72,6 +72,7 @@ interface ChatInputProps {
   streaming?: boolean;
   placeholder?: string;
   initialValue?: string;
+  compact?: boolean;
 }
 
 export function ChatInput({
@@ -81,6 +82,7 @@ export function ChatInput({
   streaming = false,
   placeholder = "Do anything",
   initialValue,
+  compact = false,
 }: ChatInputProps) {
   const { settings, setSetting } = useApp();
   const { allModels: providerModels } = useProviders();
@@ -198,7 +200,7 @@ export function ChatInput({
   }, []);
 
   return (
-    <div className="chat-input-wrap">
+    <div className={`chat-input-wrap ${compact ? "compact" : ""}`}>
       <div className={`chat-input-pill ${streaming ? "streaming" : ""}`}>
         {showSlash && filteredSlash.length > 0 && (
           <div className="slash-commands">
@@ -367,12 +369,14 @@ export function ChatInput({
         </div>
       </div>
 
-      <div className="chat-input-meta">
-        <span>{currentMode.label} mode · {text.length > 0 ? `${text.length} chars` : "Ready"}</span>
-        <span>
-          <kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline
-        </span>
-      </div>
+      {!compact && (
+        <div className="chat-input-meta">
+          <span>{currentMode.label} mode · {text.length > 0 ? `${text.length} chars` : "Ready"}</span>
+          <span>
+            <kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> newline
+          </span>
+        </div>
+      )}
     </div>
   );
 }

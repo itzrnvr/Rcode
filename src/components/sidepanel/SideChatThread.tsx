@@ -72,6 +72,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
         streaming={isStreaming}
         disabled={isStreaming}
         placeholder="Message this side chat"
+        compact
       />
     </div>
   );
