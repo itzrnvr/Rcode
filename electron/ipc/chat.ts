@@ -102,19 +102,26 @@ async function streamCompletion(
   if (!reader) throw new Error("No response body");
 
   let fullContent = "";
+  let fullReasoning = "";
   for await (const data of sseLines(reader)) {
     try {
       const parsed = parseSSEData(data);
-      const delta = parsed.choices?.[0]?.delta?.content;
-      if (delta) {
-        fullContent += delta;
-        sender.send(`chat:chunk:${sessionId}`, { content: delta, done: false } satisfies ChatChunk);
+      const delta = parsed.choices?.[0]?.delta as { content?: string; reasoning_content?: string; reasoning?: string } | undefined;
+      const contentDelta = delta?.content;
+      const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning;
+      if (reasoningDelta) {
+        fullReasoning += reasoningDelta;
+        sender.send(`chat:chunk:${sessionId}`, { content: "", reasoning: reasoningDelta, done: false } satisfies ChatChunk);
+      }
+      if (contentDelta) {
+        fullContent += contentDelta;
+        sender.send(`chat:chunk:${sessionId}`, { content: contentDelta, done: false } satisfies ChatChunk);
       }
     } catch {
       // Partial JSON — skip; sseLines handles line boundaries
     }
   }
-  return fullContent;
+  return fullReasoning ? "<think>\n" + fullReasoning + "\n</think>\n\n" + fullContent : fullContent;
 }
 
 export function registerChatHandler(): void {

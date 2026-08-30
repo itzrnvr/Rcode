@@ -21,6 +21,7 @@ export function useChat(sessionId: string | null) {
   const { settings } = useApp();
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState("");
+  const [streamingReasoning, setStreamingReasoning] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,11 +56,13 @@ export function useChat(sessionId: string | null) {
     // Set up chunk listener before sending
     const removeListener = api.onChatChunk(sessionId, (chunk) => {
       if (chunk.done) return;
-      setStreamingContent(prev => prev + chunk.content);
+      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
+      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
     });
 
     setIsStreaming(true);
     setStreamingContent("");
+    setStreamingReasoning("");
 
     try {
       await api.sendChat({ sessionId, userMessage: text, model: settings.model });
@@ -73,6 +76,7 @@ export function useChat(sessionId: string | null) {
       removeListener();
       setIsStreaming(false);
       setStreamingContent("");
+      setStreamingReasoning("");
     }
   }, [sessionId, settings.model]);
 
@@ -90,10 +94,12 @@ export function useChat(sessionId: string | null) {
     setMessages(prev => [...prev, tempUserMsg]);
     const removeListener = api.onChatChunk(targetId, (chunk) => {
       if (chunk.done) return;
-      setStreamingContent(prev => prev + chunk.content);
+      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
+      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
     });
     setIsStreaming(true);
     setStreamingContent("");
+    setStreamingReasoning("");
     try {
       await api.sendChat({ sessionId: targetId, userMessage: text, model: settings.model });
       const msgs = await api.getMessages(targetId);
@@ -104,6 +110,7 @@ export function useChat(sessionId: string | null) {
       removeListener();
       setIsStreaming(false);
       setStreamingContent("");
+      setStreamingReasoning("");
     }
   }, [settings.model]);
 
@@ -114,10 +121,12 @@ export function useChat(sessionId: string | null) {
     setError(null);
     const removeListener = api.onChatChunk(sessionId, (chunk) => {
       if (chunk.done) return;
-      setStreamingContent(prev => prev + chunk.content);
+      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
+      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
     });
     setIsStreaming(true);
     setStreamingContent("");
+    setStreamingReasoning("");
     try {
       await api.resendChat({ sessionId, anchorUserMessageId, model: settings.model });
       const msgs = await api.getMessages(sessionId);
@@ -128,6 +137,7 @@ export function useChat(sessionId: string | null) {
       removeListener();
       setIsStreaming(false);
       setStreamingContent("");
+      setStreamingReasoning("");
     }
   }, [sessionId, settings.model]);
 
@@ -160,5 +170,5 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, [sessionId]);
 
-  return { messages, streamingContent, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage };
+  return { messages, streamingContent, streamingReasoning, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage };
 }

@@ -152,7 +152,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         <button onClick={() => setShowPicker(true)} style={{width:28, height:28, borderRadius:6, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', display:'flex', alignItems:'center', justifyContent:'center'}}><PlusIcon size={14} /></button>
 
         {showPicker && (
-          <div style={{position:'absolute', top:44, right:10, width:320, background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:8, zIndex:20, boxShadow:'0 8px 24px rgba(0,0,0,0.5)'}}>
+          <div style={{position:'fixed', top:52, right:12, width:340, maxHeight:'70vh', overflowY:'auto', background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:8, zIndex:1200, boxShadow:'0 12px 40px rgba(0,0,0,0.6)'}}>
             <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#0f0f0f', borderRadius:8, marginBottom:8}}>
               <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={14} /></span><input placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
             </div>

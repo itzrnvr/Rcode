@@ -3003,3 +3003,17 @@ body {
   cursor: pointer;
   box-shadow: 0 8px 24px rgba(0,0,0,0.45);
 }
+.feedback-popup {
+  pointer-events: auto;
+  position: fixed;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 320px;
+  padding: 8px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent);
+  border-radius: 10px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+}

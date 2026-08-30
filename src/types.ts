@@ -95,6 +95,7 @@ export interface CreateSideChatInput {
 export interface ChatChunk {
   content: string;
   done: boolean;
+  reasoning?: string;
 }
 
 export interface ChatRequest {

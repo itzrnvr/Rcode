@@ -23,6 +23,7 @@ interface ChatMessageProps {
   content: string;
   streaming?: boolean;
   model?: string;
+  reasoning?: string;
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
   versionIndex?: number;
@@ -56,8 +57,8 @@ function CodeBlock({ lang, code, children }: { lang: string; code: string; child
   );
 }
 
-function ThinkingBlock({ content }: { content: string }) {
-  const [open, setOpen] = useState(false);
+function ThinkingBlock({ content, defaultOpen = false }: { content: string; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`thinking-block ${open ? "open" : ""}`}>
       <button className="thinking-toggle" onClick={() => setOpen(o => !o)}>
@@ -154,7 +155,7 @@ function renderContent(content: string): ReactNode[] {
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
@@ -222,6 +223,7 @@ export function ChatMessage({ role, content, streaming, model, onEdit, onDelete,
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`}>
       {model && <div className="message-model">{model}</div>}
+      {reasoning && <ThinkingBlock content={reasoning} defaultOpen={!!streaming} />}
       <div className="message-assistant">
         {isEditing ? (
           <div className="message-edit-box">

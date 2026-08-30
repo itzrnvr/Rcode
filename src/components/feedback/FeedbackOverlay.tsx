@@ -4,13 +4,17 @@
  * Toggle (titlebar highlighter button or Ctrl+Shift+A) freezes the UI under a
  * transparent canvas. Tools:
  *   - select: click UI elements to box+number them (multiple per screenshot);
- *     each box gets its OWN comment input in the bottom panel and the comment
- *     is drawn next to the box on the saved image; hover shows dashed preview.
+ *     a comment popup opens RIGHT AT the box — type + Enter to attach it.
+ *     The comment is drawn under the box on the saved image and listed in the
+ *     saved note. Hover shows a dashed preview.
  *   - pen / arrow / box: freehand red drawing for areas.
- * Write an optional overall note, press "Save & copy": the renderer asks main
- * for a window capture, composites the annotation over it, and main writes
- * feedback-<ts>.png/.txt + latest.md into <userData>/feedback and copies the
- * annotated image to the clipboard. Then tell the agent "read the feedback".
+ * Optional overall note at the bottom (minimizable so you can reach anything).
+ * "Save & copy": renderer asks main for a window capture, composites the
+ * annotation over it, main writes feedback-<ts>.png/.txt + latest.md into
+ * <userData>/feedback and copies the annotated image to the clipboard.
+ * Then tell the agent "read the feedback".
+ *
+ * Screen-wide capture is intentionally NOT here — the user uses ShareX for that.
  */
 
 import { useEffect, useRef, useState, useCallback } from "react";
@@ -22,9 +26,10 @@ type Tool = "select" | "pen" | "arrow" | "box";
 interface Point { x: number; y: number }
 interface Rect { x: number; y: number; w: number; h: number }
 interface Shape { tool: Tool; points: Point[]; rect?: Rect; label?: number; comment?: string; desc?: string }
+interface Popup { label: number; x: number; y: number; value: string }
 
 const COLOR = "#ff3b30";
-const UI_SELECTOR = ".feedback-toolbar, .feedback-bottom";
+const UI_SELECTOR = ".feedback-toolbar, .feedback-bottom, .feedback-popup, .feedback-restore";
 
 function describeEl(el: Element): string {
   const aria = el.getAttribute("aria-label") || el.getAttribute("title");
@@ -41,6 +46,7 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
   const [shapes, setShapes] = useState<Shape[]>([]);
   const [current, setCurrent] = useState<Shape | null>(null);
   const [hover, setHover] = useState<Rect | null>(null);
+  const [popup, setPopup] = useState<Popup | null>(null);
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -67,7 +73,6 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       ctx.textBaseline = "middle";
       ctx.fillText(String(s.label ?? 0), bx + 10, by + 11);
       if (s.comment?.trim()) {
-        // per-box comment drawn under the box
         ctx.font = "600 12px system-ui, sans-serif";
         ctx.textAlign = "left";
         ctx.textBaseline = "top";
@@ -141,11 +146,18 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onExit();
+      if (e.key === "Escape" && !popup) onExit();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onExit]);
+  }, [onExit, popup]);
+
+  const commitPopup = useCallback(() => {
+    if (!popup) return;
+    const value = popup.value.trim();
+    setShapes(prev => prev.map(s => (s.tool === "select" && s.label === popup.label ? { ...s, comment: value || undefined } : s)));
+    setPopup(null);
+  }, [popup]);
 
   // Select mode: canvas is pointer-transparent; resolve elements under cursor.
   useEffect(() => {
@@ -171,11 +183,19 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       const r = el.getBoundingClientRect();
       const rect = { x: r.x, y: r.y, w: r.width, h: r.height };
       const desc = describeEl(el);
+      let createdLabel: number | null = null;
       setShapes(prev => {
         if (prev.some(s => s.tool === "select" && s.rect && Math.abs(s.rect.x - rect.x) < 2 && Math.abs(s.rect.y - rect.y) < 2 && Math.abs(s.rect.w - rect.w) < 2 && Math.abs(s.rect.h - rect.h) < 2)) return prev;
         const label = prev.filter(s => s.tool === "select").length + 1;
+        createdLabel = label;
         return [...prev, { tool: "select", points: [], rect, label, desc }];
       });
+      // open the comment popup at the box (next tick so state settles)
+      setTimeout(() => {
+        if (createdLabel != null) {
+          setPopup({ label: createdLabel, x: Math.min(rect.x, window.innerWidth - 320), y: Math.min(rect.y + rect.h + 8, window.innerHeight - 90), value: "" });
+        }
+      }, 0);
     };
     window.addEventListener("pointermove", onMove, true);
     window.addEventListener("pointerdown", onDown, true);
@@ -203,10 +223,6 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
     if (!current) return;
     if (current.points.length > 1) setShapes(prev => [...prev, current]);
     setCurrent(null);
-  };
-
-  const setComment = (label: number, comment: string) => {
-    setShapes(prev => prev.map(s => (s.tool === "select" && s.label === label ? { ...s, comment } : s)));
   };
 
   const buildNote = () => {
@@ -248,8 +264,6 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
     }
   };
 
-  const selects = shapes.filter(s => s.tool === "select" && s.label);
-
   return (
     <div className="feedback-overlay">
       <canvas
@@ -262,43 +276,45 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       />
 
       <div className="feedback-toolbar">
-        <button className={`feedback-tool ${tool === "select" ? "active" : ""}`} onClick={() => setTool("select")} title="Select elements (click to box + number)"><MousePointer2Icon size={14} /></button>
+        <button className={`feedback-tool ${tool === "select" ? "active" : ""}`} onClick={() => setTool("select")} title="Select elements (click to box + number, comment pops up at the box)"><MousePointer2Icon size={14} /></button>
         <button className={`feedback-tool ${tool === "pen" ? "active" : ""}`} onClick={() => setTool("pen")} title="Pen"><PenIcon size={14} /></button>
         <button className={`feedback-tool ${tool === "arrow" ? "active" : ""}`} onClick={() => setTool("arrow")} title="Arrow"><ArrowUpRightIcon size={14} /></button>
         <button className={`feedback-tool ${tool === "box" ? "active" : ""}`} onClick={() => setTool("box")} title="Box"><SquareIcon size={14} /></button>
         <span className="feedback-sep" />
         <button className="feedback-tool" onClick={() => setShapes(s => s.slice(0, -1))} title="Undo"><Undo2Icon size={14} /></button>
-        <button className="feedback-tool" onClick={() => setShapes([])} title="Clear all"><TrashIcon size={14} /></button>
+        <button className="feedback-tool" onClick={() => { setShapes([]); setPopup(null); }} title="Clear all"><TrashIcon size={14} /></button>
         <span className="feedback-sep" />
         <button className="feedback-tool" onClick={onExit} title="Exit (Esc)"><XIcon size={14} /></button>
       </div>
 
+      {popup && (
+        <div className="feedback-popup" style={{ left: popup.x, top: popup.y }} onPointerDown={e => e.stopPropagation()}>
+          <span className="feedback-comment-num">{popup.label}</span>
+          <input
+            autoFocus
+            className="feedback-comment-input"
+            placeholder="Comment on this element… (Enter to attach)"
+            value={popup.value}
+            onChange={e => setPopup({ ...popup, value: e.target.value })}
+            onKeyDown={e => {
+              if (e.key === "Enter") { e.preventDefault(); commitPopup(); }
+              if (e.key === "Escape") { e.stopPropagation(); setPopup(null); }
+            }}
+            onBlur={commitPopup}
+          />
+        </div>
+      )}
+
       {panelMin ? (
         <button className="feedback-restore" onClick={() => setPanelMin(false)} title="Show note panel">
-          {selects.length > 0 ? `${selects.length} box${selects.length > 1 ? "es" : ""} — ` : ""}notes & save
+          notes & save
         </button>
       ) : (
         <div className="feedback-bottom">
           <button className="feedback-minimize" onClick={() => setPanelMin(true)} title="Minimize so you can select anything on screen">—</button>
-          {selects.length > 0 && (
-            <div className="feedback-comments">
-              {selects.map(s => (
-                <div className="feedback-comment-row" key={s.label}>
-                  <span className="feedback-comment-num">{s.label}</span>
-                  <span className="feedback-comment-desc" title={s.desc}>{s.desc}</span>
-                  <input
-                    className="feedback-comment-input"
-                    placeholder="Comment on this element…"
-                    value={s.comment ?? ""}
-                    onChange={e => setComment(s.label!, e.target.value)}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
           <textarea
             className="feedback-note"
-            placeholder="Overall note (optional) — per-box comments go above"
+            placeholder="Overall note (optional) — per-box comments pop up at each box"
             value={note}
             onChange={e => setNote(e.target.value)}
             rows={2}
