@@ -16,13 +16,14 @@ import { ipcMain, type IpcMainInvokeEvent } from "electron";
 import { getSession } from "../db/sessions";
 import { getMessages, addMessage } from "../db/messages";
 import { getSettings } from "../db/settings";
+import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
 import { runDshTask } from "../agent/dsh-bridge";
 
 import type { ChatRequest, ChatChunk } from "../../src/types";
 
-const USE_DSH = process.env.RCODE_USE_DSH === "1" || true; // park Rcode loop, DSH is core
+const USE_DSH = process.env.RCODE_USE_DSH === "1"; // opt-in only; default = real model streaming
 
 export function registerChatHandler(): void {
   ipcMain.handle("chat:send", async (event: IpcMainInvokeEvent, request: ChatRequest) => {
@@ -61,14 +62,40 @@ export function registerChatHandler(): void {
       return;
     }
 
-    const response = await fetch(`${settings.apiBase}/chat/completions`, {
+    // Route to the selected provider's own endpoint when configured, else the fleet proxy
+    const providerRow = getProvider(session.provider) || getProvider(settings.providerName);
+    const baseUrl = providerRow?.baseUrl || settings.apiBase;
+    const apiKey = providerRow?.apiKey || settings.apiKey;
+
+    // Pick a model the target provider actually serves (sessions may hold stale ids)
+    let modelList: string[] = [];
+    if (providerRow) {
+      try {
+        const raw = providerRow.modelList as unknown;
+        modelList = Array.isArray(raw)
+          ? (raw as Array<{ id: string }>).map(m => m.id)
+          : typeof raw === "string"
+            ? (JSON.parse(raw) as Array<{ id: string }>).map(m => m.id)
+            : [];
+      } catch {}
+    }
+    const inList = (m: string | undefined): m is string => !!m && modelList.includes(m);
+    const model = inList(request.model)
+      ? request.model
+      : inList(settings.model)
+        ? settings.model
+        : inList(session.model)
+          ? session.model
+          : modelList[0] ?? session.model ?? settings.model;
+
+    const response = await fetch(`${baseUrl.replace(/\/$/, "")}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(settings.apiKey ? { Authorization: `Bearer ${settings.apiKey}` } : {}),
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
       },
       body: JSON.stringify({
-        model: session.model || settings.model,
+        model,
         messages: apiMessages,
         stream: true,
       }),

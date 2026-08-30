@@ -40,7 +40,6 @@ import {
   TrashIcon,
   MessageCircleIcon,
 } from "../common/Icons";
-import { MODELS } from "../../models";
 import { useProviders } from "../../state/useProviders";
 import type { ModelEntry } from "../../models";
 
@@ -113,8 +112,15 @@ export function ChatInput({
     setSetting("providerName", m.provider);
   }, [setSetting]);
 
-  const liveModels = providerModels.length > 0 ? providerModels : MODELS;
+  const liveModels = providerModels;
   const currentModel = liveModels.find(m => m.id === settings.model) ?? liveModels[0];
+
+  // Keep selection within configured providers only
+  useEffect(() => {
+    if (providerModels.length > 0 && !providerModels.some(m => m.id === settings.model)) {
+      chooseModel(providerModels[0]);
+    }
+  }, [providerModels, settings.model, chooseModel]);
   const currentMode = MODES.find(m => m.id === mode) ?? MODES[1];
 
   const send = useCallback(() => {

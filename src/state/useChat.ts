@@ -13,10 +13,12 @@
 import { useState, useEffect, useCallback } from "react";
 
 import { api } from "../api/client";
+import { useApp } from "./AppContext";
 
 import type { Message } from "../types";
 
 export function useChat(sessionId: string | null) {
+  const { settings } = useApp();
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -60,7 +62,7 @@ export function useChat(sessionId: string | null) {
     setStreamingContent("");
 
     try {
-      await api.sendChat({ sessionId, userMessage: text });
+      await api.sendChat({ sessionId, userMessage: text, model: settings.model });
 
       // After sendChat resolves, the assistant message is in the DB
       const msgs = await api.getMessages(sessionId);
@@ -72,7 +74,7 @@ export function useChat(sessionId: string | null) {
       setIsStreaming(false);
       setStreamingContent("");
     }
-  }, [sessionId]);
+  }, [sessionId, settings.model]);
 
   // For welcome → new session: send to a specific id not yet in the hook's closure
   const sendTo = useCallback(async (targetId: string, text: string) => {
@@ -93,7 +95,7 @@ export function useChat(sessionId: string | null) {
     setIsStreaming(true);
     setStreamingContent("");
     try {
-      await api.sendChat({ sessionId: targetId, userMessage: text });
+      await api.sendChat({ sessionId: targetId, userMessage: text, model: settings.model });
       const msgs = await api.getMessages(targetId);
       setMessages(msgs);
     } catch (err) {
@@ -103,7 +105,7 @@ export function useChat(sessionId: string | null) {
       setIsStreaming(false);
       setStreamingContent("");
     }
-  }, []);
+  }, [settings.model]);
 
   // Stop the local streaming state. The actual main-process stream may
   // continue in the background until the upstream model finishes or times out;

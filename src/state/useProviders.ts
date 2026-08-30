@@ -35,11 +35,15 @@ export function useProviders() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Old/deprecated models hidden everywhere (user request): glm-4*, llama*, gpt-oss*
+  const isOldModel = (id: string) => /glm-4/i.test(id) || /llama/i.test(id) || /gpt-oss/i.test(id);
+
   const allModels = useMemo(() => {
     const models: Array<{ id: string; name: string; provider: string; providerLabel: string; description: string; baseUrl: string; apiFormat: string }> = [];
     for (const p of providers) {
       if (!p.enabled) continue;
       for (const m of p.modelList) {
+        if (isOldModel(m.id)) continue;
         models.push({
           id: m.id,
           name: m.id.split("/").pop() || m.id,

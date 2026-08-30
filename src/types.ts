@@ -98,6 +98,7 @@ export interface ChatChunk {
 export interface ChatRequest {
   sessionId: string;
   userMessage: string;
+  model?: string;
 }
 
 export const DEFAULT_THEME: Theme = {

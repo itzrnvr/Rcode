@@ -125,21 +125,22 @@ function createSchema(): void {
     }
   } catch {}
 
-  // Seed default providers (mirrors DSH wandb + screenshot providers)
+  // Seed providers from the live wandb proxy fleet (3478) only, for now.
+  // Old models (glm-4*, llama*, gpt-oss*) are excluded per user request.
   try {
     const now = Date.now();
-    const defaults: Array<[string, string, string, string, string, string, number, number]> = [
-        ["zai", "Z.ai", "https://api.z.ai/api/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.5", vision:1, context:"128K"},{id:"glm-4.6", vision:1, context:"200K"}]), 1, 0],
-        ["meta", "meta", "https://api.meta.ai/v1", "responses", "sk-...meta", JSON.stringify([{id:"muse-spark-1.2", vision:1, context:"1M"}]), 1, 1],
-        ["minimax-proxy", "Minimax-Proxy", "http://127.0.0.1:3477/v1", "openai-completions", "", JSON.stringify([{id:"MiniMax-M3", vision:0, context:"128K"},{id:"MiniMax-M2.5", vision:0, context:"128K"}]), 1, 1],
-        ["wandb-proxy", "Wandb-Proxy", "http://127.0.0.1:3478/v1", "openai-completions", "", JSON.stringify([{id:"deepseek-ai/DeepSeek-V4-Flash-0731", vision:1, context:"128K"},{id:"zai-org/GLM-5.2", vision:1, context:"128K"},{id:"meta-llama/Llama-3.1-8B-Instruct", vision:0, context:"128K"}]), 1, 1],
-        ["firepass", "firepass", "https://api.firepass.ai/v1", "openai-completions", "", JSON.stringify([{id:"firepass-7b", vision:0, context:"32K"}]), 0, 1],
-        ["dashscope", "dashscope", "https://dashscope.aliyuncs.com/compatible-mode/v1", "openai-completions", "", JSON.stringify([{id:"qwen3-coder-480b", vision:0, context:"1M"}]), 1, 1],
-        ["zai-coding", "zai-coding", "https://api.z.ai/api/coding/paas/v4", "openai-completions", "", JSON.stringify([{id:"glm-4.6-coding", vision:1, context:"200K"}]), 1, 1],
-        ["baidu", "baidu", "https://qianfan.baidubce.com/v2", "openai-completions", "", JSON.stringify([{id:"ernie-4.5", vision:1, context:"128K"}]), 1, 1],
-      ];
-      const stmt = getDb().prepare("INSERT OR IGNORE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      for (const row of defaults) stmt.run(row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7], now);
+    const ml = "[{\"id\":\"zai-org/GLM-5.2\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"zai-org/GLM-5.1\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"deepseek-ai/DeepSeek-V4-Flash-0731\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"deepseek-ai/DeepSeek-V4-Flash\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"deepseek-ai/DeepSeek-V4-Pro\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"deepseek-ai/DeepSeek-V4-Pro-0813\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"deepseek-ai/DeepSeek-V3.1\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"moonshotai/Kimi-K2.7-Code\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"moonshotai/Kimi-K2.6\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3.8-27B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3.6-27B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3.6-35B-A3B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3.5-35B-A3B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3-Coder-480B-A35B-Instruct\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3-235B-A22B-Instruct-2507\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"Qwen/Qwen3-30B-A3B-Instruct-2507\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"OpenPipe/Qwen3-14B-Instruct\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"MiniMaxAI/MiniMax-M3\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"google/gemma-4-31B-it\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"nvidia/NVIDIA-Nemotron-3-Super-120B-A12B-FP8\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"nvidia/NVIDIA-Nemotron-3.5-Lightning-30B-A3B\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"JetBrains/Mellum2-12B-A2.5B-Instruct\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"ibm-granite/granite-4.2-8b\",\"vision\":0,\"context\":\"128K\"},{\"id\":\"ibm-granite/granite-4.1-8b\",\"vision\":0,\"context\":\"128K\"}]";
+    getDb().prepare("DELETE FROM providers WHERE id != 'wandb'").run();
+    getDb().prepare("INSERT OR REPLACE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES ('wandb', 'Wandb-Proxy', 'http://127.0.0.1:3478/v1', 'openai-completions', '', ?, 1, 0, ?)").run(ml, now);
+    // Point defaults at a configured model if current selection is not in the list
+    const cur = getDb().prepare("SELECT value FROM settings WHERE key = 'model'").get() as { value: string } | undefined;
+    const list: string[] = (JSON.parse(ml) as Array<{id:string}>).map(m => m.id);
+    if (!cur || !list.includes(cur.value)) {
+      getDb().prepare("INSERT INTO settings (key, value) VALUES ('model', 'deepseek-ai/DeepSeek-V4-Flash-0731') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+      getDb().prepare("INSERT INTO settings (key, value) VALUES ('providerName', 'wandb') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+    } else {
+      getDb().prepare("INSERT INTO settings (key, value) VALUES ('providerName', 'wandb') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+    }
   } catch (e) {
     console.error("provider seed failed", e);
   }

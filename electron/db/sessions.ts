@@ -71,7 +71,7 @@ function rowToSession(row: SessionRow): Session {
 
 function computeDepth(sessionId: string): number {
   const db = getDb();
-  const row = db.prepare("SELECT depth FROM depth_calc WHERE id = ?").get(sessionId) as { depth: number } | undefined;
+  const row = db.prepare(`${DEPTH_CTE} SELECT depth FROM depth_calc WHERE id = ?`).get(sessionId) as { depth: number } | undefined;
   return row?.depth ?? 0;
 }
 

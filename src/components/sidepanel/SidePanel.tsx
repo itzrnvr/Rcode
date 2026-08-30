@@ -39,7 +39,7 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
 };
 
 export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: boolean; width?: number; onToggleCollapse?: () => void } = {}) {
-  const { currentSessionId, sideChatVersion } = useApp();
+  const { currentSessionId, setCurrentSessionId, sideChatVersion } = useApp();
   const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([
     { id: "terminal", type: "terminal", title: "Terminal" },
@@ -203,10 +203,15 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
                 {sideTabs.length > 0 && (
                   <div style={{display:'flex', flexDirection:'column', gap:6}}>
                     {sideTabs.map(t => (
-                      <div key={t.id} style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background:'#1a1a1a', border:'1px solid #262626', borderRadius:8}}>
+                      <div
+                        key={t.id}
+                        onClick={() => setCurrentSessionId(t.sideChatId)}
+                        title="Open this side chat"
+                        style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background: currentSessionId === t.sideChatId ? '#252525' : '#1a1a1a', border:'1px solid #262626', borderRadius:8, cursor:'pointer'}}
+                      >
                         <MessageCircleIcon size={12} />
                         <span style={{flex:1, fontSize:13, color:'#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.sideChatTitle ?? t.sideChatId.slice(0,8)}</span>
-                        <button onClick={() => handleCloseSideChat(t.id)} title="Close" style={{background:'transparent', border:'none', color:'#8a8a8a', cursor:'pointer', padding:2}}><XIcon size={12} /></button>
+                        <button onClick={e => { e.stopPropagation(); handleCloseSideChat(t.id); }} title="Close" style={{background:'transparent', border:'none', color:'#8a8a8a', cursor:'pointer', padding:2}}><XIcon size={12} /></button>
                       </div>
                     ))}
                   </div>
