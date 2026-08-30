@@ -30,6 +30,7 @@ import {
   BeakerIcon,
   SparkleIcon,
   ChevronDownIcon,
+  ActivityIcon,
 } from "../common/Icons";
 
 const QUICK_PROMPTS = [
@@ -226,6 +227,13 @@ export function ChatView() {
         {session && session.depth > 0 && (
           <span className="chat-depth">depth {session.depth}</span>
         )}
+        <button
+          className="chat-header-toggle"
+          title="Open trajectory viewer"
+          onClick={() => window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } }))}
+        >
+          <ActivityIcon size={14} />
+        </button>
         <button className="chat-header-toggle" title="More">
           <ChevronDownIcon size={14} />
         </button>

@@ -60,7 +60,7 @@ function CodeBlock({ lang, code, children }: { lang: string; code: string; child
   );
 }
 
-function ThinkingBlock({ content, defaultOpen = false }: { content: string; defaultOpen?: boolean }) {
+export function ThinkingBlock({ content, defaultOpen = false }: { content: string; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`thinking-block ${open ? "open" : ""}`}>

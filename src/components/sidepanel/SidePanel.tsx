@@ -20,11 +20,13 @@ import {
   PlusIcon,
   SearchIcon,
   HistoryIcon,
+  ActivityIcon,
 } from "../common/Icons";
 import { TerminalPane } from "./TerminalPane";
+import { TrajectoryView } from "./TrajectoryView";
 import { SideChatThread } from "./SideChatThread";
 
-type ZTabType = "side-conversation" | "review" | "terminal" | "browser";
+type ZTabType = "side-conversation" | "review" | "terminal" | "browser" | "trajectory" | "dsh";
 
 interface ZTab {
   id: string;
@@ -37,6 +39,8 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
   review: { label: "Review", Icon: Code2Icon },
   terminal: { label: "Terminal", Icon: TerminalSquareIcon },
   browser: { label: "Browser", Icon: GlobeIcon },
+  trajectory: { label: "Trajectory", Icon: ActivityIcon },
+  dsh: { label: "Agent (dsh web)", Icon: GlobeIcon },
 };
 
 export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: boolean; width?: number; onToggleCollapse?: () => void } = {}) {
@@ -93,6 +97,18 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   }, [sideClosedTabs, sideTabs]);
 
   const openNewTab = useCallback((type: ZTabType) => {
+    if (type === "trajectory" || type === "dsh") {
+      const existing = openTabs.find(t => t.type === type);
+      if (existing) {
+        setActiveId(existing.id);
+      } else {
+        const nt: ZTab = { id: type, type, title: TAB_DEFS[type].label };
+        setOpenTabs(prev => [nt, ...prev]);
+        setActiveId(type);
+      }
+      setShowPicker(false);
+      return;
+    }
     const id = `${type}-${Date.now()}`;
     const title = TAB_DEFS[type].label + (type === "side-conversation" ? ` ${openTabs.filter(t => t.type === "side-conversation").length + 1}` : "");
     const nt: ZTab = { id, type, title };
@@ -250,6 +266,10 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
             </div>
           );
         })()}
+        {activeTab?.type === "trajectory" && <TrajectoryView sessionId={currentSessionId} />}
+        {activeTab?.type === "dsh" && (
+          <iframe src="http://127.0.0.1:3080/" style={{ flex: 1, minHeight: 0, border: "none", width: "100%", height: "100%", background: "#0a0a0a" }} title="dsh web" />
+        )}
         {activeTab?.type === "terminal" && (
           <div style={{flex:1, minHeight:0, padding:12}}><TerminalPane terminalId={activeTab.id} /></div>
         )}

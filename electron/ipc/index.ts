@@ -14,6 +14,8 @@ import { registerTerminalHandlers } from "./terminal";
 import { registerProviderHandlers } from "./providers";
 import { registerModelCatalogHandler } from "./modelCatalog";
 import { registerFeedbackHandlers } from "./feedback";
+import { ipcMain } from "electron";
+import { readTrace } from "../agent/trace";
 
 export function registerAllHandlers(): void {
   registerSessionHandlers();
@@ -25,4 +27,5 @@ export function registerAllHandlers(): void {
   registerProviderHandlers();
   registerModelCatalogHandler();
   registerFeedbackHandlers();
+  ipcMain.handle("trace:list", (_e, sessionId: string) => readTrace(sessionId));
 }

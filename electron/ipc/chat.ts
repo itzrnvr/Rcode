@@ -28,6 +28,7 @@ import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
 import { TOOL_DEFS, executeTool, type AgentMode } from "../agent/tools";
+import { logTrace, readTrace } from "../agent/trace";
 
 import type { ChatRequest, ChatChunk, Session, Settings } from "../../src/types";
 
@@ -73,6 +74,9 @@ interface StreamResult {
   content: string;
   reasoning: string;
   toolCalls: ToolCallAcc[];
+  firstChunkMs: number | null;
+  totalMs: number;
+  chunks: number;
 }
 
 async function streamOnce(
@@ -108,6 +112,9 @@ async function streamOnce(
   let content = "";
   let reasoning = "";
   const calls = new Map<number, ToolCallAcc>();
+  const t0 = Date.now();
+  let firstChunkMs: number | null = null;
+  let chunks = 0;
 
   for await (const data of sseLines(reader)) {
     try {
@@ -119,10 +126,14 @@ async function streamOnce(
       const reasoningDelta = delta.reasoning_content ?? delta.reasoning;
       if (reasoningDelta) {
         reasoning += reasoningDelta;
+        if (firstChunkMs == null) firstChunkMs = Date.now() - t0;
+        chunks++;
         sender.send(`chat:chunk:${sessionId}`, { content: "", reasoning: reasoningDelta, done: false } satisfies ChatChunk);
       }
       if (delta.content) {
         content += delta.content;
+        if (firstChunkMs == null) firstChunkMs = Date.now() - t0;
+        chunks++;
         sender.send(`chat:chunk:${sessionId}`, { content: delta.content, done: false } satisfies ChatChunk);
       }
       for (const tc of delta.tool_calls ?? []) {
@@ -139,7 +150,7 @@ async function streamOnce(
   }
 
   const toolCalls = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v).filter(c => c.name);
-  return { content, reasoning, toolCalls };
+  return { content, reasoning, toolCalls, firstChunkMs, totalMs: Date.now() - t0, chunks };
 }
 
 export function registerChatHandler(): void {
@@ -191,16 +202,25 @@ export function registerChatHandler(): void {
       });
 
     const startedAt = Date.now();
+    let secs = 0;
     const steps: TurnStep[] = [];
     let finalContent = "";
     let finalReasoning = "";
+    const sid = request.sessionId;
+    const turn = readTrace(sid).filter(e => e.kind === "turn_start").length + 1;
+    const capStr = (s: unknown) => (typeof s === "string" && s.length > 100_000 ? s.slice(0, 100_000) + "…[traced-truncated]" : s);
+    logTrace(sid, { kind: "turn_start", turn, model: endpoint.model, baseUrl: endpoint.baseUrl, mode, effort: effort ?? null, userMessage: request.userMessage });
+    try {
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
-      const res = await streamOnce(event.sender, request.sessionId, endpoint, apiMessages, effort);
+      logTrace(sid, { kind: "request", turn, round, messages: apiMessages.map(m => ({ ...m as Record<string, unknown>, content: capStr((m as { content?: string }).content) })), toolNames: TOOL_DEFS.map(d => d.function.name) });
+      const res = await streamOnce(event.sender, sid, endpoint, apiMessages, effort);
+      logTrace(sid, { kind: "response", turn, round, status: "ok", firstChunkMs: res.firstChunkMs, totalMs: res.totalMs, chunks: res.chunks });
 
       if (res.reasoning) {
         finalReasoning += (finalReasoning ? "\n" : "") + res.reasoning;
         steps.push({ kind: "thought", text: res.reasoning });
+        logTrace(sid, { kind: "reasoning", turn, round, text: res.reasoning });
       }
       if (res.content) {
         finalContent += res.content;
@@ -219,7 +239,10 @@ export function registerChatHandler(): void {
         let args: Record<string, unknown> = {};
         try { args = JSON.parse(c.arguments || "{}"); } catch {}
         sendChunk({ content: "", done: false, kind: "tool_call", tool: { name: c.name, args: c.arguments } });
+        logTrace(sid, { kind: "tool_call", turn, round, name: c.name, args });
+        const tTool = Date.now();
         const result = await executeTool(c.name, args, { mode, cwd, askApproval });
+        logTrace(sid, { kind: "tool_result", turn, round, name: c.name, ms: Date.now() - tTool, result });
         sendChunk({ content: "", done: false, kind: "tool_result", tool: { name: c.name, result } });
         steps.push({ kind: "tool", name: c.name, args: c.arguments, result });
         apiMessages.push({ role: "tool", tool_call_id: c.id, content: result });
@@ -229,7 +252,13 @@ export function registerChatHandler(): void {
       if (res.content) finalContent += "\n";
     }
 
-    const secs = Math.round((Date.now() - startedAt) / 1000);
+    secs = Math.round((Date.now() - startedAt) / 1000);
+    if (finalContent) logTrace(sid, { kind: "content", turn, round: "final", text: finalContent });
+    logTrace(sid, { kind: "turn_end", turn, secs });
+    } catch (err) {
+      logTrace(sid, { kind: "turn_end", turn, secs: Math.round((Date.now() - startedAt) / 1000), error: err instanceof Error ? err.message : String(err) });
+      throw err;
+    }
 
     // persist with markers so reloads rebuild the turn view
     const parts: string[] = [];
