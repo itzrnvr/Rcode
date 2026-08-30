@@ -12,7 +12,7 @@
  */
 
 import { exec } from "child_process";
-import { readFileSync, readdirSync, statSync, existsSync } from "fs";
+import { readFileSync, readdirSync, statSync, existsSync, writeFileSync } from "fs";
 import { join, resolve } from "path";
 
 export type AgentMode = "plan" | "full-access" | "restricted";
@@ -76,6 +76,49 @@ export const TOOL_DEFS = [
       },
     },
   },
+  {
+    type: "function" as const,
+    function: {
+      name: "write_file",
+      description: "Write UTF-8 content to a file (creates/overwrites). Requires permission per mode.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string", description: "File path" },
+          content: { type: "string", description: "Full file content" },
+        },
+        required: ["path", "content"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "edit_file",
+      description: "Replace the first exact occurrence of old_string with new_string in a file. Requires permission per mode.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" },
+          old_string: { type: "string" },
+          new_string: { type: "string" },
+        },
+        required: ["path", "old_string", "new_string"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "web_fetch",
+      description: "Fetch a URL and return its text (HTML tags stripped), capped at 100KB. Read-only.",
+      parameters: {
+        type: "object",
+        properties: { url: { type: "string" } },
+        required: ["url"],
+      },
+    },
+  },
 ];
 
 const CAP = { read: 100 * 1024, exec: 20 * 1024, searchHits: 60, dirEntries: 200 };
@@ -128,6 +171,43 @@ function searchDir(dir: string, re: RegExp, hits: string[], root: string, depth:
 export async function executeTool(name: string, args: Record<string, unknown>, ctx: ToolContext): Promise<string> {
   try {
     switch (name) {
+      case "write_file": {
+        if (ctx.mode === "plan") return "error: write_file is not available in Plan mode (read-only).";
+        if (ctx.mode === "restricted") {
+          const ok = await ctx.askApproval(`write_file ${String(args.path ?? "")}`);
+          if (!ok) return "error: the user denied this write.";
+        }
+        const p = resolve(ctx.cwd, String(args.path ?? ""));
+        writeFileSync(p, String(args.content ?? ""), "utf8");
+        return `wrote ${p} (${String(args.content ?? "").length} chars)`;
+      }
+      case "edit_file": {
+        if (ctx.mode === "plan") return "error: edit_file is not available in Plan mode (read-only).";
+        if (ctx.mode === "restricted") {
+          const ok = await ctx.askApproval(`edit_file ${String(args.path ?? "")}`);
+          if (!ok) return "error: the user denied this edit.";
+        }
+        const p = resolve(ctx.cwd, String(args.path ?? ""));
+        const text = readFileSync(p, "utf8");
+        const oldS = String(args.old_string ?? "");
+        if (!oldS || !text.includes(oldS)) return "error: old_string not found in file";
+        writeFileSync(p, text.replace(oldS, String(args.new_string ?? "")), "utf8");
+        return `edited ${p}`;
+      }
+      case "web_fetch": {
+        const url = String(args.url ?? "");
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Rcode-agent/0.1" } });
+        if (!res.ok) return `error: HTTP ${res.status}`;
+        const raw = await res.text();
+        const text = raw
+          .replace(/<script[\s\S]*?<\/script>/gi, "")
+          .replace(/<style[\s\S]*?<\/style>/gi, "")
+          .replace(/<[^>]+>/g, " ")
+          .replace(/&nbsp;/g, " ")
+          .replace(/\s+\n/g, "\n")
+          .trim();
+        return capText(text, CAP.read);
+      }
       case "read_file": {
         const p = resolve(ctx.cwd, String(args.path ?? ""));
         if (!existsSync(p)) return `error: file not found: ${p}`;
