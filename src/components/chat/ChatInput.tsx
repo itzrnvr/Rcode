@@ -314,9 +314,9 @@ export function ChatInput({
                 <button
                   className="model-pill"
                   title="Choose model"
-                  aria-label={`Model: ${currentModel.name}. Click to change.`}
+                  aria-label={`Model: ${currentModel?.name ?? "none"}. Click to change.`}
                 >
-                  <span className="model-pill-name">{currentModel.name}</span>
+                  <span className="model-pill-name">{currentModel?.name ?? "Loading models…"}</span>
                   <ChevronDownIcon size={11} />
                 </button>
               </PopoverTrigger>
