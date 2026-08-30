@@ -1,22 +1,35 @@
 /*
- * PURPOSE: Model settings — mirrors Z screenshot + DSH wandb models
+ * PURPOSE: Model settings — mirrors the ZCode Model settings page.
  *
  * Two-pane layout:
- *   Left: Providers list (Z.ai + Custom providers) with enabled dot
- *   Right: Selected provider editor (Base URL, API format, API key, Model list)
+ *   Left: Providers list (built-in + Custom providers) with enabled dot,
+ *         Add provider.
+ *   Right: selected provider editor — name + rename pencil, Enabled/Disable,
+ *         delete; Base URL; API format; API key (eye toggle); Model list rows
+ *         (mono id + context badge + vision badge + edit + delete) and an
+ *         "Add model" button.
  *
- * All providers' model lists are flattened into the composer pill via useProviders.
- * Real DSH wandb models (29) are seeded in DB; user can Add provider/model.
+ * Add/Edit model opens a DIALOG (same for editing): Model ID, Context window,
+ *         Max output tokens, Input types (Text locked + Image + Video),
+ *         Output types (Text locked), Cancel/Save — like the ZCode dialog.
+ *
+ * Model entries persist inside the provider row's model_list JSON as
+ * { id, context?: number, maxOutput?: number, vision?: 0|1, video?: 0|1 }.
+ * Legacy string contexts ("128K") are parsed to numbers on load.
  */
 
 import { useState, useEffect, useCallback } from "react";
 import { api } from "../../api/client";
-import { EyeIcon, EyeOffIcon, TrashIcon, EditIcon, PlusIcon, CheckIcon } from "../common/Icons";
+import {
+  EyeIcon, EyeOffIcon, TrashIcon, EditIcon, PlusIcon, LockIcon, XIcon,
+} from "../common/Icons";
 
 interface ProviderModel {
   id: string;
+  context?: number | string;
+  maxOutput?: number;
   vision?: number;
-  context?: string;
+  video?: number;
 }
 
 interface Provider {
@@ -31,13 +44,42 @@ interface Provider {
   createdAt: number;
 }
 
+function contextToNumber(c: number | string | undefined): number {
+  if (typeof c === "number") return c;
+  if (typeof c === "string") {
+    const m = /^([\d.]+)\s*([kKmM])?$/.exec(c.trim());
+    if (m) {
+      const n = parseFloat(m[1]);
+      const mult = m[2] ? (m[2].toLowerCase() === "k" ? 1_000 : 1_000_000) : 1;
+      return Math.round(n * mult);
+    }
+  }
+  return 128_000;
+}
+
+function formatContext(c: number | string | undefined): string {
+  const n = contextToNumber(c);
+  if (n >= 1_000_000) return `${Math.round(n / 1_000_000)}M`;
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+  return String(n);
+}
+
+interface ModelDraft {
+  id: string;
+  context: number;
+  maxOutput: number;
+  vision: boolean;
+  video: boolean;
+}
+
 export function ModelSettings() {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showKey, setShowKey] = useState(false);
-  const [newModelId, setNewModelId] = useState("");
-  const [editingModel, setEditingModel] = useState<string | null>(null);
-  const [editModelId, setEditModelId] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState("");
+  const [dialog, setDialog] = useState<{ mode: "add" } | { mode: "edit"; originalId: string } | null>(null);
+  const [draft, setDraft] = useState<ModelDraft>({ id: "", context: 1_000_000, maxOutput: 128_000, vision: false, video: false });
 
   const load = useCallback(async () => {
     const list = await (api as unknown as { listProviders: () => Promise<Provider[]> }).listProviders();
@@ -62,10 +104,10 @@ export function ModelSettings() {
   };
 
   const addProvider = async () => {
-    const name = `custom-${Date.now().toString(36)}`;
+    const name = `provider-${Date.now().toString(36)}`;
     await (api as unknown as { createProvider: (p: Partial<Provider> & { name: string }) => Promise<Provider> }).createProvider({
       name,
-      baseUrl: "https://api.example.com/v1",
+      baseUrl: "http://127.0.0.1:3478/v1",
       apiFormat: "openai-completions",
       apiKey: "",
       modelList: [],
@@ -77,205 +119,197 @@ export function ModelSettings() {
   };
 
   const deleteProvider = async () => {
-    if (!selected || !confirm(`Delete provider "${selected.name}"?`)) return;
+    if (!selected) return;
     await (api as unknown as { deleteProvider: (id: string) => Promise<void> }).deleteProvider(selected.id);
     setSelectedId(null);
     await load();
   };
 
-  const addModel = async () => {
-    if (!selected || !newModelId.trim()) return;
-    const list = [...selected.modelList, { id: newModelId.trim(), vision: 0, context: "128K" }];
+  const openAdd = () => {
+    setDraft({ id: "", context: 1_000_000, maxOutput: 128_000, vision: false, video: false });
+    setDialog({ mode: "add" });
+  };
+
+  const openEdit = (m: ProviderModel) => {
+    setDraft({
+      id: m.id,
+      context: contextToNumber(m.context),
+      maxOutput: m.maxOutput ?? 128_000,
+      vision: !!m.vision,
+      video: !!m.video,
+    });
+    setDialog({ mode: "edit", originalId: m.id });
+  };
+
+  const saveDialog = async () => {
+    if (!selected || !dialog) return;
+    const id = draft.id.trim();
+    if (!id) return;
+    const entry: ProviderModel = {
+      id,
+      context: draft.context,
+      maxOutput: draft.maxOutput,
+      vision: draft.vision ? 1 : 0,
+      video: draft.video ? 1 : 0,
+    };
+    let list: ProviderModel[];
+    if (dialog.mode === "add") {
+      if (selected.modelList.some(m => m.id === id)) return;
+      list = [...selected.modelList, entry];
+    } else {
+      list = selected.modelList.map(m => (m.id === dialog.originalId ? entry : m));
+    }
     await updateSelected({ modelList: list });
-    setNewModelId("");
+    setDialog(null);
   };
 
   const removeModel = async (mid: string) => {
     if (!selected) return;
-    const list = selected.modelList.filter(m => m.id !== mid);
-    await updateSelected({ modelList: list });
-  };
-
-  const startEditModel = (mid: string) => {
-    setEditingModel(mid);
-    setEditModelId(mid);
-  };
-
-  const saveEditModel = async () => {
-    if (!selected || !editingModel || !editModelId.trim()) return;
-    const list = selected.modelList.map(m => m.id === editingModel ? { ...m, id: editModelId.trim() } : m);
-    await updateSelected({ modelList: list });
-    setEditingModel(null);
+    await updateSelected({ modelList: selected.modelList.filter(m => m.id !== mid) });
   };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0, height: "100%" }}>
-      <div style={{ padding: "24px 32px 16px", borderBottom: "1px solid #1f1f1f" }}>
-        <h2 style={{ fontSize: 28, fontWeight: 700, color: "#fff", margin: 0, letterSpacing: -0.02 * 28 }}>Model settings</h2>
-        <p style={{ fontSize: 13, color: "#8a8a8a", margin: "8px 0 0" }}>Manage custom model providers. Once configured, they can be selected during chat.</p>
+      <div style={{ padding: "20px 28px 12px", color: "var(--color-muted)", fontSize: 13 }}>
+        Manage custom model providers. Once configured, they can be selected during chat.
       </div>
 
-      <div style={{ display: "flex", flex: 1, minHeight: 0, gap: 0 }}>
-        {/* Left: Providers list */}
-        <div style={{ width: 260, borderRight: "1px solid #1f1f1f", background: "#0f0f0f", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-          <div style={{ flex: 1, overflowY: "auto", padding: "12px 8px" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#8a8a8a", textTransform: "uppercase", letterSpacing: 0.6, padding: "8px 8px 6px" }}>Providers</div>
-            {providers.filter(p => !p.isCustom).map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedId(p.id)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 10px",
-                  borderRadius: 8,
-                  border: "1px solid transparent",
-                  background: selectedId === p.id ? "#1a1a1a" : "transparent",
-                  color: "#e8e8e8",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ width: 28, height: 28, borderRadius: 6, background: "#1a1a2e", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff" }}>Z</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{p.name}</span>
-                <span style={{ width: 6, height: 6, borderRadius: 999, background: p.enabled ? "#22c55e" : "#52525b" }} />
-              </button>
-            ))}
-
-            <div style={{ fontSize: 11, fontWeight: 600, color: "#8a8a8a", textTransform: "uppercase", letterSpacing: 0.6, padding: "16px 8px 6px" }}>Custom providers</div>
-            {providers.filter(p => p.isCustom).map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedId(p.id)}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "9px 10px",
-                  borderRadius: 8,
-                  border: selectedId === p.id ? "1px solid #262626" : "1px solid transparent",
-                  background: selectedId === p.id ? "#1a1a1a" : "transparent",
-                  color: "#e8e8e8",
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                <span style={{ width: 20, height: 20, borderRadius: 4, border: "1px solid #262626", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10 }}>⬢</span>
-                <span style={{ flex: 1, fontSize: 13 }}>{p.name}</span>
-                <span style={{ width: 6, height: 6, borderRadius: 999, background: p.enabled ? "#22c55e" : "#52525b" }} />
-              </button>
-            ))}
-
-            <button
-              onClick={addProvider}
-              style={{ width: "100%", marginTop: 12, display: "flex", alignItems: "center", gap: 8, padding: "9px 10px", borderRadius: 8, border: "1px dashed #262626", background: "transparent", color: "#8a8a8a", cursor: "pointer", fontSize: 13 }}
-            >
-              <PlusIcon size={14} /> Add provider
+      <div style={{ flex: 1, display: "flex", minHeight: 0, padding: "0 28px 20px" }}>
+        {/* Left: providers */}
+        <div style={{ width: 240, borderRight: "1px solid var(--color-border)", paddingRight: 14, overflowY: "auto" }}>
+          <div style={{ fontSize: 12, color: "var(--color-muted)", padding: "8px 6px" }}>Providers</div>
+          {providers.filter(p => !p.isCustom).map(p => (
+            <button key={p.id} onClick={() => setSelectedId(p.id)} className="ms-provider-row" style={{ background: selectedId === p.id ? "var(--color-bg-tertiary)" : "transparent" }}>
+              <span style={{ flex: 1, textAlign: "left" }}>{p.name}</span>
+              <span style={{ width: 7, height: 7, borderRadius: 999, background: p.enabled ? "#22c55e" : "#52525b" }} />
             </button>
-          </div>
+          ))}
+          <div style={{ fontSize: 12, color: "var(--color-muted)", padding: "14px 6px 8px" }}>Custom providers</div>
+          {providers.filter(p => p.isCustom).map(p => (
+            <button key={p.id} onClick={() => setSelectedId(p.id)} className="ms-provider-row" style={{ background: selectedId === p.id ? "var(--color-bg-tertiary)" : "transparent" }}>
+              <span style={{ flex: 1, textAlign: "left" }}>{p.name}</span>
+              <span style={{ width: 7, height: 7, borderRadius: 999, background: p.enabled ? "#22c55e" : "#52525b" }} />
+            </button>
+          ))}
+          <button onClick={addProvider} className="ms-provider-row" style={{ color: "var(--color-fg)" }}>
+            <PlusIcon size={14} /> <span style={{ textAlign: "left" }}>Add provider</span>
+          </button>
         </div>
 
-        {/* Right: Editor */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", background: "#0a0a0a" }}>
+        {/* Right: editor */}
+        <div style={{ flex: 1, paddingLeft: 20, overflowY: "auto" }}>
           {!selected ? (
-            <div style={{ color: "#8a8a8a", textAlign: "center", marginTop: 80 }}>Select a provider to edit</div>
+            <div style={{ color: "var(--color-muted)", marginTop: 40, textAlign: "center" }}>Select a provider</div>
           ) : (
-            <div style={{ maxWidth: 640 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
-                <span style={{ fontSize: 16, fontWeight: 700, color: "#fff" }}>{selected.name}</span>
-                <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 6, background: "#1a1a1a", border: "1px solid #262626", color: "#8a8a8a" }}><EditIcon size={10} /> </span>
-                <span style={{ padding: "3px 10px", borderRadius: 999, background: selected.enabled ? "#22c55e" : "#27272a", color: selected.enabled ? "#052e16" : "#e4e4e7", fontSize: 12, fontWeight: 600 }}>{selected.enabled ? "Enabled" : "Disabled"}</span>
-                <button onClick={toggleEnabled} style={{ padding: "4px 10px", borderRadius: 999, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", fontSize: 12, cursor: "pointer" }}>{selected.enabled ? "Disable" : "Enable"}</button>
-                <button onClick={deleteProvider} style={{ marginLeft: "auto", width: 28, height: 28, borderRadius: 6, border: "1px solid transparent", background: "transparent", color: "#8a8a8a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }} title="Delete provider"><TrashIcon size={14} /></button>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                {renaming ? (
+                  <input
+                    autoFocus
+                    className="ms-input"
+                    value={renameValue}
+                    onChange={e => setRenameValue(e.target.value)}
+                    onBlur={async () => { if (renameValue.trim()) await updateSelected({ name: renameValue.trim() }); setRenaming(false); }}
+                    onKeyDown={e => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                    style={{ width: 180 }}
+                  />
+                ) : (
+                  <>
+                    <span style={{ fontSize: 16, fontWeight: 700 }}>{selected.name}</span>
+                    <button className="ms-iconbtn" title="Rename provider" onClick={() => { setRenameValue(selected.name); setRenaming(true); }}><EditIcon size={13} /></button>
+                  </>
+                )}
+                {selected.enabled ? (
+                  <span style={{ padding: "4px 12px", borderRadius: 999, background: "#17B88B", color: "#052e1c", fontSize: 12, fontWeight: 700 }}>Enabled</span>
+                ) : (
+                  <span style={{ padding: "4px 12px", borderRadius: 999, background: "var(--color-bg-tertiary)", color: "var(--color-muted)", fontSize: 12, fontWeight: 700 }}>Disabled</span>
+                )}
+                <button className="ms-btn" onClick={toggleEnabled}>{selected.enabled ? "Disable" : "Enable"}</button>
+                <button className="ms-iconbtn" style={{ marginLeft: "auto", color: "var(--color-danger)" }} title="Delete provider" onClick={deleteProvider}><TrashIcon size={14} /></button>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e8e8e8", marginBottom: 6 }}>Base URL</div>
-                  <input
-                    value={selected.baseUrl}
-                    onChange={e => updateSelected({ baseUrl: e.target.value })}
-                    placeholder="https://api.example.com/v1"
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", fontSize: 13, outline: "none" }}
-                  />
-                </div>
+              <div>
+                <div className="ms-label">Base URL</div>
+                <input className="ms-input" value={selected.baseUrl} onChange={e => updateSelected({ baseUrl: e.target.value })} placeholder="http://127.0.0.1:3478/v1" />
+              </div>
 
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e8e8e8", marginBottom: 6 }}>API format</div>
-                  <select
-                    value={selected.apiFormat}
-                    onChange={e => updateSelected({ apiFormat: e.target.value })}
-                    style={{ width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", fontSize: 13, outline: "none" }}
-                  >
-                    <option value="responses">Responses (/responses)</option>
-                    <option value="anthropic">Anthropic (/v1/messages)</option>
-                    <option value="openai-completions">Chat Completions (/chat/completions)</option>
-                  </select>
-                </div>
+              <div>
+                <div className="ms-label">API format</div>
+                <select className="ms-input" value={selected.apiFormat} onChange={e => updateSelected({ apiFormat: e.target.value })}>
+                  <option value="openai-completions">Chat completions (/chat/completions)</option>
+                  <option value="responses">Responses (/responses)</option>
+                  <option value="anthropic">Anthropic (/v1/messages)</option>
+                </select>
+              </div>
 
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e8e8e8", marginBottom: 6 }}>API key</div>
-                  <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
-                    <input
-                      type={showKey ? "text" : "password"}
-                      value={selected.apiKey}
-                      onChange={e => updateSelected({ apiKey: e.target.value })}
-                      placeholder="sk-..."
-                      style={{ width: "100%", padding: "10px 36px 10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", fontSize: 13, outline: "none", fontFamily: "monospace" }}
-                    />
-                    <button onClick={() => setShowKey(v => !v)} style={{ position: "absolute", right: 8, width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "#8a8a8a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {showKey ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}
-                    </button>
-                  </div>
+              <div>
+                <div className="ms-label">API key</div>
+                <div style={{ position: "relative" }}>
+                  <input className="ms-input" style={{ paddingRight: 36, fontFamily: "monospace" }} type={showKey ? "text" : "password"} value={selected.apiKey} onChange={e => updateSelected({ apiKey: e.target.value })} placeholder="sk-..." />
+                  <button className="ms-iconbtn" style={{ position: "absolute", right: 6, top: 8 }} onClick={() => setShowKey(v => !v)}>{showKey ? <EyeOffIcon size={14} /> : <EyeIcon size={14} />}</button>
                 </div>
+              </div>
 
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: "#e8e8e8", marginBottom: 10 }}>Model list</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {selected.modelList.map(m => (
-                      <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a" }}>
-                        {editingModel === m.id ? (
-                          <>
-                            <input
-                              value={editModelId}
-                              onChange={e => setEditModelId(e.target.value)}
-                              style={{ flex: 1, padding: "6px 8px", borderRadius: 6, border: "1px solid #3f3f46", background: "#0a0a0a", color: "#fff", fontSize: 13 }}
-                              autoFocus
-                            />
-                            <button onClick={saveEditModel} style={{ padding: "6px 10px", borderRadius: 6, background: "#22c55e", color: "#052e16", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}><CheckIcon size={12} /> Save</button>
-                            <button onClick={() => setEditingModel(null)} style={{ padding: "6px 10px", borderRadius: 6, background: "#27272a", color: "#e4e4e7", border: "none", cursor: "pointer" }}>Cancel</button>
-                          </>
-                        ) : (
-                          <>
-                            <span style={{ flex: 1, fontSize: 13, color: "#e8e8e8", fontFamily: "monospace" }}>{m.id}</span>
-                            {m.vision ? <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 999, background: "#1e3a5f", color: "#93c5fd", border: "1px solid #1e40af" }}>Vision</span> : null}
-                            {m.context ? <span style={{ fontSize: 11, padding: "2px 6px", borderRadius: 999, background: "#1a1a1a", border: "1px solid #262626", color: "#8a8a8a" }}>{m.context}</span> : null}
-                            <button onClick={() => startEditModel(m.id)} style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "#8a8a8a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><EditIcon size={12} /></button>
-                            <button onClick={() => removeModel(m.id)} style={{ width: 24, height: 24, borderRadius: 6, border: "none", background: "transparent", color: "#ef4444", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}><TrashIcon size={12} /></button>
-                          </>
-                        )}
-                      </div>
-                    ))}
-                    <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-                      <input
-                        value={newModelId}
-                        onChange={e => setNewModelId(e.target.value)}
-                        placeholder="model-id (e.g. my-model-7b)"
-                        onKeyDown={e => e.key === "Enter" && addModel()}
-                        style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid #262626", background: "#0f0f0f", color: "#e8e8e8", fontSize: 13, outline: "none" }}
-                      />
-                      <button onClick={addModel} style={{ padding: "0 16px", borderRadius: 8, border: "1px solid #262626", background: "#1a1a1a", color: "#e8e8e8", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, fontSize: 13 }}><PlusIcon size={14} /> Add model</button>
+              <div>
+                <div className="ms-label">Model list</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {selected.modelList.map(m => (
+                    <div key={m.id} className="ms-model-row">
+                      <span style={{ flex: 1, fontFamily: "monospace", fontSize: 13 }}>{m.id}</span>
+                      <span className="ms-badge">{formatContext(m.context)}</span>
+                      {m.vision ? <span className="ms-badge">Vision</span> : null}
+                      {m.video ? <span className="ms-badge">Video</span> : null}
+                      <button className="ms-iconbtn" title="Edit model" onClick={() => openEdit(m)}><EditIcon size={13} /></button>
+                      <button className="ms-iconbtn" title="Delete model" style={{ color: "var(--color-danger)" }} onClick={() => removeModel(m.id)}><TrashIcon size={13} /></button>
                     </div>
-                  </div>
+                  ))}
+                  <button className="ms-btn" style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={openAdd}>
+                    <PlusIcon size={14} /> Add model
+                  </button>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Add / Edit model dialog */}
+      {dialog && (
+        <div className="ms-modal-backdrop" onClick={() => setDialog(null)}>
+          <div className="ms-modal" onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 700 }}>{dialog.mode === "add" ? "Add model" : "Edit model"}</span>
+              <button className="ms-iconbtn" onClick={() => setDialog(null)}><XIcon size={14} /></button>
+            </div>
+
+            <div className="ms-label">Model ID</div>
+            <input className="ms-input" style={{ fontFamily: "monospace" }} autoFocus value={draft.id} placeholder="Model ID" onChange={e => setDraft({ ...draft, id: e.target.value })} />
+
+            <div className="ms-label">Context window</div>
+            <input className="ms-input" type="number" value={draft.context} onChange={e => setDraft({ ...draft, context: Number(e.target.value) || 0 })} />
+
+            <div className="ms-label">Max output tokens</div>
+            <input className="ms-input" type="number" value={draft.maxOutput} onChange={e => setDraft({ ...draft, maxOutput: Number(e.target.value) || 0 })} />
+
+            <div className="ms-label">Input types</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <label className="ms-check locked"><input type="checkbox" checked disabled /> Text <LockIcon size={11} /></label>
+              <label className="ms-check"><input type="checkbox" checked={draft.vision} onChange={e => setDraft({ ...draft, vision: e.target.checked })} /> Image</label>
+              <label className="ms-check"><input type="checkbox" checked={draft.video} onChange={e => setDraft({ ...draft, video: e.target.checked })} /> Video</label>
+            </div>
+
+            <div className="ms-label">Output types</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <label className="ms-check locked"><input type="checkbox" checked disabled /> Text <LockIcon size={11} /></label>
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+              <button className="ms-btn" onClick={() => setDialog(null)}>Cancel</button>
+              <button className="ms-btn primary" onClick={saveDialog} disabled={!draft.id.trim()}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

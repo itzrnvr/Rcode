@@ -246,20 +246,6 @@ export function SettingsPage({ onClose, initialCategory }: SettingsPageProps) {
 
           {active === "model" && (
             <div className="settings-section-block">
-              <div className="settings-info-card">
-                <CpuIcon size={20} />
-                <div>
-                  <div className="settings-info-title">Default model</div>
-                  <div className="settings-info-meta">
-                    Currently using <strong>{settings.model}</strong> via{" "}
-                    {settings.providerName} — {settings.apiBase}
-                  </div>
-                </div>
-              </div>
-              <div className="settings-hint" style={{display:'flex', alignItems:'center', justifyContent:'space-between', gap:12}}>
-                <span>Select the default model — also available in the composer’s model pill.</span>
-                <span style={{fontSize:11, color:'var(--color-muted)', border:'1px solid var(--color-border)', borderRadius:6, padding:'2px 6px', background:'var(--color-surface)'}}>{settings.apiBase}</span>
-              </div>
               <ModelSettings />
             </div>
           )}
