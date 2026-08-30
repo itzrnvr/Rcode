@@ -2835,14 +2835,15 @@ body {
   position: fixed;
   inset: 0;
   z-index: 999;
+  pointer-events: none;
 }
 .feedback-canvas {
   position: absolute;
   inset: 0;
-  cursor: crosshair;
   touch-action: none;
 }
 .feedback-toolbar {
+  pointer-events: auto;
   position: absolute;
   top: 52px;
   left: 50%;
@@ -2876,6 +2877,7 @@ body {
 }
 .feedback-sep { width: 1px; height: 18px; background: var(--color-border); margin: 0 4px; }
 .feedback-bottom {
+  pointer-events: auto;
   position: absolute;
   bottom: 24px;
   left: 50%;
