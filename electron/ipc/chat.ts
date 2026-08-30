@@ -22,7 +22,7 @@ import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
 import { app } from "electron";
 
 import { getSession } from "../db/sessions";
-import { getMessages, addMessage, appendAssistantVersion } from "../db/messages";
+import { getMessages, addMessage, appendAssistantVersion, archiveTail } from "../db/messages";
 import { getSettings } from "../db/settings";
 import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
@@ -351,6 +351,9 @@ export function registerChatHandler(): void {
     ];
 
     const target = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
+    // Retry = new branch: archive everything after the target under its current
+    // version so the tail disappears; version arrows restore it later.
+    if (target) archiveTail(target.id, target.versionIndex ?? 0);
     const endpoint = resolveEndpoint(session, settings, request.model);
 
     const res = await streamOnce(event.sender, request.sessionId, endpoint, apiMessages, (settings as Settings & { reasoningEffort?: string }).reasoningEffort);

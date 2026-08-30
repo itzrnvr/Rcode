@@ -91,6 +91,14 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_tabs_parent ON side_chat_tabs(parent_session_id);
     CREATE INDEX IF NOT EXISTS idx_tabs_sidechat ON side_chat_tabs(side_chat_id);
 
+    CREATE TABLE IF NOT EXISTS branches (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      message_id TEXT NOT NULL,
+      version INTEGER NOT NULL,
+      messages_json TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      UNIQUE(message_id, version)
+    );
     CREATE TABLE IF NOT EXISTS providers (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
