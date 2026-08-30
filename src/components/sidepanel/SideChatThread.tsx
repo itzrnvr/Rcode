@@ -31,6 +31,8 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
     stopStream,
     editMessage,
     deleteMessage,
+    resend,
+    setVersion,
   } = useChat(sessionId);
 
   const endRef = useRef<HTMLDivElement>(null);
@@ -49,15 +51,31 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
         {messages.length === 0 && !isStreaming && (
           <div style={{ color: "#8a8a8a", fontSize: 12, textAlign: "center", marginTop: 24 }}>No messages yet — ask a follow-up.</div>
         )}
-        {messages.map(msg => (
-          <ChatMessage
-            key={msg.id}
-            role={msg.role}
-            content={msg.content}
-            onEdit={c => editMessage(msg.id, c)}
-            onDelete={() => deleteMessage(msg.id)}
-          />
-        ))}
+        {messages.map((msg, i) => {
+          const prevUser = msg.role === "assistant"
+            ? messages.slice(0, i).reverse().find(m => m.role === "user")
+            : undefined;
+          return (
+            <ChatMessage
+              key={msg.id}
+              role={msg.role}
+              content={msg.content}
+              onEdit={newContent => {
+                if (msg.role === "user") {
+                  editMessage(msg.id, newContent).then(() => resend(msg.id));
+                } else {
+                  editMessage(msg.id, newContent);
+                }
+              }}
+              onDelete={() => deleteMessage(msg.id)}
+              onRetry={msg.role === "assistant" && prevUser ? () => resend(prevUser.id) : undefined}
+              versionIndex={msg.versionIndex}
+              versionCount={msg.versions?.length ?? 1}
+              onPrevVersion={() => setVersion(msg.id, (msg.versionIndex ?? 0) - 1)}
+              onNextVersion={() => setVersion(msg.id, (msg.versionIndex ?? 0) + 1)}
+            />
+          );
+        })}
         {isStreaming && streamingContent && (
           <ChatMessage role="assistant" content={streamingContent} streaming />
         )}

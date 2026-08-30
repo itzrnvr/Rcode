@@ -4,11 +4,11 @@
  * Toggle (titlebar highlighter button or Ctrl+Shift+A) freezes the UI under a
  * transparent canvas. Tools:
  *   - select: click UI elements to box+number them (multiple per screenshot);
- *     hover shows a dashed preview. Canvas is pointer-transparent in this mode
- *     and hits are resolved via elementFromPoint.
+ *     each box gets its OWN comment input in the bottom panel and the comment
+ *     is drawn next to the box on the saved image; hover shows dashed preview.
  *   - pen / arrow / box: freehand red drawing for areas.
- * Write a note, press "Save & copy": the renderer asks main for a window
- * capture, composites the annotation over it, and main writes
+ * Write an optional overall note, press "Save & copy": the renderer asks main
+ * for a window capture, composites the annotation over it, and main writes
  * feedback-<ts>.png/.txt + latest.md into <userData>/feedback and copies the
  * annotated image to the clipboard. Then tell the agent "read the feedback".
  */
@@ -21,10 +21,19 @@ import { PenIcon, ArrowUpRightIcon, SquareIcon, Undo2Icon, TrashIcon, XIcon, Mou
 type Tool = "select" | "pen" | "arrow" | "box";
 interface Point { x: number; y: number }
 interface Rect { x: number; y: number; w: number; h: number }
-interface Shape { tool: Tool; points: Point[]; rect?: Rect; label?: number }
+interface Shape { tool: Tool; points: Point[]; rect?: Rect; label?: number; comment?: string; desc?: string }
 
 const COLOR = "#ff3b30";
 const UI_SELECTOR = ".feedback-toolbar, .feedback-bottom";
+
+function describeEl(el: Element): string {
+  const aria = el.getAttribute("aria-label") || el.getAttribute("title");
+  if (aria) return aria.slice(0, 48);
+  const text = (el.textContent || "").trim().replace(/\s+/g, " ");
+  if (text) return text.slice(0, 48);
+  const cls = typeof el.className === "string" ? `.${el.className.split(" ")[0]}` : "";
+  return `${el.tagName.toLowerCase()}${cls}`;
+}
 
 export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,6 +44,7 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [panelMin, setPanelMin] = useState(false);
 
   const dpr = window.devicePixelRatio || 1;
 
@@ -46,7 +56,6 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
     ctx.lineJoin = "round";
     if (s.tool === "select" && s.rect) {
       ctx.strokeRect(s.rect.x, s.rect.y, s.rect.w, s.rect.h);
-      // numbered badge at top-left corner
       const bx = s.rect.x + 2;
       const by = s.rect.y - 12 < 2 ? s.rect.y + 2 : s.rect.y - 12;
       ctx.beginPath();
@@ -57,6 +66,19 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText(String(s.label ?? 0), bx + 10, by + 11);
+      if (s.comment?.trim()) {
+        // per-box comment drawn under the box
+        ctx.font = "600 12px system-ui, sans-serif";
+        ctx.textAlign = "left";
+        ctx.textBaseline = "top";
+        const text = s.comment.trim().slice(0, 80);
+        const ty = s.rect.y + s.rect.h + 4;
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(10,10,10,0.85)";
+        ctx.strokeText(text, s.rect.x + 2, ty);
+        ctx.fillStyle = COLOR;
+        ctx.fillText(text, s.rect.x + 2, ty);
+      }
       return;
     }
     if (s.points.length === 0) return;
@@ -148,10 +170,11 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       if (!el || el.closest?.(UI_SELECTOR)) return;
       const r = el.getBoundingClientRect();
       const rect = { x: r.x, y: r.y, w: r.width, h: r.height };
+      const desc = describeEl(el);
       setShapes(prev => {
         if (prev.some(s => s.tool === "select" && s.rect && Math.abs(s.rect.x - rect.x) < 2 && Math.abs(s.rect.y - rect.y) < 2 && Math.abs(s.rect.w - rect.w) < 2 && Math.abs(s.rect.h - rect.h) < 2)) return prev;
         const label = prev.filter(s => s.tool === "select").length + 1;
-        return [...prev, { tool: "select", points: [], rect, label }];
+        return [...prev, { tool: "select", points: [], rect, label, desc }];
       });
     };
     window.addEventListener("pointermove", onMove, true);
@@ -182,6 +205,19 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
     setCurrent(null);
   };
 
+  const setComment = (label: number, comment: string) => {
+    setShapes(prev => prev.map(s => (s.tool === "select" && s.label === label ? { ...s, comment } : s)));
+  };
+
+  const buildNote = () => {
+    const selects = shapes.filter(s => s.tool === "select" && s.label);
+    const lines = selects.map(s => `${s.label}. [${s.desc ?? "element"}]${s.comment?.trim() ? ` — ${s.comment.trim()}` : ""}`);
+    const parts: string[] = [];
+    if (lines.length) parts.push(lines.join("\n"));
+    if (note.trim()) parts.push(note.trim());
+    return parts.join("\n\n");
+  };
+
   const save = async () => {
     setSaving(true);
     setStatus("Capturing…");
@@ -203,7 +239,7 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       }
       const dataUrl = off.toDataURL("image/png");
       setStatus("Saving…");
-      const result = await api.saveFeedback({ dataUrl, note });
+      const result = await api.saveFeedback({ dataUrl, note: buildNote() });
       setStatus(`Saved + copied to clipboard: ${result.pngPath}`);
     } catch (e) {
       setStatus(`Save failed: ${e instanceof Error ? e.message : String(e)}`);
@@ -211,6 +247,8 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       setSaving(false);
     }
   };
+
+  const selects = shapes.filter(s => s.tool === "select" && s.label);
 
   return (
     <div className="feedback-overlay">
@@ -235,19 +273,42 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
         <button className="feedback-tool" onClick={onExit} title="Exit (Esc)"><XIcon size={14} /></button>
       </div>
 
-      <div className="feedback-bottom">
-        <textarea
-          className="feedback-note"
-          placeholder="What should I look at? Reference the numbered boxes, e.g. '1 should move left of 2'"
-          value={note}
-          onChange={e => setNote(e.target.value)}
-          rows={2}
-        />
-        <button className="feedback-save" onClick={save} disabled={saving}>
-          {saving ? "Saving…" : "Save & copy"}
+      {panelMin ? (
+        <button className="feedback-restore" onClick={() => setPanelMin(false)} title="Show note panel">
+          {selects.length > 0 ? `${selects.length} box${selects.length > 1 ? "es" : ""} — ` : ""}notes & save
         </button>
-        {status && <div className="feedback-status">{status}</div>}
-      </div>
+      ) : (
+        <div className="feedback-bottom">
+          <button className="feedback-minimize" onClick={() => setPanelMin(true)} title="Minimize so you can select anything on screen">—</button>
+          {selects.length > 0 && (
+            <div className="feedback-comments">
+              {selects.map(s => (
+                <div className="feedback-comment-row" key={s.label}>
+                  <span className="feedback-comment-num">{s.label}</span>
+                  <span className="feedback-comment-desc" title={s.desc}>{s.desc}</span>
+                  <input
+                    className="feedback-comment-input"
+                    placeholder="Comment on this element…"
+                    value={s.comment ?? ""}
+                    onChange={e => setComment(s.label!, e.target.value)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea
+            className="feedback-note"
+            placeholder="Overall note (optional) — per-box comments go above"
+            value={note}
+            onChange={e => setNote(e.target.value)}
+            rows={2}
+          />
+          <button className="feedback-save" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save & copy"}
+          </button>
+          {status && <div className="feedback-status">{status}</div>}
+        </div>
+      )}
     </div>
   );
 }

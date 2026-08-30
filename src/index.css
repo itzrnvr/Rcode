@@ -1550,6 +1550,13 @@ body {
 .chat-input-wrap.compact .mode-badge { padding: 5px 8px; }
 .chat-input-wrap.compact .model-pill { max-width: 132px; padding: 6px 8px; }
 .chat-input-wrap.compact .chat-input-send { width: 28px; height: 28px; }
+/* never let the send button overflow the pill in narrow panels */
+.chat-input-send { flex-shrink: 0; }
+.chat-input-wrap.compact button[title="Voice input"] { display: none; }
+.chat-input-wrap.compact .chat-input-toolbar-left,
+.chat-input-wrap.compact .chat-input-toolbar-right { min-width: 0; }
+.chat-input-wrap.compact .model-pill { min-width: 0; flex-shrink: 1; }
+.chat-input-wrap.compact .chat-input-toolbar { flex-wrap: nowrap; }
 
 .mode-picker-header {
   padding: 12px 14px 8px;
@@ -2920,4 +2927,79 @@ body {
   font-size: 11px;
   color: var(--color-muted);
   word-break: break-all;
+}
+.feedback-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+.feedback-comment-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.feedback-comment-num {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #ff3b30;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.feedback-comment-desc {
+  flex: 0 1 160px;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--color-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feedback-comment-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 12px;
+  padding: 5px 8px;
+  outline: none;
+}
+.feedback-minimize {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  color: var(--color-muted);
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.feedback-restore {
+  pointer-events: auto;
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-surface);
+  color: var(--color-accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
 }
