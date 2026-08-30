@@ -13,6 +13,7 @@ import { registerChatHandler } from "./chat";
 import { registerTerminalHandlers } from "./terminal";
 import { registerProviderHandlers } from "./providers";
 import { registerModelCatalogHandler } from "./modelCatalog";
+import { registerFeedbackHandlers } from "./feedback";
 
 export function registerAllHandlers(): void {
   registerSessionHandlers();
@@ -23,4 +24,5 @@ export function registerAllHandlers(): void {
   registerTerminalHandlers();
   registerProviderHandlers();
   registerModelCatalogHandler();
+  registerFeedbackHandlers();
 }

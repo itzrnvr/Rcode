@@ -76,6 +76,9 @@ import {
   PanelLeftClose,
   Code2,
   FolderOpen,
+  ArrowUpRight,
+  Undo2,
+  Highlighter,
   Eye,
   EyeOff,
   type LucideIcon,
@@ -165,6 +168,14 @@ export const EyeIcon = (p: { size?: number; className?: string }) =>
   <Eye size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const EyeOffIcon = (p: { size?: number; className?: string }) =>
   <EyeOff size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const SquareIcon = (p: { size?: number; className?: string }) =>
+  <Square size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const ArrowUpRightIcon = (p: { size?: number; className?: string }) =>
+  <ArrowUpRight size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const Undo2Icon = (p: { size?: number; className?: string }) =>
+  <Undo2 size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const HighlighterIcon = (p: { size?: number; className?: string }) =>
+  <Highlighter size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const EditIcon = PenIcon;
 export const UserIcon = (p: { size?: number; className?: string }) =>
   <User size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;

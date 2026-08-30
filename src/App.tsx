@@ -22,6 +22,7 @@ import { ChatView } from "./components/chat/ChatView";
 import { SidePanel } from "./components/sidepanel/SidePanel";
 import { SettingsPage } from "./components/settings/SettingsPage";
 import { SearchPalette } from "./components/search/SearchPalette";
+import { FeedbackOverlay } from "./components/feedback/FeedbackOverlay";
 
 class ErrorBoundary extends Component<
   { children: ReactNode },
@@ -63,6 +64,7 @@ function AppInner() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [settingsCategory, setSettingsCategory] = useState<string | undefined>(undefined);
+  const [feedbackMode, setFeedbackMode] = useState(false);
   const openSettingsAt = (cat?: string) => {
     setSettingsCategory(cat);
     setShowSettings(true);
@@ -124,6 +126,13 @@ function AppInner() {
   useEffect(() => {
     const open = () => setIsSearchOpen(true);
     window.addEventListener("open-search-palette", open as EventListener);
+    const onFeedbackKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setFeedbackMode(v => !v);
+      }
+    };
+    window.addEventListener("keydown", onFeedbackKey as EventListener);
     const openSettingsEv = (e: Event) => {
       const ce = e as CustomEvent<{ category?: string }>;
       openSettingsAt(ce.detail?.category);
@@ -138,6 +147,7 @@ function AppInner() {
     window.addEventListener("keydown", onKey as EventListener);
     return () => {
       window.removeEventListener("open-search-palette", open as EventListener);
+      window.removeEventListener("keydown", onFeedbackKey as EventListener);
       window.removeEventListener("open-settings", openSettingsEv as EventListener);
       window.removeEventListener("keydown", onKey as EventListener);
     };
@@ -175,7 +185,7 @@ function AppInner() {
     <>
     <AppShell
       titleBar={
-        <TitleBar onToggleSidebar={toggleSidebar} onToggleSidePanel={toggleSidePanel} />
+        <TitleBar onToggleSidebar={toggleSidebar} onToggleSidePanel={toggleSidePanel} onToggleFeedback={() => setFeedbackMode(v => !v)} />
       }
       sessions={
         <SessionList
@@ -195,6 +205,7 @@ function AppInner() {
       onToggleSidePanel={toggleSidePanel}
     />
     <SearchPalette open={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
+    {feedbackMode && <FeedbackOverlay onExit={() => setFeedbackMode(false)} />}
     </>
   );
 }

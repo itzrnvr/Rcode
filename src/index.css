@@ -2829,3 +2829,93 @@ body {
 }
 .sidechat-tab-item:hover .sidechat-tab-item-close { opacity: 1; }
 .sidechat-tab-item-close:hover { background: var(--color-bg-tertiary); }
+
+/* --- Feedback / annotate mode --- */
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+}
+.feedback-canvas {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  touch-action: none;
+}
+.feedback-toolbar {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.feedback-tool {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--color-fg);
+  cursor: pointer;
+}
+.feedback-tool:hover { background: var(--color-bg-tertiary); }
+.feedback-tool.active {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.feedback-sep { width: 1px; height: 18px; background: var(--color-border); margin: 0 4px; }
+.feedback-bottom {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.45);
+}
+.feedback-note {
+  width: 100%;
+  resize: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-fg);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  outline: none;
+}
+.feedback-save {
+  align-self: flex-end;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--color-accent);
+  background: var(--color-accent);
+  color: var(--color-bg);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.feedback-save:disabled { opacity: 0.6; cursor: default; }
+.feedback-status {
+  font-size: 11px;
+  color: var(--color-muted);
+  word-break: break-all;
+}

@@ -132,6 +132,12 @@ const electronAPI = {
   // --- Debug ---
   debugScreenshot: (path: string): Promise<boolean> =>
     ipcRenderer.invoke("debug:screenshot", path),
+
+  // --- Feedback / annotate mode ---
+  captureForFeedback: (): Promise<{ dataUrl: string; width: number; height: number }> =>
+    ipcRenderer.invoke("feedback:capture"),
+  saveFeedback: (payload: { dataUrl: string; note: string }): Promise<{ pngPath: string; txtPath: string; latestPath: string }> =>
+    ipcRenderer.invoke("feedback:save", payload),
 };
 
 contextBridge.exposeInMainWorld("electron", electronAPI);

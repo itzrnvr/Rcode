@@ -11,14 +11,15 @@
  */
 
 import { api } from "../../api/client";
-import { PanelLeftIcon, PanelRightIcon } from "../common/Icons";
+import { PanelLeftIcon, PanelRightIcon, HighlighterIcon } from "../common/Icons";
 
 interface TitleBarProps {
   onToggleSidebar: () => void;
   onToggleSidePanel?: () => void;
+  onToggleFeedback?: () => void;
 }
 
-export function TitleBar({ onToggleSidebar, onToggleSidePanel }: TitleBarProps) {
+export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback }: TitleBarProps) {
   return (
     <div className="titlebar">
       <div className="titlebar-left">
@@ -52,6 +53,16 @@ export function TitleBar({ onToggleSidebar, onToggleSidePanel }: TitleBarProps) 
       </div>
 
       <div className="titlebar-right">
+        {onToggleFeedback && (
+          <button
+            className="titlebar-sidebar-toggle"
+            onClick={onToggleFeedback}
+            title="Annotate UI feedback (Ctrl+Shift+A)"
+            aria-label="Annotate UI feedback"
+          >
+            <HighlighterIcon size={15} />
+          </button>
+        )}
         {onToggleSidePanel && (
           <button
             className="titlebar-sidebar-toggle"
