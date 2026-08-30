@@ -80,6 +80,8 @@ const electronAPI = {
     ipcRenderer.invoke("chat:send", request),
   resendChat: (request: { sessionId: string; anchorUserMessageId: string; model?: string }): Promise<void> =>
     ipcRenderer.invoke("chat:resend", request),
+  approvalResponse: (approvalId: string, ok: boolean): Promise<void> =>
+    ipcRenderer.invoke("chat:approvalResponse", approvalId, ok),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);

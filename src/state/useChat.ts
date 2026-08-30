@@ -1,13 +1,15 @@
 /*
- * PURPOSE: Chat state hook — loads messages, sends with streaming, accumulates chunks
+ * PURPOSE: Chat state hook — loads messages, streams agent turns.
  *
- * Flow: user sends → api.sendChat (async) → chunk events accumulate in
- * streamingContent → sendChat resolves → reload messages from DB.
+ * Accumulates from chat:chunk events:
+ *   content    → streamingContent (live answer text)
+ *   reasoning  → streamingReasoning (live thought)
+ *   tool_call  → liveSteps tool row (running)
+ *   tool_result→ fills the running row's result
+ *   approval   → pendingApproval (renderer shows Allow/Deny dialog)
+ *   done       → turnSecs (+reload messages from DB)
  *
- * The streaming content is displayed as a live-updating assistant message
- * while isStreaming is true. After completion, the DB has the full message.
- *
- * CONSUMERS: components/chat/ChatView.tsx
+ * CONSUMERS: components/chat/ChatView.tsx, sidepanel/SideChatThread.tsx
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -15,13 +17,23 @@ import { useState, useEffect, useCallback } from "react";
 import { api } from "../api/client";
 import { useApp } from "./AppContext";
 
-import type { Message } from "../types";
+import type { Message, ChatChunk } from "../types";
+import type { LiveStep } from "../components/chat/AgentTurn";
+
+export interface SendMeta {
+  mode?: string;
+  reasoningEffort?: string;
+  model?: string;
+}
 
 export function useChat(sessionId: string | null) {
   const { settings } = useApp();
   const [messages, setMessages] = useState<Message[]>([]);
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState("");
+  const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
+  const [pendingApproval, setPendingApproval] = useState<{ approvalId: string; command: string } | null>(null);
+  const [turnSecs, setTurnSecs] = useState<number | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,52 +50,92 @@ export function useChat(sessionId: string | null) {
     return () => { cancelled = true; };
   }, [sessionId]);
 
-  const sendMessage = useCallback(async (text: string) => {
-    if (!sessionId || !text.trim()) return;
+  const handleChunk = useCallback((chunk: ChatChunk) => {
+    if (chunk.done) {
+      if (chunk.secs != null) setTurnSecs(chunk.secs);
+      return;
+    }
+    if (chunk.kind === "approval") {
+      setPendingApproval({ approvalId: chunk.approvalId ?? "", command: chunk.tool?.name ?? "" });
+      return;
+    }
+    if (chunk.kind === "tool_call") {
+      setLiveSteps(p => [...p, { kind: "tool", name: chunk.tool?.name, args: chunk.tool?.args, status: "running" }]);
+      return;
+    }
+    if (chunk.kind === "tool_result") {
+      setLiveSteps(p => {
+        const idx = [...p].map((s, i) => ({ s, i })).reverse().find(({ s }) => s.kind === "tool" && s.name === chunk.tool?.name && s.status === "running")?.i;
+        if (idx == null) return [...p, { kind: "tool", name: chunk.tool?.name, result: chunk.tool?.result, status: "done" }];
+        const next = [...p];
+        next[idx] = { ...next[idx], result: chunk.tool?.result, status: "done" };
+        return next;
+      });
+      return;
+    }
+    if (chunk.reasoning) {
+      setStreamingReasoning(prev => prev + chunk.reasoning);
+      setLiveSteps(p => {
+        const last = p[p.length - 1];
+        if (last?.kind === "thought") {
+          const next = [...p];
+          next[next.length - 1] = { ...last, text: (last.text ?? "") + chunk.reasoning };
+          return next;
+        }
+        return [...p, { kind: "thought", text: chunk.reasoning }];
+      });
+      return;
+    }
+    if (chunk.content) setStreamingContent(prev => prev + chunk.content);
+  }, []);
 
+  const beginTurn = useCallback(() => {
     setError(null);
+    setIsStreaming(true);
+    setStreamingContent("");
+    setStreamingReasoning("");
+    setLiveSteps([]);
+    setTurnSecs(null);
+    setPendingApproval(null);
+  }, []);
 
-    // Optimistic: add user message to local state
+  const endTurn = useCallback(async (sid: string, removeListener: () => void) => {
+    removeListener();
+    setIsStreaming(false);
+    setStreamingContent("");
+    setStreamingReasoning("");
+    setLiveSteps([]);
+    const msgs = await api.getMessages(sid);
+    setMessages(msgs);
+  }, []);
+
+  const sendMessage = useCallback(async (text: string, meta?: SendMeta) => {
+    if (!sessionId || !text.trim()) return;
+    const sid = sessionId;
+
     const tempUserMsg: Message = {
       id: `temp-${Date.now()}`,
-      sessionId,
+      sessionId: sid,
       role: "user",
       content: text,
       createdAt: Date.now(),
     };
     setMessages(prev => [...prev, tempUserMsg]);
 
-    // Set up chunk listener before sending
-    const removeListener = api.onChatChunk(sessionId, (chunk) => {
-      if (chunk.done) return;
-      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
-      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
-    });
-
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingReasoning("");
-
+    const removeListener = api.onChatChunk(sid, handleChunk);
+    beginTurn();
     try {
-      await api.sendChat({ sessionId, userMessage: text, model: settings.model });
-
-      // After sendChat resolves, the assistant message is in the DB
-      const msgs = await api.getMessages(sessionId);
-      setMessages(msgs);
+      await api.sendChat({ sessionId: sid, userMessage: text, model: meta?.model ?? settings.model, mode: meta?.mode, reasoningEffort: meta?.reasoningEffort });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      removeListener();
-      setIsStreaming(false);
-      setStreamingContent("");
-      setStreamingReasoning("");
+      await endTurn(sid, removeListener);
     }
-  }, [sessionId, settings.model]);
+  }, [sessionId, settings.model, handleChunk, beginTurn, endTurn]);
 
   // For welcome → new session: send to a specific id not yet in the hook's closure
-  const sendTo = useCallback(async (targetId: string, text: string) => {
+  const sendTo = useCallback(async (targetId: string, text: string, meta?: SendMeta) => {
     if (!text.trim()) return;
-    setError(null);
     const tempUserMsg: Message = {
       id: `temp-${Date.now()}`,
       sessionId: targetId,
@@ -92,54 +144,37 @@ export function useChat(sessionId: string | null) {
       createdAt: Date.now(),
     };
     setMessages(prev => [...prev, tempUserMsg]);
-    const removeListener = api.onChatChunk(targetId, (chunk) => {
-      if (chunk.done) return;
-      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
-      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
-    });
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingReasoning("");
+    const removeListener = api.onChatChunk(targetId, handleChunk);
+    beginTurn();
     try {
-      await api.sendChat({ sessionId: targetId, userMessage: text, model: settings.model });
-      const msgs = await api.getMessages(targetId);
-      setMessages(msgs);
+      await api.sendChat({ sessionId: targetId, userMessage: text, model: meta?.model ?? settings.model, mode: meta?.mode, reasoningEffort: meta?.reasoningEffort });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      removeListener();
-      setIsStreaming(false);
-      setStreamingContent("");
-      setStreamingReasoning("");
+      await endTurn(targetId, removeListener);
     }
-  }, [settings.model]);
+  }, [settings.model, handleChunk, beginTurn, endTurn]);
 
-  // Re-run the turn anchored at a user message (retry / edit-and-resend).
-  // The new answer lands as an extra version on the existing assistant message.
-  const resend = useCallback(async (anchorUserMessageId: string) => {
+  // Re-run a turn anchored at a user message (retry / edit-and-resend).
+  const resend = useCallback(async (anchorUserMessageId: string, meta?: SendMeta) => {
     if (!sessionId) return;
-    setError(null);
-    const removeListener = api.onChatChunk(sessionId, (chunk) => {
-      if (chunk.done) return;
-      if (chunk.reasoning) setStreamingReasoning(prev => prev + chunk.reasoning);
-      if (chunk.content) setStreamingContent(prev => prev + chunk.content);
-    });
-    setIsStreaming(true);
-    setStreamingContent("");
-    setStreamingReasoning("");
+    const sid = sessionId;
+    const removeListener = api.onChatChunk(sid, handleChunk);
+    beginTurn();
     try {
-      await api.resendChat({ sessionId, anchorUserMessageId, model: settings.model });
-      const msgs = await api.getMessages(sessionId);
-      setMessages(msgs);
+      await api.resendChat({ sessionId: sid, anchorUserMessageId, model: meta?.model ?? settings.model });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
-      removeListener();
-      setIsStreaming(false);
-      setStreamingContent("");
-      setStreamingReasoning("");
+      await endTurn(sid, removeListener);
     }
-  }, [sessionId, settings.model]);
+  }, [sessionId, settings.model, handleChunk, beginTurn, endTurn]);
+
+  const respondApproval = useCallback(async (ok: boolean) => {
+    if (!pendingApproval) return;
+    await (api as unknown as { approvalResponse: (id: string, ok: boolean) => Promise<void> }).approvalResponse(pendingApproval.approvalId, ok);
+    setPendingApproval(null);
+  }, [pendingApproval]);
 
   const setVersion = useCallback(async (messageId: string, index: number) => {
     if (!sessionId) return;
@@ -154,6 +189,8 @@ export function useChat(sessionId: string | null) {
   const stopStream = useCallback(() => {
     setIsStreaming(false);
     setStreamingContent("");
+    setStreamingReasoning("");
+    setLiveSteps([]);
   }, []);
 
   const editMessage = useCallback(async (id: string, newContent: string) => {
@@ -170,5 +207,9 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, [sessionId]);
 
-  return { messages, streamingContent, streamingReasoning, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage };
+  return {
+    messages, streamingContent, streamingReasoning, liveSteps, pendingApproval,
+    respondApproval, turnSecs, isStreaming, error,
+    sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage,
+  };
 }

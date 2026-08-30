@@ -1,20 +1,25 @@
 /*
- * PURPOSE: Chat streaming IPC handler — orchestrates the full chat turn:
- *          build system prompt → fetch API → stream SSE chunks → save messages
+ * PURPOSE: Chat streaming + client-side agent loop.
  *
- * KEY DECISIONS:
- * - System prompt built from global + per-session instructions (chat/systemPrompt.ts)
- * - SSE parsing handled by chat/streamClient.ts (handles partial JSON across chunks)
- * - Chunks forwarded to renderer via event.sender.send with session-scoped channel
- * - User + assistant messages persisted to DB after streaming completes
- * - chat:resend re-runs a turn anchored at a user message; the new assistant
- *   response is stored as an extra VERSION on the existing assistant message
- *   (versions[] + version_index) so the user can flip between answers.
+ * chat:send now runs an agentic loop: the request includes a minimal toolset
+ * (read_file/list_dir/search/run_command). When the model returns tool_calls
+ * we execute them (mode-gated; restricted asks the renderer for approval),
+ * feed tool results back, and continue until a final answer arrives.
  *
- * CONSUMERS: ipc/index.ts (registration)
+ * Events streamed on chat:chunk:<sessionId> (ChatChunk):
+ *   { content }            answer text delta
+ *   { reasoning }          reasoning delta
+ *   { kind:'tool_call',  tool:{name,args} }    a tool is about to run
+ *   { kind:'tool_result',tool:{name,result} }  its (capped) output
+ *   { done, secs }         turn finished (+total seconds)
+ *
+ * Persisted assistant content embeds markers so reloads can rebuild the turn:
+ *   [worked:NNs] header, <think>…</think>, [tool:name(args)] +
+ *   <toolresult>…</toolresult> blocks, then the final answer.
  */
 
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
+import { app } from "electron";
 
 import { getSession } from "../db/sessions";
 import { getMessages, addMessage, appendAssistantVersion } from "../db/messages";
@@ -22,11 +27,11 @@ import { getSettings } from "../db/settings";
 import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
-import { runDshTask } from "../agent/dsh-bridge";
+import { TOOL_DEFS, executeTool, type AgentMode } from "../agent/tools";
 
-import type { ChatRequest, ChatChunk, Message, Settings, Session } from "../../src/types";
+import type { ChatRequest, ChatChunk, Session, Settings } from "../../src/types";
 
-const USE_DSH = process.env.RCODE_USE_DSH === "1"; // opt-in only; default = real model streaming
+const MAX_TOOL_ROUNDS = 6;
 
 interface Endpoint {
   baseUrl: string;
@@ -61,25 +66,22 @@ function resolveEndpoint(session: Session, settings: Settings, preferred?: strin
   return { baseUrl, apiKey, model };
 }
 
-async function streamCompletion(
+interface ToolCallAcc { id: string; name: string; arguments: string }
+interface TurnStep { kind: "thought" | "tool"; text?: string; name?: string; args?: string; result?: string }
+
+interface StreamResult {
+  content: string;
+  reasoning: string;
+  toolCalls: ToolCallAcc[];
+}
+
+async function streamOnce(
   sender: WebContents,
   sessionId: string,
   endpoint: Endpoint,
-  apiMessages: Array<{ role: string; content: string }>,
-): Promise<string> {
-  if (USE_DSH) {
-    let fullContent = "";
-    const prompt = apiMessages.map(m => `${m.role}: ${m.content}`).join("\n\n");
-    for await (const chunk of runDshTask(prompt)) {
-      if (!chunk.done && chunk.content) {
-        fullContent += chunk.content;
-        sender.send(`chat:chunk:${sessionId}`, { content: chunk.content, done: false } satisfies ChatChunk);
-      }
-      if (chunk.done) break;
-    }
-    return fullContent;
-  }
-
+  apiMessages: unknown[],
+  effort: string | undefined,
+): Promise<StreamResult> {
   const response = await fetch(`${endpoint.baseUrl.replace(/\/$/, "")}/chat/completions`, {
     method: "POST",
     headers: {
@@ -90,6 +92,8 @@ async function streamCompletion(
       model: endpoint.model,
       messages: apiMessages,
       stream: true,
+      tools: TOOL_DEFS,
+      ...(effort ? { reasoning_effort: effort } : {}),
     }),
   });
 
@@ -101,30 +105,54 @@ async function streamCompletion(
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No response body");
 
-  let fullContent = "";
-  let fullReasoning = "";
+  let content = "";
+  let reasoning = "";
+  const calls = new Map<number, ToolCallAcc>();
+
   for await (const data of sseLines(reader)) {
     try {
       const parsed = parseSSEData(data);
-      const delta = parsed.choices?.[0]?.delta as { content?: string; reasoning_content?: string; reasoning?: string } | undefined;
-      const contentDelta = delta?.content;
-      const reasoningDelta = delta?.reasoning_content ?? delta?.reasoning;
+      const delta = parsed.choices?.[0]?.delta as
+        | { content?: string; reasoning_content?: string; reasoning?: string; tool_calls?: Array<{ index?: number; id?: string; function?: { name?: string; arguments?: string } }> }
+        | undefined;
+      if (!delta) continue;
+      const reasoningDelta = delta.reasoning_content ?? delta.reasoning;
       if (reasoningDelta) {
-        fullReasoning += reasoningDelta;
+        reasoning += reasoningDelta;
         sender.send(`chat:chunk:${sessionId}`, { content: "", reasoning: reasoningDelta, done: false } satisfies ChatChunk);
       }
-      if (contentDelta) {
-        fullContent += contentDelta;
-        sender.send(`chat:chunk:${sessionId}`, { content: contentDelta, done: false } satisfies ChatChunk);
+      if (delta.content) {
+        content += delta.content;
+        sender.send(`chat:chunk:${sessionId}`, { content: delta.content, done: false } satisfies ChatChunk);
+      }
+      for (const tc of delta.tool_calls ?? []) {
+        const idx = tc.index ?? 0;
+        const acc = calls.get(idx) ?? { id: tc.id ?? `call_${idx}`, name: "", arguments: "" };
+        if (tc.id) acc.id = tc.id;
+        if (tc.function?.name) acc.name += tc.function.name;
+        if (tc.function?.arguments) acc.arguments += tc.function.arguments;
+        calls.set(idx, acc);
       }
     } catch {
       // Partial JSON — skip; sseLines handles line boundaries
     }
   }
-  return fullReasoning ? "<think>\n" + fullReasoning + "\n</think>\n\n" + fullContent : fullContent;
+
+  const toolCalls = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v).filter(c => c.name);
+  return { content, reasoning, toolCalls };
 }
 
 export function registerChatHandler(): void {
+  // renderer approval round-trip for restricted mode
+  const pendingApprovals = new Map<string, (ok: boolean) => void>();
+  ipcMain.handle("chat:approvalResponse", (_e, approvalId: string, ok: boolean) => {
+    const fn = pendingApprovals.get(approvalId);
+    if (fn) {
+      pendingApprovals.delete(approvalId);
+      fn(ok);
+    }
+  });
+
   ipcMain.handle("chat:send", async (event: IpcMainInvokeEvent, request: ChatRequest) => {
     const settings = getSettings();
     const session = getSession(request.sessionId);
@@ -133,24 +161,91 @@ export function registerChatHandler(): void {
     const history = getMessages(request.sessionId);
     const systemPrompt = buildSystemPrompt(settings.globalInstructions, session.customInstructions);
 
-    const apiMessages = [
+    const apiMessages: unknown[] = [
       { role: "system", content: systemPrompt },
-      ...history.map(m => ({ role: m.role as string, content: m.content })),
+      ...history.map(m => ({ role: m.role, content: m.content })),
       { role: "user", content: request.userMessage },
     ];
 
-    // Persist user message
     addMessage(request.sessionId, "user", request.userMessage);
 
     const endpoint = resolveEndpoint(session, settings, request.model);
-    const fullContent = await streamCompletion(event.sender, request.sessionId, endpoint, apiMessages);
+    const mode: AgentMode = (request.mode as AgentMode) || "full-access";
+    const effort = request.reasoningEffort || (settings as Settings & { reasoningEffort?: string }).reasoningEffort;
+    const cwd = app.getPath("home");
 
-    addMessage(request.sessionId, "assistant", fullContent);
-    event.sender.send(`chat:chunk:${request.sessionId}`, { content: "", done: true } satisfies ChatChunk);
+    const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${request.sessionId}`, chunk);
+
+    const askApproval = (command: string) =>
+      new Promise<boolean>(resolvePromise => {
+        const approvalId = `appr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        pendingApprovals.set(approvalId, resolvePromise);
+        sendChunk({ content: "", done: false, kind: "approval", tool: { name: command }, approvalId });
+        // timeout auto-deny after 60s
+        setTimeout(() => {
+          if (pendingApprovals.has(approvalId)) {
+            pendingApprovals.delete(approvalId);
+            resolvePromise(false);
+          }
+        }, 60_000);
+      });
+
+    const startedAt = Date.now();
+    const steps: TurnStep[] = [];
+    let finalContent = "";
+    let finalReasoning = "";
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const res = await streamOnce(event.sender, request.sessionId, endpoint, apiMessages, effort);
+
+      if (res.reasoning) {
+        finalReasoning += (finalReasoning ? "\n" : "") + res.reasoning;
+        steps.push({ kind: "thought", text: res.reasoning });
+      }
+      if (res.content) {
+        finalContent += res.content;
+      }
+
+      if (res.toolCalls.length === 0) break;
+
+      // assistant message with tool_calls, then tool results, then next round
+      apiMessages.push({
+        role: "assistant",
+        content: res.content || null,
+        tool_calls: res.toolCalls.map(c => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
+      });
+
+      for (const c of res.toolCalls) {
+        let args: Record<string, unknown> = {};
+        try { args = JSON.parse(c.arguments || "{}"); } catch {}
+        sendChunk({ content: "", done: false, kind: "tool_call", tool: { name: c.name, args: c.arguments } });
+        const result = await executeTool(c.name, args, { mode, cwd, askApproval });
+        sendChunk({ content: "", done: false, kind: "tool_result", tool: { name: c.name, result } });
+        steps.push({ kind: "tool", name: c.name, args: c.arguments, result });
+        apiMessages.push({ role: "tool", tool_call_id: c.id, content: result });
+      }
+
+      // content emitted mid-loop is progress narration; keep it but separate rounds
+      if (res.content) finalContent += "\n";
+    }
+
+    const secs = Math.round((Date.now() - startedAt) / 1000);
+
+    // persist with markers so reloads rebuild the turn view
+    const parts: string[] = [];
+    if (secs > 0 || steps.some(s => s.kind === "tool")) parts.push(`[worked:${secs}s]`);
+    for (const s of steps) {
+      if (s.kind === "thought" && s.text) parts.push(`<think>\n${s.text}\n</think>`);
+      if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
+    }
+    if (finalReasoning && !steps.some(s => s.kind === "thought")) parts.push(`<think>\n${finalReasoning}\n</think>`);
+    parts.push(finalContent);
+    addMessage(request.sessionId, "assistant", parts.join("\n\n"));
+
+    sendChunk({ content: "", done: true, secs });
   });
 
   // Re-run a turn anchored at a user message (retry / edit-and-resend).
-  // The new answer becomes an extra version on the next assistant message.
   ipcMain.handle("chat:resend", async (event: IpcMainInvokeEvent, request: { sessionId: string; anchorUserMessageId: string; model?: string }) => {
     const settings = getSettings();
     const session = getSession(request.sessionId);
@@ -161,20 +256,21 @@ export function registerChatHandler(): void {
     if (anchorIdx === -1) throw new Error("Anchor user message not found");
 
     const systemPrompt = buildSystemPrompt(settings.globalInstructions, session.customInstructions);
-    const apiMessages = [
+    const apiMessages: unknown[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(0, anchorIdx + 1).map(m => ({ role: m.role as string, content: m.content })),
+      ...history.slice(0, anchorIdx + 1).map(m => ({ role: m.role, content: m.content })),
     ];
 
-    const target: Message | undefined = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
-
+    const target = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
     const endpoint = resolveEndpoint(session, settings, request.model);
-    const fullContent = await streamCompletion(event.sender, request.sessionId, endpoint, apiMessages);
+
+    const res = await streamOnce(event.sender, request.sessionId, endpoint, apiMessages, (settings as Settings & { reasoningEffort?: string }).reasoningEffort);
+    const full = res.reasoning ? `<think>\n${res.reasoning}\n</think>\n\n${res.content}` : res.content;
 
     if (target) {
-      appendAssistantVersion(target.id, fullContent);
+      appendAssistantVersion(target.id, full);
     } else {
-      addMessage(request.sessionId, "assistant", fullContent);
+      addMessage(request.sessionId, "assistant", full);
     }
     event.sender.send(`chat:chunk:${request.sessionId}`, { content: "", done: true } satisfies ChatChunk);
   });

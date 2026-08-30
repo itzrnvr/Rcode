@@ -67,6 +67,7 @@ export interface Theme {
 export type ThemePreset = "unsloth-mint" | "rcode-blue" | "classic-dark" | "light-classic";
 
 export interface Settings {
+  reasoningEffort?: string;
   apiBase: string;
   apiKey: string;
   model: string;
@@ -96,12 +97,18 @@ export interface ChatChunk {
   content: string;
   done: boolean;
   reasoning?: string;
+  kind?: "tool_call" | "tool_result" | "approval";
+  tool?: { name: string; args?: string; result?: string };
+  secs?: number;
+  approvalId?: string;
 }
 
 export interface ChatRequest {
   sessionId: string;
   userMessage: string;
   model?: string;
+  mode?: string;
+  reasoningEffort?: string;
 }
 
 export const DEFAULT_THEME: Theme = {

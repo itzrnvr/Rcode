@@ -82,6 +82,7 @@ import {
   MousePointer2,
   Eye,
   EyeOff,
+  Clock,
   type LucideIcon,
 } from "lucide-react";
 
@@ -179,6 +180,8 @@ export const HighlighterIcon = (p: { size?: number; className?: string }) =>
   <Highlighter size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const MousePointer2Icon = (p: { size?: number; className?: string }) =>
   <MousePointer2 size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const ClockIcon = (p: { size?: number; className?: string }) =>
+  <Clock size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const EditIcon = PenIcon;
 export const UserIcon = (p: { size?: number; className?: string }) =>
   <User size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;

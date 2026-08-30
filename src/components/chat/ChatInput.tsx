@@ -39,6 +39,7 @@ import {
   SparkleIcon,
   TrashIcon,
   MessageCircleIcon,
+  ZapIcon,
 } from "../common/Icons";
 import { useProviders } from "../../state/useProviders";
 import type { ModelEntry } from "../../models";
@@ -66,7 +67,8 @@ const MODES: ModeOption[] = [
 ];
 
 interface ChatInputProps {
-  onSend: (text: string) => void;
+  onSend: (text: string, meta?: { mode?: string; reasoningEffort?: string }) => void;
+  contextUsed?: number;
   disabled: boolean;
   onStop?: () => void;
   streaming?: boolean;
@@ -83,11 +85,13 @@ export function ChatInput({
   placeholder = "Do anything",
   initialValue,
   compact = false,
+  contextUsed,
 }: ChatInputProps) {
   const { settings, setSetting } = useApp();
   const { allModels: providerModels } = useProviders();
   const [text, setText] = useState("");
   const [mode, setMode] = useState<AgentMode>("full-access");
+  const [effort, setEffort] = useState<string>(settings.reasoningEffort || "max");
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -125,6 +129,18 @@ export function ChatInput({
   }, [providerModels, settings.model, chooseModel]);
   const currentMode = MODES.find(m => m.id === mode) ?? MODES[1];
 
+  const contextMax = (() => {
+    const entry = liveModels.find(m => m.id === (currentModel?.id ?? settings.model));
+    const c = entry?.context;
+    if (typeof c === "number") return c;
+    if (typeof c === "string") {
+      const m2 = /^([\d.]+)\s*([kKmM])?$/.exec(c.trim());
+      if (m2) return Math.round(parseFloat(m2[1]) * (m2[2] ? (m2[2].toLowerCase() === "k" ? 1000 : 1000000) : 1));
+    }
+    return null;
+  })();
+  const fmtK = (n: number) => (n >= 1000000 ? (n / 1000000).toFixed(n % 1000000 ? 1 : 0) + "M" : Math.round(n / 1000) + "K");
+
   const send = useCallback(() => {
     const trimmed = text.trim();
     if (!trimmed || disabled || streaming) return;
@@ -149,7 +165,7 @@ export function ChatInput({
         }
       }
     }
-    onSend(trimmed);
+    onSend(trimmed, { mode, reasoningEffort: effort });
     setText("");
     if (ref.current) {
       ref.current.style.height = "auto";
@@ -287,6 +303,34 @@ export function ChatInput({
           </div>
 
           <div className="chat-input-toolbar-right">
+            {contextUsed != null && (
+              <span className="context-usage" title="Estimated context usage">
+                {fmtK(contextUsed)}{contextMax ? ` / ${fmtK(contextMax)}` : ""}
+              </span>
+            )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button className="effort-badge" title="Reasoning effort">
+                  <ZapIcon size={12} /> {effort === "max" ? "Max" : effort[0].toUpperCase() + effort.slice(1)} <ChevronDownIcon size={10} />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="end" sideOffset={8} style={{ minWidth: 150 }}>
+                <div className="mode-picker-list" role="radiogroup" aria-label="Reasoning effort">
+                  {["low", "medium", "high", "max"].map(lvl => (
+                    <PopoverClose asChild key={lvl}>
+                      <button
+                        role="radio"
+                        aria-checked={effort === lvl}
+                        className={`mode-picker-item ${effort === lvl ? "active" : ""}`}
+                        onClick={() => { setEffort(lvl); setSetting("reasoningEffort", lvl); }}
+                      >
+                        <div className="mode-picker-label">{lvl === "max" ? "Max" : lvl[0].toUpperCase() + lvl.slice(1)}</div>
+                      </button>
+                    </PopoverClose>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
             <Popover>
               <PopoverTrigger asChild>
                 <button

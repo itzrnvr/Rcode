@@ -39,7 +39,7 @@ export function useProviders() {
   const isOldModel = (id: string) => /glm-4/i.test(id) || /llama/i.test(id) || /gpt-oss/i.test(id);
 
   const allModels = useMemo(() => {
-    const models: Array<{ id: string; name: string; provider: string; providerLabel: string; description: string; baseUrl: string; apiFormat: string }> = [];
+    const models: Array<{ id: string; name: string; provider: string; providerLabel: string; description: string; baseUrl: string; apiFormat: string; context?: number | string }> = [];
     for (const p of providers) {
       if (!p.enabled) continue;
       for (const m of p.modelList) {
@@ -52,6 +52,7 @@ export function useProviders() {
           description: `${p.name} • ${m.context || ""} ${m.vision ? "Vision" : ""}`.trim(),
           baseUrl: p.baseUrl,
           apiFormat: p.apiFormat,
+          context: m.context,
         });
       }
     }

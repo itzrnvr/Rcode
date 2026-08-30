@@ -17,6 +17,7 @@ import "highlight.js/styles/github-dark.css";
 
 import type { MessageRole } from "../../types";
 import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon } from "../common/Icons";
+import { parseTurn, ToolRow, TurnHeader, type LiveStep } from "./AgentTurn";
 
 interface ChatMessageProps {
   role: MessageRole;
@@ -31,6 +32,8 @@ interface ChatMessageProps {
   onPrevVersion?: () => void;
   onNextVersion?: () => void;
   onRetry?: () => void;
+  liveSteps?: LiveStep[];
+  workedSecs?: number | null;
 }
 
 // Kept for non-markdown code blocks (tool args) and copy header — markdown code uses rehype-highlight
@@ -87,15 +90,22 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
 
 function renderContent(content: string): ReactNode[] {
   const nodes: ReactNode[] = [];
+  // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
+  const { workedSecs, tools, rest } = parseTurn(content);
+  let key0 = 0;
+  if (workedSecs != null || tools.length > 0) {
+    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} />);
+    for (const t of tools) nodes.push(<ToolRow key={`toolrow-${key0++}`} step={t} />);
+  }
   // Reasoning: <think> ... </think> or <thinking> ... </thinking>
   const thinkRegex = /<(think|thinking)>([\s\S]*?)<\/\1>/gi;
   let thinkMatch: RegExpExecArray | null;
   const thinks: string[] = [];
-  let stripped = content;
-  while ((thinkMatch = thinkRegex.exec(content)) !== null) {
+  let stripped = rest;
+  while ((thinkMatch = thinkRegex.exec(stripped)) !== null) {
     thinks.push(thinkMatch[2].trim());
   }
-  stripped = content.replace(thinkRegex, "").trim();
+  stripped = stripped.replace(thinkRegex, "").trim();
 
   // Tool call placeholders: [tool:read_file({...})] → render as blocks if present
   const toolRegex = /\[tool:([a-z_]+)\(([\s\S]*?)\)\]/gi;
@@ -143,19 +153,10 @@ function renderContent(content: string): ReactNode[] {
     );
   }
 
-  // If no code blocks but tool markers remain, render them
-  if (nodes.length === 0 && toolRegex.test(stripped)) {
-    let tm: RegExpExecArray | null;
-    toolRegex.lastIndex = 0;
-    while ((tm = toolRegex.exec(stripped)) !== null) {
-      nodes.push(<ToolCallBlock key={`tool-${key++}`} name={tm[1]} args={tm[2]} result={tm[3]} />);
-    }
-  }
-
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, liveSteps, workedSecs }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
@@ -223,6 +224,8 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`}>
       {model && <div className="message-model">{model}</div>}
+      {streaming && (liveSteps?.some(s => s.kind === "tool")) && <TurnHeader secs={null} live />}
+      {streaming && liveSteps?.filter(s => s.kind === "tool").map((s, i) => <ToolRow key={`live-${i}`} step={s} />)}
       {reasoning && <ThinkingBlock content={reasoning} defaultOpen={!!streaming} />}
       <div className="message-assistant">
         {isEditing ? (

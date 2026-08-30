@@ -12,7 +12,7 @@
  *   - Auto-scroll to bottom during streaming
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 
 import { useApp } from "../../state/AppContext";
 import { useChat } from "../../state/useChat";
@@ -65,7 +65,7 @@ export function ChatView() {
     settings,
     setSidePanelCollapsed,
   } = useApp();
-  const { messages, streamingContent, streamingReasoning, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
+  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -101,12 +101,12 @@ export function ChatView() {
     { label: "Create side chat from selection", onClick: createSideChat },
   ];
 
-  const handleSend = useCallback(async (text: string) => {
+  const handleSend = useCallback(async (text: string, meta?: { mode?: string; reasoningEffort?: string }) => {
     const trimmed = text.trim();
     if (trimmed.toLowerCase().startsWith("/side")) {
       if (!currentSessionId) {
         // No session to branch from — create a new main session first
-        return sendMessage(text);
+        return sendMessage(text, meta);
       }
       const rest = trimmed.slice(5).trim();
       const title = rest ? rest.slice(0, 40) : `Side: ${session?.title?.slice(0, 24) ?? "branch"}`;
@@ -122,7 +122,7 @@ export function ChatView() {
       }
       return;
     }
-    return sendMessage(text);
+    return sendMessage(text, meta);
   }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, setSidePanelCollapsed, sendMessage]);
 
   useEffect(() => {
@@ -138,15 +138,17 @@ export function ChatView() {
     setDraftPrompt(prompt);
   };
 
-  const handleWelcomeSend = useCallback(async (text: string) => {
+  const handleWelcomeSend = useCallback(async (text: string, meta?: { mode?: string; reasoningEffort?: string }) => {
     if (!text.trim()) return;
     const session = await api.createSession({ model: settings.model, provider: settings.providerName, title: text.slice(0, 40) });
     setCurrentSessionId(session.id);
     bumpSessionList();
     // Use sendTo which correctly subscribes to onChatChunk before sendChat and reloads from DB
-    await sendTo(session.id, text);
+    await sendTo(session.id, text, meta);
     bumpSessionList();
   }, [settings.model, settings.providerName, setCurrentSessionId, bumpSessionList, sendTo]);
+
+  const contextUsed = useMemo(() => Math.round((messages.reduce((a, m) => a + m.content.length, 0) + streamingContent.length) / 4), [messages, streamingContent]);
 
   // Welcome screen
   if (!currentSessionId) {
@@ -199,7 +201,8 @@ export function ChatView() {
               disabled={false}
               placeholder="Do anything"
               initialValue={draftPrompt}
-            />
+            contextUsed={contextUsed}
+          />
           </div>
         </div>
       </div>
@@ -259,7 +262,7 @@ export function ChatView() {
           );
         })}
         {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} streaming model={session?.model} />
+          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} streaming model={session?.model} />
         )}
         {isStreaming && !streamingContent && (
           <div className="message-assistant stream-cursor" />
@@ -276,10 +279,24 @@ export function ChatView() {
         onStop={stopStream}
         streaming={isStreaming}
         disabled={isStreaming}
+        contextUsed={contextUsed}
       />
 
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />
+      )}
+
+      {pendingApproval && (
+        <div className="approval-dialog">
+          <div className="approval-card">
+            <div style={{ fontSize: 14, fontWeight: 700 }}>Run this command?</div>
+            <pre className="approval-cmd">{pendingApproval.command}</pre>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="ms-btn" onClick={() => respondApproval(false)}>Deny</button>
+              <button className="ms-btn primary" onClick={() => respondApproval(true)}>Allow</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
