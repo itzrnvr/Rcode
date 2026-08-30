@@ -86,7 +86,18 @@ export function useChat(sessionId: string | null) {
       });
       return;
     }
-    if (chunk.content) setStreamingContent(prev => prev + chunk.content);
+    if (chunk.content) {
+      setStreamingContent(prev => prev + chunk.content);
+      setLiveSteps(p => {
+        const last = p[p.length - 1];
+        if (last?.kind === "say") {
+          const next = [...p];
+          next[next.length - 1] = { ...last, text: (last.text ?? "") + chunk.content };
+          return next;
+        }
+        return [...p, { kind: "say", text: chunk.content }];
+      });
+    }
   }, []);
 
   const beginTurn = useCallback(() => {

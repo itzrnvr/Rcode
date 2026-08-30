@@ -22,7 +22,7 @@ export interface ToolStep {
 }
 
 export interface LiveStep {
-  kind: "thought" | "tool";
+  kind: "thought" | "tool" | "say";
   text?: string;
   name?: string;
   args?: string;
@@ -32,7 +32,6 @@ export interface LiveStep {
 
 export function parseTurn(content: string): { workedSecs: number | null; steps: LiveStep[]; rest: string } {
   let workedSecs: number | null = null;
-  const steps: LiveStep[] = [];
   let rest = content;
 
   const workedMatch = /^\[worked:(\d+)s\]\s*/.exec(rest);
@@ -41,16 +40,23 @@ export function parseTurn(content: string): { workedSecs: number | null; steps: 
     rest = rest.slice(workedMatch[0].length);
   }
 
-  // Walk think blocks and tool blocks in the order they appear so the turn
-  // view shows reasoning/tool steps interleaved exactly as the agent ran them.
+  // Walk the persisted turn in arrival order: text segments between think/tool
+  // markers become "say" steps so narration renders where it happened, not at the end.
+  const steps: LiveStep[] = [];
   const re = /<(think|thinking)>([\s\S]*?)<\/\1>|\[tool:([a-zA-Z_]+)(\([\s\S]*?\))?\]\s*<toolresult>([\s\S]*?)<\/toolresult>/gi;
-  rest = rest.replace(re, (_m, thinkTag?: string, thinkText?: string, toolName?: string, toolArgs?: string, toolResult?: string) => {
-    if (thinkTag) steps.push({ kind: "thought", text: (thinkText ?? "").trim() });
-    else steps.push({ kind: "tool", name: toolName, args: (toolArgs ?? "").replace(/^\(|\)$/g, ""), result: (toolResult ?? "").trim(), status: "done" });
-    return "";
-  });
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(rest))) {
+    const seg = rest.slice(last, m.index).trim();
+    if (seg) steps.push({ kind: "say", text: seg });
+    if (m[1]) steps.push({ kind: "thought", text: (m[2] ?? "").trim() });
+    else steps.push({ kind: "tool", name: m[3], args: (m[4] ?? "").replace(/^\(|\)$/g, ""), result: (m[5] ?? "").trim(), status: "done" });
+    last = m.index + m[0].length;
+  }
+  const tail = rest.slice(last).trim();
+  if (tail) steps.push({ kind: "say", text: tail });
 
-  return { workedSecs, steps, rest: rest.trim() };
+  return { workedSecs, steps, rest: "" };
 }
 
 function toolIcon(name?: string) {

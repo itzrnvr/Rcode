@@ -93,23 +93,16 @@ function renderContent(content: string): ReactNode[] {
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
   const { workedSecs, steps, rest } = parseTurn(content);
   let key0 = 0;
-  if (workedSecs != null || steps.length > 0) {
+  if (workedSecs != null || steps.some(s => s.kind !== "say")) {
     nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} />);
-    for (const s of steps) {
-      nodes.push(
-        s.kind === "tool"
-          ? <ToolRow key={`step-${key0++}`} step={s} />
-          : <ThinkingBlock key={`step-${key0++}`} content={s.text ?? ""} />
-      );
-    }
   }
-  const stripped = rest;
   let key = 0;
 
-  if (stripped) {
-    nodes.push(
-      <ReactMarkdown
-        key={`md-${key++}`}
+  for (const s of steps) {
+    if (s.kind === "say") {
+      nodes.push(
+        <ReactMarkdown
+          key={`md-${key++}`}
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeHighlight]}
         components={{
@@ -138,9 +131,14 @@ function renderContent(content: string): ReactNode[] {
           },
         }}
       >
-        {stripped}
-      </ReactMarkdown>
-    );
+          {s.text ?? ""}
+        </ReactMarkdown>
+      );
+    } else if (s.kind === "tool") {
+      nodes.push(<ToolRow key={`step-${key++}`} step={s} />);
+    } else {
+      nodes.push(<ThinkingBlock key={`step-${key++}`} content={s.text ?? ""} />);
+    }
   }
 
   return nodes;
@@ -217,7 +215,9 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
       {streaming && <TurnHeader secs={null} live />}
       {streaming && liveSteps?.map((s, i) => s.kind === "tool"
         ? <ToolRow key={`live-${i}`} step={s} />
-        : <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen />)}
+        : s.kind === "thought"
+          ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen />
+          : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>)}
       {streaming && !content && <div className="thinking-row"><span className="tool-row-spinner" />Thinking…</div>}
       {reasoning && !streaming && <ThinkingBlock content={reasoning} />}
       <div className="message-assistant">
@@ -229,7 +229,7 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
               <button className="btn" onClick={handleCancelEdit}>Cancel</button>
             </div>
           </div>
-        ) : (
+        ) : streaming ? null : (
           renderContent(content)
         )}
       </div>

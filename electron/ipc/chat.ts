@@ -68,7 +68,52 @@ function resolveEndpoint(session: Session, settings: Settings, preferred?: strin
 }
 
 interface ToolCallAcc { id: string; name: string; arguments: string }
-interface TurnStep { kind: "thought" | "tool"; text?: string; name?: string; args?: string; result?: string }
+
+// Walk a persisted assistant turn into ordered steps (mirror of renderer parseTurn).
+function parsePersistedTurn(content: string): TurnStep[] {
+  const steps: TurnStep[] = [];
+  const body = content.replace(/^\[worked:(\d+)s\]\s*/, "");
+  const re = /<(think|thinking)>([\s\S]*?)<\/\1>|\[tool:([a-zA-Z_]+)(\([\s\S]*?\))?\]\s*<toolresult>([\s\S]*?)<\/toolresult>/gi;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body))) {
+    const seg = body.slice(last, m.index).trim();
+    if (seg) steps.push({ kind: "say", text: seg });
+    if (m[1]) steps.push({ kind: "thought", text: (m[2] ?? "").trim() });
+    else steps.push({ kind: "tool", name: m[3], args: (m[4] ?? "").replace(/^\(|\)$/g, ""), result: (m[5] ?? "").trim() });
+    last = m.index + m[0].length;
+  }
+  const tail = body.slice(last).trim();
+  if (tail) steps.push({ kind: "say", text: tail });
+  return steps;
+}
+
+// Replay a stored message into API messages per the DeepSeek tool-calls contract:
+// when `tools` is present, assistant turns must carry reasoning_content and
+// tool_calls, followed by role:"tool" results — otherwise the API 400s.
+function replayMessage(m: { role: string; content: string }): Record<string, unknown>[] {
+  if (m.role !== "assistant") return [{ role: m.role, content: m.content }];
+  const steps = parsePersistedTurn(m.content);
+  const tools = steps.filter(s => s.kind === "tool");
+  const says = steps.filter(s => s.kind === "say").map(s => s.text ?? "");
+  const thinks = steps.filter(s => s.kind === "thought").map(s => s.text ?? "");
+  if (tools.length === 0) {
+    return [{
+      role: "assistant",
+      content: says.join("\n\n") || m.content,
+      ...(thinks.length ? { reasoning_content: thinks.join("\n") } : {}),
+    }];
+  }
+  const out: Record<string, unknown>[] = [{
+    role: "assistant",
+    content: says.join("\n\n") || null,
+    ...(thinks.length ? { reasoning_content: thinks.join("\n") } : {}),
+    tool_calls: tools.map((s, i) => ({ id: `hist_${i}`, type: "function", function: { name: s.name, arguments: s.args ?? "{}" } })),
+  }];
+  tools.forEach((s, i) => out.push({ role: "tool", tool_call_id: `hist_${i}`, content: s.result ?? "" }));
+  return out;
+}
+interface TurnStep { kind: "thought" | "tool" | "say"; text?: string; name?: string; args?: string; result?: string }
 
 interface StreamResult {
   content: string;
@@ -174,7 +219,7 @@ export function registerChatHandler(): void {
 
     const apiMessages: unknown[] = [
       { role: "system", content: systemPrompt },
-      ...history.map(m => ({ role: m.role, content: m.content })),
+      ...history.flatMap(m => replayMessage(m)),
       { role: "user", content: request.userMessage },
     ];
 
@@ -223,7 +268,7 @@ export function registerChatHandler(): void {
         logTrace(sid, { kind: "reasoning", turn, round, text: res.reasoning });
       }
       if (res.content) {
-        finalContent += res.content;
+        steps.push({ kind: "say", text: res.content });
       }
 
       if (res.toolCalls.length === 0) break;
@@ -232,6 +277,7 @@ export function registerChatHandler(): void {
       apiMessages.push({
         role: "assistant",
         content: res.content || null,
+        ...(res.reasoning ? { reasoning_content: res.reasoning } : {}),
         tool_calls: res.toolCalls.map(c => ({ id: c.id, type: "function", function: { name: c.name, arguments: c.arguments } })),
       });
 
@@ -253,6 +299,7 @@ export function registerChatHandler(): void {
     }
 
     secs = Math.round((Date.now() - startedAt) / 1000);
+    finalContent = steps.filter(s => s.kind === "say").map(s => s.text ?? "").join("\n\n");
     if (finalContent) logTrace(sid, { kind: "content", turn, round: "final", text: finalContent });
     logTrace(sid, { kind: "turn_end", turn, secs });
     } catch (err) {
@@ -265,10 +312,10 @@ export function registerChatHandler(): void {
     if (secs > 0 || steps.some(s => s.kind === "tool")) parts.push(`[worked:${secs}s]`);
     for (const s of steps) {
       if (s.kind === "thought" && s.text) parts.push(`<think>\n${s.text}\n</think>`);
-      if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
+      else if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
+      else if (s.kind === "say" && s.text) parts.push(s.text);
     }
     if (finalReasoning && !steps.some(s => s.kind === "thought")) parts.push(`<think>\n${finalReasoning}\n</think>`);
-    parts.push(finalContent);
     addMessage(request.sessionId, "assistant", parts.join("\n\n"));
 
     sendChunk({ content: "", done: true, secs });
@@ -287,7 +334,7 @@ export function registerChatHandler(): void {
     const systemPrompt = buildSystemPrompt(settings.globalInstructions, session.customInstructions);
     const apiMessages: unknown[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(0, anchorIdx + 1).map(m => ({ role: m.role, content: m.content })),
+      ...history.slice(0, anchorIdx + 1).flatMap(m => replayMessage(m)),
     ];
 
     const target = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
