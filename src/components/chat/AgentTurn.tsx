@@ -30,14 +30,22 @@ export interface LiveStep {
   status?: "running" | "done";
 }
 
-export function parseTurn(content: string): { workedSecs: number | null; steps: LiveStep[]; rest: string } {
-  let workedSecs: number | null = null;
-  let rest = content;
+export interface TurnUsage { prompt_tokens?: number; completion_tokens?: number; reasoning_tokens?: number; cached_tokens?: number }
 
+export function parseTurn(content: string): { workedSecs: number | null; steps: LiveStep[]; rest: string; usage: TurnUsage | null } {
+  let workedSecs: number | null = null;
+  let usage: TurnUsage | null = null;
+  let rest = content;
   const workedMatch = /^\[worked:(\d+)s\]\s*/.exec(rest);
   if (workedMatch) {
     workedSecs = parseInt(workedMatch[1], 10);
     rest = rest.slice(workedMatch[0].length);
+  }
+
+  const usageMatch = /^\[usage:(\d+)\/(\d+)\/(\d+)\/(\d+)\]\s*/.exec(rest);
+  if (usageMatch) {
+    usage = { prompt_tokens: +usageMatch[1], completion_tokens: +usageMatch[2], reasoning_tokens: +usageMatch[3], cached_tokens: +usageMatch[4] };
+    rest = rest.slice(usageMatch[0].length);
   }
 
   // Walk the persisted turn in arrival order: text segments between think/tool
@@ -56,7 +64,7 @@ export function parseTurn(content: string): { workedSecs: number | null; steps: 
   const tail = rest.slice(last).trim();
   if (tail) steps.push({ kind: "say", text: tail });
 
-  return { workedSecs, steps, rest: "" };
+  return { workedSecs, steps, rest: "", usage };
 }
 
 function toolIcon(name?: string) {
@@ -98,7 +106,7 @@ export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
   );
 }
 
-export function TurnHeader({ secs, live }: { secs: number | null; live?: boolean }) {
+export function TurnHeader({ secs, live, usage }: { secs: number | null; live?: boolean; usage?: TurnUsage | null }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!live) return;
@@ -111,6 +119,13 @@ export function TurnHeader({ secs, live }: { secs: number | null; live?: boolean
     <div className="turn-header">
       <ClockIcon size={13} />
       <span>{live ? `Working for ${shown}s` : `Worked for ${shown}s`}</span>
+      {usage && (
+        <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>
+          · {usage.prompt_tokens ?? 0}↑ {usage.completion_tokens ?? 0}↓
+          {(usage.reasoning_tokens ?? 0) > 0 ? ` · ${usage.reasoning_tokens} think` : ""}
+          {(usage.cached_tokens ?? 0) > 0 ? ` · ${usage.cached_tokens} cached` : ""}
+        </span>
+      )}
     </div>
   );
 }

@@ -122,6 +122,7 @@ interface StreamResult {
   firstChunkMs: number | null;
   totalMs: number;
   chunks: number;
+  usage?: ChatChunk["usage"];
 }
 
 async function streamOnce(
@@ -140,7 +141,7 @@ async function streamOnce(
     body: JSON.stringify({
       model: endpoint.model,
       messages: apiMessages,
-      stream: true,
+      stream: true, stream_options: { include_usage: true },
       tools: TOOL_DEFS,
       ...(effort ? { reasoning_effort: effort } : {}),
     }),
@@ -160,6 +161,7 @@ async function streamOnce(
   const t0 = Date.now();
   let firstChunkMs: number | null = null;
   let chunks = 0;
+  let usage: StreamResult["usage"];
 
   for await (const data of sseLines(reader)) {
     try {
@@ -167,6 +169,7 @@ async function streamOnce(
       const delta = parsed.choices?.[0]?.delta as
         | { content?: string; reasoning_content?: string; reasoning?: string; tool_calls?: Array<{ index?: number; id?: string; function?: { name?: string; arguments?: string } }> }
         | undefined;
+      if ((parsed as { usage?: unknown }).usage && typeof (parsed as { usage?: unknown }).usage === "object") usage = (parsed as { usage?: StreamResult["usage"] }).usage;
       if (!delta) continue;
       const reasoningDelta = delta.reasoning_content ?? delta.reasoning;
       if (reasoningDelta) {
@@ -195,7 +198,7 @@ async function streamOnce(
   }
 
   const toolCalls = [...calls.entries()].sort((a, b) => a[0] - b[0]).map(([, v]) => v).filter(c => c.name);
-  return { content, reasoning, toolCalls, firstChunkMs, totalMs: Date.now() - t0, chunks };
+  return { content, reasoning, toolCalls, firstChunkMs, totalMs: Date.now() - t0, chunks, usage };
 }
 
 export function registerChatHandler(): void {
@@ -251,6 +254,7 @@ export function registerChatHandler(): void {
     const steps: TurnStep[] = [];
     let finalContent = "";
     let finalReasoning = "";
+    let turnUsage: ChatChunk["usage"];
     const sid = request.sessionId;
     const turn = readTrace(sid).filter(e => e.kind === "turn_start").length + 1;
     const capStr = (s: unknown) => (typeof s === "string" && s.length > 100_000 ? s.slice(0, 100_000) + "…[traced-truncated]" : s);
@@ -260,7 +264,15 @@ export function registerChatHandler(): void {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       logTrace(sid, { kind: "request", turn, round, messages: apiMessages.map(m => ({ ...m as Record<string, unknown>, content: capStr((m as { content?: string }).content) })), toolNames: TOOL_DEFS.map(d => d.function.name) });
       const res = await streamOnce(event.sender, sid, endpoint, apiMessages, effort);
-      logTrace(sid, { kind: "response", turn, round, status: "ok", firstChunkMs: res.firstChunkMs, totalMs: res.totalMs, chunks: res.chunks });
+      logTrace(sid, { kind: "response", turn, round, status: "ok", firstChunkMs: res.firstChunkMs, totalMs: res.totalMs, chunks: res.chunks, usage: res.usage ?? null });
+      if (res.usage) {
+        turnUsage = {
+          prompt_tokens: (turnUsage?.prompt_tokens ?? 0) + (res.usage.prompt_tokens ?? 0),
+          completion_tokens: (turnUsage?.completion_tokens ?? 0) + (res.usage.completion_tokens ?? 0),
+          prompt_tokens_details: { cached_tokens: (turnUsage?.prompt_tokens_details?.cached_tokens ?? 0) + (res.usage.prompt_tokens_details?.cached_tokens ?? 0) },
+          completion_tokens_details: { reasoning_tokens: (turnUsage?.completion_tokens_details?.reasoning_tokens ?? 0) + (res.usage.completion_tokens_details?.reasoning_tokens ?? 0) },
+        };
+      }
 
       if (res.reasoning) {
         finalReasoning += (finalReasoning ? "\n" : "") + res.reasoning;
@@ -310,6 +322,7 @@ export function registerChatHandler(): void {
     // persist with markers so reloads rebuild the turn view
     const parts: string[] = [];
     if (secs > 0 || steps.some(s => s.kind === "tool")) parts.push(`[worked:${secs}s]`);
+    if (turnUsage) parts.push(`[usage:${turnUsage.prompt_tokens ?? 0}/${turnUsage.completion_tokens ?? 0}/${turnUsage.completion_tokens_details?.reasoning_tokens ?? 0}/${turnUsage.prompt_tokens_details?.cached_tokens ?? 0}]`);
     for (const s of steps) {
       if (s.kind === "thought" && s.text) parts.push(`<think>\n${s.text}\n</think>`);
       else if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
@@ -318,7 +331,7 @@ export function registerChatHandler(): void {
     if (finalReasoning && !steps.some(s => s.kind === "thought")) parts.push(`<think>\n${finalReasoning}\n</think>`);
     addMessage(request.sessionId, "assistant", parts.join("\n\n"));
 
-    sendChunk({ content: "", done: true, secs });
+    sendChunk({ content: "", done: true, secs, usage: turnUsage });
   });
 
   // Re-run a turn anchored at a user message (retry / edit-and-resend).

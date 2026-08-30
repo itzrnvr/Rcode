@@ -67,7 +67,7 @@ export function ChatView() {
     settings,
     setSidePanelCollapsed,
   } = useApp();
-  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
+  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -273,7 +273,7 @@ export function ChatView() {
           );
         })}
         {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} streaming model={session?.model} />
+          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming model={session?.model} />
         )}
         {isStreaming && !streamingContent && (
           <div className="message-assistant stream-cursor" />

@@ -39,6 +39,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
     setVersion,
     streamingReasoning,
     liveSteps,
+    turnUsage,
   } = useChat(sessionId);
 
   const endRef = useRef<HTMLDivElement>(null);
@@ -91,7 +92,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
           );
         })}
         {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} streaming />
+          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
         )}
         {isStreaming && !streamingContent && <div className="message-assistant stream-cursor" />}
         {error && <div className="chat-error">Error: {error}</div>}

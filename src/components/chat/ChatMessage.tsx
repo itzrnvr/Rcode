@@ -34,6 +34,7 @@ interface ChatMessageProps {
   onRetry?: () => void;
   liveSteps?: LiveStep[];
   workedSecs?: number | null;
+  liveUsage?: import("./AgentTurn").TurnUsage | null;
 }
 
 // Kept for non-markdown code blocks (tool args) and copy header — markdown code uses rehype-highlight
@@ -91,10 +92,10 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
 function renderContent(content: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
-  const { workedSecs, steps, rest } = parseTurn(content);
+  const { workedSecs, steps, usage: parsedUsage } = parseTurn(content);
   let key0 = 0;
   if (workedSecs != null || steps.some(s => s.kind !== "say")) {
-    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} />);
+    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} />);
   }
   let key = 0;
 
@@ -144,7 +145,7 @@ function renderContent(content: string): ReactNode[] {
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, liveSteps, workedSecs }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, liveSteps, workedSecs, liveUsage }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
@@ -212,7 +213,7 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`}>
       {model && <div className="message-model">{model}</div>}
-      {streaming && <TurnHeader secs={null} live />}
+      {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
       {streaming && liveSteps?.map((s, i) => s.kind === "tool"
         ? <ToolRow key={`live-${i}`} step={s} />
         : s.kind === "thought"

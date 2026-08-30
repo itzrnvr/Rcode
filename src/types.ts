@@ -101,6 +101,7 @@ export interface ChatChunk {
   tool?: { name: string; args?: string; result?: string };
   secs?: number;
   approvalId?: string;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number } };
 }
 
 export interface ChatRequest {

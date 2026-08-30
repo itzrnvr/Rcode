@@ -113,7 +113,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
 
               {resps.map((r, i) => (
                 <div key={i} style={{ fontSize: 11, color: "var(--color-muted)", margin: "4px 0" }}>
-                  response r{String(r.round)} · {String(r.status)} · first {r.firstChunkMs != null ? `${String(r.firstChunkMs)}ms` : "—"} · total {String(r.totalMs)}ms · {String(r.chunks)} chunks
+                  response r{String(r.round)} · {String(r.status)} · first {r.firstChunkMs != null ? `${String(r.firstChunkMs)}ms` : "—"} · total {String(r.totalMs)}ms · {String(r.chunks)} chunks{r.usage ? ` · ${(r.usage as {prompt_tokens?:number}).prompt_tokens ?? 0}↑ ${(r.usage as {completion_tokens?:number}).completion_tokens ?? 0}↓` : ""}
                   {r.error != null && <span style={{ color: "var(--color-danger)" }}> · {String(r.error)}</span>}
                 </div>
               ))}

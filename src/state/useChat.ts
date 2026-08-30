@@ -33,6 +33,7 @@ export function useChat(sessionId: string | null) {
   const [streamingReasoning, setStreamingReasoning] = useState("");
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
   const [pendingApproval, setPendingApproval] = useState<{ approvalId: string; command: string } | null>(null);
+  const [turnUsage, setTurnUsage] = useState<{ prompt_tokens?: number; completion_tokens?: number; reasoning_tokens?: number; cached_tokens?: number } | null>(null);
   const [turnSecs, setTurnSecs] = useState<number | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +55,9 @@ export function useChat(sessionId: string | null) {
     if (chunk.done) {
       if (chunk.secs != null) setTurnSecs(chunk.secs);
       return;
+    }
+    if (chunk.done && chunk.usage) {
+      setTurnUsage({ prompt_tokens: chunk.usage.prompt_tokens, completion_tokens: chunk.usage.completion_tokens, reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens, cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens });
     }
     if (chunk.kind === "approval") {
       setPendingApproval({ approvalId: chunk.approvalId ?? "", command: chunk.tool?.name ?? "" });
@@ -108,6 +112,7 @@ export function useChat(sessionId: string | null) {
     setLiveSteps([]);
     setTurnSecs(null);
     setPendingApproval(null);
+    setTurnUsage(null);
   }, []);
 
   const endTurn = useCallback(async (sid: string, removeListener: () => void) => {
@@ -219,7 +224,7 @@ export function useChat(sessionId: string | null) {
   }, [sessionId]);
 
   return {
-    messages, streamingContent, streamingReasoning, liveSteps, pendingApproval,
+    messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage,
     respondApproval, turnSecs, isStreaming, error,
     sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage,
   };
