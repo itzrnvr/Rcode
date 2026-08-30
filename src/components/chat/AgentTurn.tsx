@@ -30,9 +30,9 @@ export interface LiveStep {
   status?: "running" | "done";
 }
 
-export function parseTurn(content: string): { workedSecs: number | null; tools: ToolStep[]; rest: string } {
+export function parseTurn(content: string): { workedSecs: number | null; steps: LiveStep[]; rest: string } {
   let workedSecs: number | null = null;
-  const tools: ToolStep[] = [];
+  const steps: LiveStep[] = [];
   let rest = content;
 
   const workedMatch = /^\[worked:(\d+)s\]\s*/.exec(rest);
@@ -41,13 +41,16 @@ export function parseTurn(content: string): { workedSecs: number | null; tools: 
     rest = rest.slice(workedMatch[0].length);
   }
 
-  const toolRegex = /\[tool:([a-zA-Z_]+)(\([\s\S]*?\))?\]\s*<toolresult>([\s\S]*?)<\/toolresult>/g;
-  rest = rest.replace(toolRegex, (_m, name: string, args: string, result: string) => {
-    tools.push({ name, args: (args ?? "").replace(/^\(|\)$/g, ""), result: result.trim(), status: "done" });
+  // Walk think blocks and tool blocks in the order they appear so the turn
+  // view shows reasoning/tool steps interleaved exactly as the agent ran them.
+  const re = /<(think|thinking)>([\s\S]*?)<\/\1>|\[tool:([a-zA-Z_]+)(\([\s\S]*?\))?\]\s*<toolresult>([\s\S]*?)<\/toolresult>/gi;
+  rest = rest.replace(re, (_m, thinkTag?: string, thinkText?: string, toolName?: string, toolArgs?: string, toolResult?: string) => {
+    if (thinkTag) steps.push({ kind: "thought", text: (thinkText ?? "").trim() });
+    else steps.push({ kind: "tool", name: toolName, args: (toolArgs ?? "").replace(/^\(|\)$/g, ""), result: (toolResult ?? "").trim(), status: "done" });
     return "";
   });
 
-  return { workedSecs, tools, rest: rest.trim() };
+  return { workedSecs, steps, rest: rest.trim() };
 }
 
 function toolIcon(name?: string) {

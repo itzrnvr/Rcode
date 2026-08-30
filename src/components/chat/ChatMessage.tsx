@@ -91,30 +91,20 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
 function renderContent(content: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
-  const { workedSecs, tools, rest } = parseTurn(content);
+  const { workedSecs, steps, rest } = parseTurn(content);
   let key0 = 0;
-  if (workedSecs != null || tools.length > 0) {
+  if (workedSecs != null || steps.length > 0) {
     nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} />);
-    for (const t of tools) nodes.push(<ToolRow key={`toolrow-${key0++}`} step={t} />);
+    for (const s of steps) {
+      nodes.push(
+        s.kind === "tool"
+          ? <ToolRow key={`step-${key0++}`} step={s} />
+          : <ThinkingBlock key={`step-${key0++}`} content={s.text ?? ""} />
+      );
+    }
   }
-  // Reasoning: <think> ... </think> or <thinking> ... </thinking>
-  const thinkRegex = /<(think|thinking)>([\s\S]*?)<\/\1>/gi;
-  let thinkMatch: RegExpExecArray | null;
-  const thinks: string[] = [];
-  let stripped = rest;
-  while ((thinkMatch = thinkRegex.exec(stripped)) !== null) {
-    thinks.push(thinkMatch[2].trim());
-  }
-  stripped = stripped.replace(thinkRegex, "").trim();
-
-  // Tool call placeholders: [tool:read_file({...})] → render as blocks if present
-  const toolRegex = /\[tool:([a-z_]+)\(([\s\S]*?)\)\]/gi;
+  const stripped = rest;
   let key = 0;
-
-  // Emit thinking first if any
-  for (const t of thinks) {
-    nodes.push(<ThinkingBlock key={`think-${key++}`} content={t} />);
-  }
 
   if (stripped) {
     nodes.push(
@@ -224,9 +214,12 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`}>
       {model && <div className="message-model">{model}</div>}
-      {streaming && (liveSteps?.some(s => s.kind === "tool")) && <TurnHeader secs={null} live />}
-      {streaming && liveSteps?.filter(s => s.kind === "tool").map((s, i) => <ToolRow key={`live-${i}`} step={s} />)}
-      {reasoning && <ThinkingBlock content={reasoning} defaultOpen={!!streaming} />}
+      {streaming && <TurnHeader secs={null} live />}
+      {streaming && liveSteps?.map((s, i) => s.kind === "tool"
+        ? <ToolRow key={`live-${i}`} step={s} />
+        : <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen />)}
+      {streaming && !content && <div className="thinking-row"><span className="tool-row-spinner" />Thinking…</div>}
+      {reasoning && !streaming && <ThinkingBlock content={reasoning} />}
       <div className="message-assistant">
         {isEditing ? (
           <div className="message-edit-box">

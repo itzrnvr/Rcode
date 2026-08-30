@@ -143,8 +143,14 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   };
   useEffect(() => {
     const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ type: ZTabType }>;
-      if (ce.detail?.type) openNewTab(ce.detail.type);
+      const ce = e as CustomEvent<{ type: ZTabType; sideChatId?: string }>;
+      if (!ce.detail?.type) return;
+      if (ce.detail.type === "side-conversation" && ce.detail.sideChatId) {
+        setActiveId(ce.detail.sideChatId);
+        setShowPicker(false);
+        return;
+      }
+      openNewTab(ce.detail.type);
     };
     window.addEventListener("sidepanel:new-tab", handler as EventListener);
     return () => window.removeEventListener("sidepanel:new-tab", handler as EventListener);

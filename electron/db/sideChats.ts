@@ -56,6 +56,12 @@ export function createSideChat(input: CreateSideChatInput): { session: Session; 
     provider: input.provider ?? parent.provider,
   });
 
+  // Fork semantics: copy the parent's history so the side chat is a true branch,
+  // not a fresh empty chat.
+  const rows = db.prepare("SELECT role, content, versions, version_index FROM messages WHERE session_id = ? ORDER BY created_at, id").all(input.parentSessionId) as Array<{ role: string; content: string; versions: string | null; version_index: number | null }>;
+  const insMsg = db.prepare("INSERT INTO messages (session_id, role, content, versions, version_index, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  for (const r of rows) insMsg.run(session.id, r.role, r.content, r.versions ?? "[]", r.version_index ?? 0, Date.now());
+
   const tabId = randomUUID();
   const now = Date.now();
   const countRow = db.prepare("SELECT COUNT(*) as c FROM side_chat_tabs WHERE parent_session_id = ?").get(input.parentSessionId) as { c: number };

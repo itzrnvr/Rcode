@@ -17,6 +17,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useApp } from "../../state/AppContext";
 import { useChat } from "../../state/useChat";
 import { api } from "../../api/client";
+import { pendingAutosend } from "../sidepanel/SideChatThread";
 
 import type { Session } from "../../types";
 
@@ -113,10 +114,12 @@ export function ChatView() {
       const title = rest ? rest.slice(0, 40) : `Side: ${session?.title?.slice(0, 24) ?? "branch"}`;
       try {
         const result = await api.createSideChat({ parentSessionId: currentSessionId, title, model: settings.model, provider: settings.providerName });
-        if (rest) await api.addMessage(result.session.id, "user", rest);
         bumpSideChats();
         setHasSideChats(true);
         await setSidePanelCollapsed(false);
+        // Activate the new side-chat pill directly (not whatever tab was open)
+        window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type: "side-conversation", sideChatId: result.session.id } }));
+        if (rest) pendingAutosend.set(result.session.id, rest);
         // Branch created — stays in main, side panel pill appears via sync
       } catch (e) {
         console.error("side branch failed", e);

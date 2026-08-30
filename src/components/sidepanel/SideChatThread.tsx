@@ -21,6 +21,10 @@ interface SideChatThreadProps {
   title: string;
 }
 
+// /side <message> queues the message here; the thread consumes it on mount so
+// the branch immediately runs the turn instead of waiting for manual typing.
+export const pendingAutosend = new Map<string, string>();
+
 export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
   const {
     messages,
@@ -41,6 +45,14 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingContent]);
+
+  useEffect(() => {
+    const pending = pendingAutosend.get(sessionId);
+    if (pending) {
+      pendingAutosend.delete(sessionId);
+      sendMessage(pending);
+    }
+  }, [sessionId, sendMessage]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
