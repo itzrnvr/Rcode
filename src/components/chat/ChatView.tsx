@@ -62,6 +62,8 @@ export function ChatView() {
     currentSessionId,
     setCurrentSessionId,
     bumpSideChats,
+    sidebarCollapsed,
+    sidePanelCollapsed,
     setHasSideChats,
     bumpSessionList,
     settings,
@@ -96,8 +98,10 @@ export function ChatView() {
     bumpSideChats();
     setHasSideChats(true);
     setMenu(null);
-    setCurrentSessionId(result.session.id);
-  }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, setCurrentSessionId]);
+    // Side chats live in the panel — main chat stays put
+    setSidePanelCollapsed(false);
+    window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type: "side-conversation", sideChatId: result.session.id } }));
+  }, [currentSessionId, session, settings, bumpSideChats, setHasSideChats, setSidePanelCollapsed]);
 
   const menuItems: ContextMenuItem[] = [
     { label: "Create side chat from selection", onClick: createSideChat },
@@ -314,7 +318,7 @@ export function ChatView() {
       </div>
 
       {/* Messages */}
-      <div className="msg-rail" aria-label="Message navigator">
+      {(sidebarCollapsed || sidePanelCollapsed) && <div className="msg-rail" aria-label="Message navigator">
         {(() => {
           const userIdx = messages.map((m, i) => ({ m, i })).filter(x => x.m.role === "user");
           let focus = railHover?.i ?? 0;
@@ -340,7 +344,7 @@ export function ChatView() {
             );
           });
         })()}
-      </div>
+      </div>}
       {railHover != null && messages[railHover.i] && (() => {
         const reply = messages.slice(railHover.i + 1).find(x => x.role === "assistant");
         return (

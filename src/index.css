@@ -3280,3 +3280,22 @@ body {
 .traffic-close::after { width: 13px; height: 1.6px; transform: rotate(-45deg); }
 .traffic-close:hover { background: #e81123; }
 .traffic-close:hover::before, .traffic-close:hover::after { background: #fff; }
+
+@keyframes sp-pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.sp-menu { animation: sp-pop .13s ease-out; }
+.panel-side button { transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease; }
+.panel-side button:hover { transform: translateY(-0.5px); }
+.msg-bar { transition: width .16s ease, background .16s ease; }
+.ctx-card, .msg-rail-card { animation: sp-pop .13s ease-out; }
+.thinking-block, .tool-row { animation: sp-pop .12s ease-out; }
+
+/* comfy-snappy global micro-motion */
+button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-pill, .effort-badge {
+  transition: background .12s ease, color .12s ease, border-color .12s ease, transform .12s ease, opacity .12s ease, box-shadow .12s ease;
+}
+.session-item:hover { transform: translateX(1px); }
+.session-item, .message-group { animation: fade-slide .16s ease-out; }
+@keyframes fade-slide { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+[data-radix-popper-content-wrapper] { animation: sp-pop .13s ease-out; }
+.chat-input-pill, .chat-input-row { transition: border-color .15s ease; }
+.panel-side, .sidebar { transition: width .16s ease; }

@@ -70,12 +70,16 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   // Keeps non-side tabs (terminal/browser/review) untouched, replaces side-conversation pills with DB state.
   useEffect(() => {
     setOpenTabs(prev => {
+      const hadPlaceholder = prev.some(t => t.type === "side-conversation" && t.id.startsWith("side-conversation-"));
       const keep = prev.filter(t => t.type !== "side-conversation");
       const mapped: ZTab[] = sideTabs.map(st => ({
         id: st.sideChatId,
         type: "side-conversation" as const,
         title: st.sideChatTitle?.trim() ? st.sideChatTitle : st.sideChatId.slice(0, 8),
       }));
+      if (mapped.length === 0 && hadPlaceholder) {
+        return [...keep, { id: "side-conversation-placeholder", type: "side-conversation" as const, title: "Side conversation" }];
+      }
       return [...keep, ...mapped];
     });
     // Auto-select first side chat when it appears and terminal was active (so selection→Create is visible)
@@ -137,6 +141,20 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     setRecentlyClosed(prev => prev.filter(t => t.id !== tab.id));
   }, []);
 
+  // Dismiss dropdowns on outside click
+  useEffect(() => {
+    if (!showPicker && !showManager) return;
+    const onDown = (e: PointerEvent) => {
+      const el = e.target as HTMLElement;
+      if (!el.closest("[data-sp-menu]") && !el.closest("[data-sp-trigger]")) {
+        setShowPicker(false);
+        setShowManager(false);
+      }
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => document.removeEventListener("pointerdown", onDown);
+  }, [showPicker, showManager]);
+
   // Local close/reopen already refreshes via useSideChats internal refresh() — no bump needed (avoids double fetch)
   const handleCloseSideChat = async (tabId: string) => {
     try {
@@ -175,6 +193,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       {/* Header — chevron (tab manager) + pills + plus (new tab) */}
       <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderBottom:'1px solid #1f1f1f', position:'relative'}}>
         <button
+          data-sp-trigger="1"
           onClick={() => { setShowManager(v => !v); setShowPicker(false); }}
           title="Search tabs / resume closed tabs"
           style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
@@ -193,13 +212,14 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         </div>
 
         <button
+          data-sp-trigger="1"
           onClick={() => { setShowPicker(v => !v); setShowManager(false); }}
           title="Open a new tab"
           style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
         ><PlusIcon size={14} /></button>
 
         {showPicker && (
-          <div style={{position:'absolute', top:44, right:8, width:220, background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
+          <div data-sp-menu="1" className="sp-menu" style={{position:'absolute', top:44, right:8, width:220, background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
             {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
               const D = TAB_DEFS[type];
               return (
@@ -216,7 +236,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           const open = openTabs.filter(t => !q || t.title.toLowerCase().includes(q));
           const closed = recentlyClosed.filter(t => !q || t.title.toLowerCase().includes(q));
           return (
-            <div style={{position:'absolute', top:44, left:8, right:8, maxHeight:'70vh', overflowY:'auto', background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
+            <div data-sp-menu="1" className="sp-menu" style={{position:'absolute', top:44, left:8, right:8, maxHeight:'70vh', overflowY:'auto', background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
               <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#111', borderRadius:8, marginBottom:6}}>
                 <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={13} /></span>
                 <input value={tabSearch} onChange={e => setTabSearch(e.target.value)} placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />

@@ -57,11 +57,11 @@ class ErrorBoundary extends Component<
 }
 
 function AppInner() {
-  const { settings, showSettings, setShowSettings, bumpSessionList, sidePanelCollapsed, setSidePanelCollapsed, sidePanelWidth, setSidePanelWidth } = useApp();
+  const { settings, showSettings, setShowSettings, bumpSessionList, sidePanelCollapsed, setSidePanelCollapsed, sidePanelWidth, setSidePanelWidth, sidebarCollapsed, setSidebarCollapsed } = useApp();
   useTheme(settings.theme);
 
   const [route, setRoute] = useState<"chat" | "settings">("chat");
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [settingsCategory, setSettingsCategory] = useState<string | undefined>(undefined);
   const [feedbackMode, setFeedbackMode] = useState(false);
@@ -121,9 +121,6 @@ function AppInner() {
   }, []);;
 
   useEffect(() => {
-    api.getSetting("sidebarCollapsed")
-      .then(v => { if (v === "true") setSidebarCollapsed(true); })
-      .catch(() => {});
     api.getSetting("sidebarWidth")
       .then(v => { const n = parseInt(v ?? "", 10); if (!isNaN(n) && n >= 200 && n <= 480) setSidebarWidth(n); })
       .catch(() => {});
@@ -169,9 +166,7 @@ function AppInner() {
   const closeSettings = () => setShowSettings(false);
 
   const toggleSidebar = async () => {
-    const v = !sidebarCollapsed;
-    setSidebarCollapsed(v);
-    await api.setSetting("sidebarCollapsed", v ? "true" : "false");
+    await setSidebarCollapsed(!sidebarCollapsed);
   };
   const handleSidebarWidthChange = async (w: number) => {
     setSidebarWidth(w);

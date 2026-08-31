@@ -272,7 +272,7 @@ export function ChatInput({
                   className={`mode-badge`}
                   aria-label={`Mode: ${currentMode.label}. Click to change.`}
                 >
-                  <span className="mode-badge-label">{currentMode.label}</span>
+                  {!compact && <span className="mode-badge-label">{currentMode.label}</span>}
                   <ChevronDownIcon size={11} />
                 </button>
               </PopoverTrigger>

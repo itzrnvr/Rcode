@@ -35,6 +35,8 @@ interface AppContextValue {
   setHasSideChats: (v: boolean) => void;
   sidePanelCollapsed: boolean;
   setSidePanelCollapsed: (v: boolean) => void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed: (v: boolean) => void;
   sidePanelWidth: number;
   setSidePanelWidth: (n: number) => void;
 }
@@ -48,7 +50,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sessionListVersion, setSessionListVersion] = useState(0);
   const [sideChatVersion, setSideChatVersion] = useState(0);
   const [hasSideChats, setHasSideChats] = useState(false);
-  const [sidePanelCollapsed, setSidePanelCollapsedState] = useState(false);
+  const [sidePanelCollapsed, setSidePanelCollapsedState] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
   const [sidePanelWidth, setSidePanelWidthState] = useState(380);
 
   const refreshSettings = useCallback(async () => {
@@ -73,13 +76,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [refreshSettings]);
 
   useEffect(() => {
-    api.getSetting("sidePanelCollapsed").then(v => { if (v === "true") setSidePanelCollapsedState(true); }).catch(() => {});
+    api.getSetting("sidePanelCollapsed").then(v => { if (v === "false") setSidePanelCollapsedState(false); }).catch(() => {});
+    api.getSetting("sidebarCollapsed").then(v => { if (v === "true") setSidebarCollapsedState(true); }).catch(() => {});
     api.getSetting("sidePanelWidth").then(v => { const n = parseInt(v ?? "", 10); if (!isNaN(n) && n >= 240 && n <= 600) setSidePanelWidthState(n); }).catch(() => {});
   }, []);
 
   const setSidePanelCollapsed = useCallback(async (v: boolean) => {
     setSidePanelCollapsedState(v);
     await api.setSetting("sidePanelCollapsed", v ? "true" : "false");
+  }, []);
+  const setSidebarCollapsed = useCallback(async (v: boolean) => {
+    setSidebarCollapsedState(v);
+    await api.setSetting("sidebarCollapsed", v ? "true" : "false");
   }, []);
   const setSidePanelWidth = useCallback(async (n: number) => {
     setSidePanelWidthState(n);
@@ -110,6 +118,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setHasSideChats,
     sidePanelCollapsed,
     setSidePanelCollapsed,
+    sidebarCollapsed,
+    setSidebarCollapsed,
     sidePanelWidth,
     setSidePanelWidth,
   };
