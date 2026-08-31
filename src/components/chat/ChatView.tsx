@@ -165,7 +165,7 @@ export function ChatView() {
     return () => { cancelled = true; };
   }, [currentSessionId, messages]);
 
-  const [railHover, setRailHover] = useState<{ i: number; top: number } | null>(null);
+  const [railHover, setRailHover] = useState<{ i: number; top: number; left: number } | null>(null);
   const [activeMsgIdx, setActiveMsgIdx] = useState(0);
 
   const stripMarkers = (s: string) => s
@@ -297,13 +297,13 @@ export function ChatView() {
           const focus = railHover?.i ?? activeMsgIdx;
           return userIdx.map(({ m, i }) => {
             const d = Math.abs(i - focus);
-            const w = d === 0 ? 20 : d === 1 ? 14 : d === 2 ? 11 : 9;
+            const w = Math.round((9 + 11 * Math.exp(-(d * d) / 3.4)) * 10) / 10;
             return (
               <button
                 key={m.id}
                 className={`msg-tick ${i <= activeMsgIdx ? "active" : ""} ${d === 0 ? "focus" : ""}`}
                 title=""
-                onMouseEnter={e => setRailHover({ i, top: e.currentTarget.getBoundingClientRect().top })}
+                onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); const rail = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(); setRailHover({ i, top: r.top, left: rail.right }); }}
                 onMouseLeave={() => setRailHover(null)}
                 onClick={() => scrollToMsg(m.id)}
               >
@@ -316,7 +316,7 @@ export function ChatView() {
       {railHover != null && messages[railHover.i] && (() => {
         const reply = messages.slice(railHover.i + 1).find(x => x.role === "assistant");
         return (
-          <div className="msg-rail-card" style={{ top: Math.max(60, railHover.top - 20) }}>
+          <div className="msg-rail-card" style={{ top: Math.max(60, railHover.top - 20), left: railHover.left + 10 }}>
             <div className="msg-rail-title">{stripMarkers(messages[railHover.i].content).slice(0, 60) || "(empty)"}</div>
             <div className="msg-rail-preview">{reply ? stripMarkers(reply.content).slice(0, 200) : "No reply yet."}</div>
           </div>
