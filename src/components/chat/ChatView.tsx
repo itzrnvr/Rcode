@@ -180,6 +180,18 @@ export function ChatView() {
     document.querySelector(`[data-mid="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
+  useEffect(() => {
+    const el = document.querySelector(".chat-messages");
+    if (!el) return;
+    const nodes = [...el.querySelectorAll<HTMLElement>("[data-mid]")];
+    let idx = 0;
+    for (let i = 0; i < nodes.length; i++) {
+      if (nodes[i].getBoundingClientRect().top - el.getBoundingClientRect().top <= 90) idx = i;
+    }
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) idx = nodes.length - 1;
+    setActiveMsgIdx(idx);
+  }, [messages]);
+
   const handleMsgScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
     const nodes = [...el.querySelectorAll<HTMLElement>("[data-mid]")];
@@ -187,6 +199,7 @@ export function ChatView() {
     for (let i = 0; i < nodes.length; i++) {
       if (nodes[i].getBoundingClientRect().top - el.getBoundingClientRect().top <= 90) idx = i;
     }
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) idx = nodes.length - 1;
     setActiveMsgIdx(idx);
   }, []);
 
@@ -294,7 +307,12 @@ export function ChatView() {
       <div className="msg-rail" aria-label="Message navigator">
         {(() => {
           const userIdx = messages.map((m, i) => ({ m, i })).filter(x => x.m.role === "user");
-          const focus = railHover?.i ?? activeMsgIdx;
+          let focus = railHover?.i ?? 0;
+          if (railHover == null) {
+            for (let k = Math.min(activeMsgIdx, messages.length - 1); k >= 0; k--) {
+              if (messages[k].role === "user") { focus = k; break; }
+            }
+          }
           return userIdx.map(({ m, i }) => {
             const d = Math.abs(i - focus);
             const w = Math.round((9 + 11 * Math.exp(-(d * d) / 3.4)) * 10) / 10;
