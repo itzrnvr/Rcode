@@ -21,6 +21,7 @@ import {
   SearchIcon,
   HistoryIcon,
   ActivityIcon,
+  ChevronDownIcon,
 } from "../common/Icons";
 import { TerminalPane } from "./TerminalPane";
 import { TrajectoryView } from "./TrajectoryView";
@@ -32,6 +33,7 @@ interface ZTab {
   id: string;
   type: ZTabType;
   title: string;
+  closedAt?: number;
 }
 
 const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number; className?: string }> }> = {
@@ -43,14 +45,23 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
   dsh: { label: "Agent (dsh web)", Icon: GlobeIcon },
 };
 
+function fmtAgo(ts?: number): string {
+  if (!ts) return "";
+  const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.round(h / 24)}d`;
+}
+
 export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: boolean; width?: number; onToggleCollapse?: () => void } = {}) {
   const { currentSessionId, sideChatVersion } = useApp();
   const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
-  const [openTabs, setOpenTabs] = useState<ZTab[]>([
-    { id: "terminal", type: "terminal", title: "Terminal" },
-  ]);
-  const [activeId, setActiveId] = useState<string>("terminal");
+  const [openTabs, setOpenTabs] = useState<ZTab[]>([]);
+  const [activeId, setActiveId] = useState<string>("");
   const [showPicker, setShowPicker] = useState(false);
+  const [showManager, setShowManager] = useState(false);
+  const [tabSearch, setTabSearch] = useState("");
   const [recentlyClosed, setRecentlyClosed] = useState<ZTab[]>([]);
 
   const activeTab = openTabs.find(t => t.id === activeId) ?? openTabs[0];
@@ -65,15 +76,10 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         type: "side-conversation" as const,
         title: st.sideChatTitle?.trim() ? st.sideChatTitle : st.sideChatId.slice(0, 8),
       }));
-      if (mapped.length === 0) {
-        const hasPlaceholder = prev.some(t => t.type === "side-conversation");
-        if (hasPlaceholder) return prev;
-        return [...keep, { id: "side-conversation", type: "side-conversation" as const, title: "Side conversation" }];
-      }
       return [...keep, ...mapped];
     });
     // Auto-select first side chat when it appears and terminal was active (so selection→Create is visible)
-    if (sideTabs.length > 0 && activeId === "terminal") {
+    if (sideTabs.length > 0 && (activeId === "" || activeId === "terminal")) {
       // don't auto-switch if user is on terminal/review/browser — only if no side pill was active
       const hasActiveSide = sideTabs.some(s => s.sideChatId === activeId);
       if (!hasActiveSide) setActiveId(sideTabs[0].sideChatId);
@@ -119,7 +125,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
 
   const closeTab = useCallback((id: string) => {
     const closing = openTabs.find(t => t.id === id);
-    if (closing) setRecentlyClosed(prev => [closing, ...prev].slice(0, 5));
+    if (closing) setRecentlyClosed(prev => [{ ...closing, closedAt: Date.now() }, ...prev].slice(0, 8));
     const next = openTabs.filter(t => t.id !== id);
     setOpenTabs(next);
     if (activeId === id && next.length) setActiveId(next[0].id);
@@ -166,55 +172,98 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
 
   return (
     <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', flexDirection:'column', background:'var(--color-bg)', borderLeft:'1px solid #1f1f1f', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
-      {/* Header — Terminal pill + dropdown (Image 2,3) */}
-      <div style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderBottom:'1px solid #1f1f1f'}}>
-        <button onClick={() => setShowPicker(v => !v)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', fontSize:13, flex:1}}>
-          <span style={{opacity:0.6}}>⇄</span> {activeTab ? activeTab.title : "Terminal"} <span style={{marginLeft:'auto', opacity:0.5}}>▾</span>
-        </button>
-        <button onClick={() => setShowPicker(true)} style={{width:28, height:28, borderRadius:6, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', display:'flex', alignItems:'center', justifyContent:'center'}}><PlusIcon size={14} /></button>
+      {/* Header — chevron (tab manager) + pills + plus (new tab) */}
+      <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderBottom:'1px solid #1f1f1f', position:'relative'}}>
+        <button
+          onClick={() => { setShowManager(v => !v); setShowPicker(false); }}
+          title="Search tabs / resume closed tabs"
+          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
+        ><ChevronDownIcon size={14} /></button>
+
+        <div style={{display:'flex', gap:6, flex:1, overflowX:'auto'}}>
+          {openTabs.map(t => {
+            const Def = TAB_DEFS[t.type];
+            return (
+              <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : '#1a1a1a', border:'1px solid ' + (t.id===activeId ? '#3a3a3a' : '#262626'), color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap', cursor:'pointer'}}>
+                <Def.Icon size={13} />{t.title}
+                <span onClick={e => { e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }} style={{marginLeft:2, opacity:0.6, display:'flex'}}><XIcon size={11} /></span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => { setShowPicker(v => !v); setShowManager(false); }}
+          title="Open a new tab"
+          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
+        ><PlusIcon size={14} /></button>
 
         {showPicker && (
-          <div style={{position:'fixed', top:52, right:12, width:340, maxHeight:'70vh', overflowY:'auto', background:'#1a1a1a', border:'1px solid #262626', borderRadius:12, padding:8, zIndex:1200, boxShadow:'0 12px 40px rgba(0,0,0,0.6)'}}>
-            <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#0f0f0f', borderRadius:8, marginBottom:8}}>
-              <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={14} /></span><input placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
-            </div>
-            <div style={{fontSize:11, color:'#8a8a8a', padding:'4px 8px'}}>Open tabs</div>
-            {openTabs.map(t => {
-              const Def = TAB_DEFS[t.type];
+          <div style={{position:'absolute', top:44, right:8, width:220, background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
+            {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
+              const D = TAB_DEFS[type];
               return (
-                <button key={t.id} onClick={() => {setActiveId(t.id); setShowPicker(false);}} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : 'transparent', border:'none', color:'#e8e8e8', textAlign:'left'}}>
-                  <Def.Icon size={14} /><span style={{flex:1}}>{t.title}</span><span style={{fontSize:11, opacity:0.5}}>now</span><span onClick={e=>{e.stopPropagation(); closeTab(t.id);}} style={{padding:2}}><XIcon size={12} /></span>
+                <button key={type} onClick={() => openNewTab(type)} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:8, background:'transparent', border:'none', color:'#e8e8e8', fontSize:13, textAlign:'left', cursor:'pointer'}}>
+                  <D.Icon size={14} />{D.label}
                 </button>
               );
             })}
-            <div style={{fontSize:11, color:'#8a8a8a', padding:'8px 8px 4px', marginTop:6}}>Recently closed tabs</div>
-            {recentlyClosed.map(t => (
-              <button key={t.id} onClick={() => reopenRecent(t)} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:8, background:'transparent', border:'none', color:'#8a8a8a', textAlign:'left'}}>
-                <HistoryIcon size={14} /><span style={{flex:1}}>{t.title}</span><span style={{fontSize:11, opacity:0.5}}>2h</span>
-              </button>
-            ))}
-            <div style={{height:1, background:'#262626', margin:'8px 0'}} />
-            <div style={{fontSize:11, color:'#8a8a8a', padding:'4px 8px'}}>Open tab</div>
-            {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
-              const D = TAB_DEFS[type];
-              return <button key={type} onClick={() => openNewTab(type)} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:8, background:'transparent', border:'none', color:'#e8e8e8', textAlign:'left'}}><D.Icon size={14} />{D.label}</button>;
-            })}
           </div>
         )}
-      </div>
 
-      {/* Pill tabs bar — Terminal / Side conversation 1 (Image 5) */}
-      <div style={{display:'flex', gap:6, padding:'8px 10px', borderBottom:'1px solid #1f1f1f', overflowX:'auto'}}>
-        {openTabs.map(t => (
-          <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background: t.id===activeId ? '#252525' : '#1a1a1a', border:'1px solid #262626', color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap'}}>
-            <span style={{width:6, height:6, borderRadius:999, background: t.type==='terminal' ? '#3b82f6' : '#22c55e'}} />{t.title} <span onClick={e=>{e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id);}} style={{marginLeft:4, opacity:0.6}}><XIcon size={10} /></span>
-          </button>
-        ))}
+        {showManager && (() => {
+          const q = tabSearch.toLowerCase();
+          const open = openTabs.filter(t => !q || t.title.toLowerCase().includes(q));
+          const closed = recentlyClosed.filter(t => !q || t.title.toLowerCase().includes(q));
+          return (
+            <div style={{position:'absolute', top:44, left:8, right:8, maxHeight:'70vh', overflowY:'auto', background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
+              <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#111', borderRadius:8, marginBottom:6}}>
+                <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={13} /></span>
+                <input value={tabSearch} onChange={e => setTabSearch(e.target.value)} placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
+              </div>
+              <div style={{fontSize:11, color:'#8a8a8a', padding:'4px 8px'}}>Open tabs</div>
+              {open.length === 0 && <div style={{fontSize:12, color:'#5a5a5a', padding:'4px 8px'}}>none</div>}
+              {open.map(t => {
+                const Def = TAB_DEFS[t.type];
+                return (
+                  <button key={t.id} onClick={() => { setActiveId(t.id); setShowManager(false); }} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'7px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : 'transparent', border:'none', color:'#e8e8e8', fontSize:13, textAlign:'left', cursor:'pointer'}}>
+                    <Def.Icon size={13} /><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.title}</span>
+                    <span onClick={e => { e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }} style={{opacity:0.6, display:'flex'}}><XIcon size={12} /></span>
+                  </button>
+                );
+              })}
+              <div style={{fontSize:11, color:'#8a8a8a', padding:'6px 8px 2px'}}>Recently closed tabs</div>
+              {closed.length === 0 && <div style={{fontSize:12, color:'#5a5a5a', padding:'4px 8px'}}>none</div>}
+              {closed.map(t => {
+                const Def = TAB_DEFS[t.type];
+                return (
+                  <button key={t.id} onClick={() => { reopenRecent(t); setShowManager(false); }} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'7px 10px', borderRadius:8, background:'transparent', border:'none', color:'#9a9a9a', fontSize:13, textAlign:'left', cursor:'pointer'}}>
+                    <Def.Icon size={13} /><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.title}</span><span style={{fontSize:11, opacity:0.6}}>{fmtAgo(t.closedAt)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* Content */}
       <div style={{flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'var(--color-bg)'}}>
-        {!activeTab && <div style={{color:'#8a8a8a', textAlign:'center', marginTop:40, padding:12}}>Open tab<br/><span style={{fontSize:12}}>Choose a tab to open in the side pane.</span></div>}
+        {!activeTab && (
+          <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, padding:24}}>
+            <div style={{fontSize:17, fontWeight:700, color:'#e8e8e8'}}>Open tab</div>
+            <div style={{fontSize:12, color:'#8a8a8a', marginBottom:10}}>Choose a tab to open in the side pane.</div>
+            {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
+              const D = TAB_DEFS[type];
+              return (
+                <button key={type} onClick={() => openNewTab(type)} style={{display:'flex', alignItems:'center', gap:12, width:'100%', maxWidth:340, padding:'12px 14px', background:'#161616', border:'1px solid #262626', borderRadius:10, color:'#e8e8e8', fontSize:13, fontWeight:600, textAlign:'left', cursor:'pointer'}}>
+                  <span style={{display:'flex', padding:6, background:'#1f1f1f', borderRadius:8, border:'1px solid #2a2a2a'}}><D.Icon size={15} /></span>
+                  {D.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {activeTab?.type === "side-conversation" && (() => {
           const liveRow = sideTabs.find(st => st.sideChatId === activeTab.id);
           if (liveRow) {
