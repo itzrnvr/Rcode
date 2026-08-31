@@ -67,6 +67,9 @@ import {
   Wrench,
   Activity,
   GitFork,
+  List,
+  LayoutGrid,
+  Download,
   Bot,
   MessageCircle,
   MessagesSquare,
@@ -228,6 +231,12 @@ export const LockIcon = (p: { size?: number; className?: string }) =>
   <Lock size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const WrenchIcon = (p: { size?: number; className?: string }) =>
   <Wrench size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const ListIcon = (p: { size?: number; className?: string }) =>
+  <List size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const LayoutGridIcon = (p: { size?: number; className?: string }) =>
+  <LayoutGrid size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const DownloadIcon = (p: { size?: number; className?: string }) =>
+  <Download size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const GitForkIcon = (p: { size?: number; className?: string }) =>
   <GitFork size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const ActivityIcon = (p: { size?: number; className?: string }) =>

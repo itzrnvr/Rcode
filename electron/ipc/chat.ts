@@ -330,6 +330,8 @@ export function registerChatHandler(): void {
     const turn = readTrace(sid).filter(e => e.kind === "turn_start").length + 1;
     const capStr = (s: unknown) => (typeof s === "string" && s.length > 100_000 ? s.slice(0, 100_000) + "…[traced-truncated]" : s);
     logTrace(sid, { kind: "turn_start", turn, model: endpoint.model, baseUrl: endpoint.baseUrl, mode, effort: effort ?? null, userMessage: request.userMessage });
+    logTrace(sid, { kind: "user", turn, text: request.userMessage });
+    logTrace(sid, { kind: "system", turn, text: `System prompt · ${TOOL_DEFS.length} tools · mode ${mode}` });
     try {
 
     const drainSteering = () => {
@@ -339,7 +341,7 @@ export function registerChatHandler(): void {
       for (const msg of q) {
         addMessage(sid, "user", msg);
         apiMessages.push({ role: "user", content: msg });
-        logTrace(sid, { kind: "steering", turn, round: "inject", text: msg });
+        logTrace(sid, { kind: "user", turn, round: "inject", text: msg });
       }
     };
 
