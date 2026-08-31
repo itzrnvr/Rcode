@@ -949,7 +949,7 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-left: 26px;
+  padding-left: 44px;
 }
 .chat-messages > * {
   width: 100%;
@@ -3259,7 +3259,7 @@ body {
 .ctx-card-row span:last-child { font-family: var(--font-mono, monospace); color: var(--color-text); }
 .ctx-card-cache { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--color-border); }
 
-.msg-rail { position: absolute; left: 2px; top: 56px; bottom: 120px; width: 22px; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 5px; padding: 10px 0; z-index: 5; overflow: hidden; }
+.msg-rail { position: absolute; left: 2px; top: 50%; transform: translateY(-50%); max-height: 72%; width: 22px; display: flex; flex-direction: column; justify-content: flex-start; align-items: flex-start; gap: 5px; padding: 4px 0; z-index: 5; overflow: hidden; }
 .msg-tick { height: 11px; width: 20px; background: transparent; border: none; padding: 0; cursor: pointer; position: relative; flex: none; }
 .msg-tick::before { content: ""; position: absolute; left: 2px; right: 8px; top: 4px; height: 3px; background: #3a3a3a; border-radius: 2px; }
 .msg-tick:hover::before { background: #8a8a8a; right: 4px; }
