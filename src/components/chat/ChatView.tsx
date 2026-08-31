@@ -292,16 +292,26 @@ export function ChatView() {
 
       {/* Messages */}
       <div className="msg-rail" aria-label="Message navigator">
-        {messages.map((m, i) => m.role === "user" ? (
-          <button
-            key={m.id}
-            className={`msg-tick ${i <= activeMsgIdx ? "active" : ""}`}
-            title=""
-            onMouseEnter={e => setRailHover({ i, top: e.currentTarget.getBoundingClientRect().top })}
-            onMouseLeave={() => setRailHover(null)}
-            onClick={() => scrollToMsg(m.id)}
-          />
-        ) : null)}
+        {(() => {
+          const userIdx = messages.map((m, i) => ({ m, i })).filter(x => x.m.role === "user");
+          const focus = railHover?.i ?? activeMsgIdx;
+          return userIdx.map(({ m, i }) => {
+            const d = Math.abs(i - focus);
+            const w = d === 0 ? 20 : d === 1 ? 14 : d === 2 ? 11 : 9;
+            return (
+              <button
+                key={m.id}
+                className={`msg-tick ${i <= activeMsgIdx ? "active" : ""} ${d === 0 ? "focus" : ""}`}
+                title=""
+                onMouseEnter={e => setRailHover({ i, top: e.currentTarget.getBoundingClientRect().top })}
+                onMouseLeave={() => setRailHover(null)}
+                onClick={() => scrollToMsg(m.id)}
+              >
+                <span className="msg-bar" style={{ width: w }} />
+              </button>
+            );
+          });
+        })()}
       </div>
       {railHover != null && messages[railHover.i] && (() => {
         const reply = messages.slice(railHover.i + 1).find(x => x.role === "assistant");
