@@ -223,9 +223,15 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, [sessionId]);
 
+  const refreshMessages = useCallback(async () => {
+    if (!sessionId) return;
+    const msgs = await api.getMessages(sessionId);
+    setMessages(msgs);
+  }, [sessionId]);
+
   return {
     messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage,
     respondApproval, turnSecs, isStreaming, error,
-    sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage,
+    sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages,
   };
 }

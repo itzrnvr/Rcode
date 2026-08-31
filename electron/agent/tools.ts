@@ -71,7 +71,7 @@ export const TOOL_DEFS = [
       description: "Run a shell command (bash on unix, cmd on windows). Output capped at 20KB. Requires permission per mode.",
       parameters: {
         type: "object",
-        properties: { command: { type: "string", description: "The command line to execute" } },
+        properties: { command: { type: "string", description: "The command line to execute" }, timeout_seconds: { type: "number", description: "Timeout in seconds (default 60, max 600) for long builds" } },
         required: ["command"],
       },
     },
@@ -110,6 +110,18 @@ export const TOOL_DEFS = [
   {
     type: "function" as const,
     function: {
+      name: "web_search",
+      description: "Search the web (DuckDuckGo, no key needed). Returns top results as title + URL + snippet.",
+      parameters: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    },
+  },
+  {
+    type: "function" as const,
+    function: {
       name: "web_fetch",
       description: "Fetch a URL and return its text (HTML tags stripped), capped at 100KB. Read-only.",
       parameters: {
@@ -128,7 +140,7 @@ function capText(s: string, cap: number): string {
   return s.slice(0, cap) + `\n… [truncated ${s.length - cap} more chars]`;
 }
 
-function runShell(command: string, cwd: string): Promise<string> {
+function runShell(command: string, cwd: string, timeoutMs = 60000): Promise<string> {
   return new Promise(resolvePromise => {
     exec(
       command,
@@ -194,6 +206,27 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
         writeFileSync(p, text.replace(oldS, String(args.new_string ?? "")), "utf8");
         return `edited ${p}`;
       }
+      case "web_search": {
+        const q = String(args.query ?? "");
+        const res = await fetch("https://html.duckduckgo.com/html/?q=" + encodeURIComponent(q), {
+          signal: AbortSignal.timeout(15000),
+          headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" },
+        });
+        if (!res.ok) return `error: HTTP ${res.status}`;
+        const html = await res.text();
+        const strip = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#x27;/g, "'").replace(/&quot;/g, '"').trim();
+        const hits: string[] = [];
+        const re = /<a[^>]*class="result__a"[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/g;
+        let mm: RegExpExecArray | null;
+        while ((mm = re.exec(html)) && hits.length < 8) {
+          hits.push(`${strip(mm[2])}\n  ${mm[1]}`);
+        }
+        const reS = /<[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\//g;
+        const snippets: string[] = [];
+        while ((mm = reS.exec(html)) && snippets.length < 8) snippets.push(strip(mm[1]));
+        const out = hits.map((h, i) => `${h}${snippets[i] ? `\n  ${snippets[i]}` : ""}`).join("\n\n");
+        return out || "no results";
+      }
       case "web_fetch": {
         const url = String(args.url ?? "");
         const res = await fetch(url, { signal: AbortSignal.timeout(15000), headers: { "User-Agent": "Rcode-agent/0.1" } });
@@ -234,7 +267,7 @@ export async function executeTool(name: string, args: Record<string, unknown>, c
           const ok = await ctx.askApproval(command);
           if (!ok) return "error: the user denied this command.";
         }
-        return await runShell(command, ctx.cwd);
+        return await runShell(command, ctx.cwd, Math.min(Number(args.timeout_seconds) || 60, 600) * 1000);
       }
       default:
         return `error: unknown tool ${name}`;

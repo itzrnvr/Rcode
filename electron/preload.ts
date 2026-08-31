@@ -88,6 +88,8 @@ const electronAPI = {
     ipcRenderer.invoke("session:fork", sessionId, upToMessageId),
   contextInfo: (sessionId: string): Promise<{ system: number; tools: number; messages: number; cacheRate: number | null }> =>
     ipcRenderer.invoke("chat:contextInfo", sessionId),
+  compactChat: (sessionId: string): Promise<{ summary: string }> =>
+    ipcRenderer.invoke("chat:compact", sessionId),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);

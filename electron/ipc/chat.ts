@@ -23,7 +23,7 @@ import { app } from "electron";
 
 import { getSession } from "../db/sessions";
 import { getMessages, addMessage, appendAssistantVersion, archiveTail } from "../db/messages";
-import { getSettings } from "../db/settings";
+import { getSettings, setSetting, getSetting } from "../db/settings";
 import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
@@ -32,7 +32,7 @@ import { logTrace, readTrace } from "../agent/trace";
 
 import type { ChatRequest, ChatChunk, Session, Settings } from "../../src/types";
 
-const MAX_TOOL_ROUNDS = 6;
+const MAX_TOOL_ROUNDS = 24;
 
 interface Endpoint {
   baseUrl: string;
@@ -86,6 +86,26 @@ function parsePersistedTurn(content: string): TurnStep[] {
   const tail = body.slice(last).trim();
   if (tail) steps.push({ kind: "say", text: tail });
   return steps;
+}
+
+// Long-task survival: shrink old replayed context so long sessions stay inside
+// the model window. Old tool results get truncated; old reasoning is dropped.
+function pruneHistory(msgs: Record<string, unknown>[]): Record<string, unknown>[] {
+  let toolSeen = 0;
+  let assistSeen = 0;
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const m = msgs[i];
+    if (m.role === "tool") {
+      toolSeen++;
+      if (toolSeen > 8 && typeof m.content === "string" && m.content.length > 2000) {
+        m.content = m.content.slice(0, 2000) + "\n…[pruned]";
+      }
+    } else if (m.role === "assistant") {
+      assistSeen++;
+      if (assistSeen > 4 && "reasoning_content" in m) delete m.reasoning_content;
+    }
+  }
+  return msgs;
 }
 
 // Replay a stored message into API messages per the DeepSeek tool-calls contract:
@@ -201,6 +221,24 @@ async function streamOnce(
   return { content, reasoning, toolCalls, firstChunkMs, totalMs: Date.now() - t0, chunks, usage };
 }
 
+ipcMain.handle("chat:compact", async (_e, sessionId: string) => {
+  const settings = getSettings();
+  const session = getSession(sessionId);
+  if (!session) throw new Error("Session not found");
+  const history = getMessages(sessionId);
+  if (history.length < 4) throw new Error("Nothing to compact yet");
+  const transcript = history.map(m => `${m.role}: ${m.content}`).join("\n\n").slice(-60000);
+  const endpoint = resolveEndpoint(session, settings);
+  const silent = { send: () => undefined } as unknown as import("electron").WebContents;
+  const res = await streamOnce(silent, sessionId, endpoint, [
+    { role: "system", content: "Summarize this conversation concisely for continuing the work later: goals, decisions, file paths, commands run, important tool results, and the current state. Bullet points, no preamble." },
+    { role: "user", content: transcript },
+  ], "low");
+  setSetting(`compact:${sessionId}`, res.content);
+  addMessage(sessionId, "system", `Conversation compacted: ${history.length} messages folded into a summary. New turns replay from summary + last 6 messages.`);
+  return { summary: res.content };
+});
+
 ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
   const settings = getSettings();
   const session = getSession(sessionId);
@@ -236,9 +274,15 @@ export function registerChatHandler(): void {
     const history = getMessages(request.sessionId);
     const systemPrompt = buildSystemPrompt(settings.globalInstructions, session.customInstructions);
 
+    const compactSummary = getSetting(`compact:${request.sessionId}`);
     const apiMessages: unknown[] = [
       { role: "system", content: systemPrompt },
-      ...history.flatMap(m => replayMessage(m)),
+      ...(compactSummary
+        ? [
+            { role: "system", content: `Summary of the earlier conversation (compacted):\n${compactSummary}` },
+            ...pruneHistory(history.slice(-6).flatMap(m => replayMessage(m))),
+          ]
+        : pruneHistory(history.flatMap(m => replayMessage(m)))),
       { role: "user", content: request.userMessage },
     ];
 

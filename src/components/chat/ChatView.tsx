@@ -67,7 +67,7 @@ export function ChatView() {
     settings,
     setSidePanelCollapsed,
   } = useApp();
-  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage } = useChat(currentSessionId);
+  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -105,6 +105,16 @@ export function ChatView() {
 
   const handleSend = useCallback(async (text: string, meta?: { mode?: string; reasoningEffort?: string }) => {
     const trimmed = text.trim();
+    if (trimmed.toLowerCase() === "/compact") {
+      if (!currentSessionId) return;
+      try {
+        await (api as unknown as { compactChat: (id: string) => Promise<{ summary: string }> }).compactChat(currentSessionId);
+        await refreshMessages();
+      } catch (e) {
+        console.error("compact failed", e);
+      }
+      return;
+    }
     if (trimmed.toLowerCase().startsWith("/side")) {
       if (!currentSessionId) {
         // No session to branch from — create a new main session first
