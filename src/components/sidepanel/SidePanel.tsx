@@ -25,6 +25,7 @@ import {
 } from "../common/Icons";
 import { TerminalPane } from "./TerminalPane";
 import { TrajectoryView } from "./TrajectoryView";
+import { GitPanel } from "./GitPanel";
 import { SideChatThread } from "./SideChatThread";
 
 type ZTabType = "side-conversation" | "review" | "terminal" | "browser" | "trajectory" | "dsh";
@@ -348,7 +349,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         {activeTab?.type === "terminal" && (
           <div style={{flex:1, minHeight:0, padding:12}}><TerminalPane terminalId={activeTab.id} /></div>
         )}
-        {activeTab?.type === "review" && <div style={{color:'#8a8a8a', fontSize:13, padding:12}}>Review — diff + Changes +12330 -0 will render here.</div>}
+        {activeTab?.type === "review" && <GitPanel />}
         {activeTab?.type === "browser" && <div style={{color:'#8a8a8a', fontSize:13, textAlign:'center', marginTop:40, padding:12}}>Browser — preview at http://192.168.1.100:63881/prototype-mobile.html</div>}
       </div>
     </aside>

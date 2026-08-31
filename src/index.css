@@ -3299,3 +3299,6 @@ button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-
 [data-radix-popper-content-wrapper] { animation: sp-pop .13s ease-out; }
 .chat-input-pill, .chat-input-row { transition: border-color .15s ease; }
 .panel-side, .sidebar { transition: width .16s ease; }
+
+.header-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #1a1a1a; border: 1px solid #262626; color: #b8b8b8; font-size: 11.5px; cursor: pointer; }
+.header-pill:hover { background: #222; color: #e8e8e8; }

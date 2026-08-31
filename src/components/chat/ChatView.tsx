@@ -32,6 +32,8 @@ import {
   SparkleIcon,
   ChevronDownIcon,
   ActivityIcon,
+  FolderIcon,
+  GitForkIcon,
 } from "../common/Icons";
 
 const QUICK_PROMPTS = [
@@ -302,6 +304,7 @@ export function ChatView() {
           </button>
         )}
         <span className="chat-title">{session?.title ?? "Loading…"}</span>
+        <HeaderPills />
         {session && session.depth > 0 && (
           <span className="chat-depth">depth {session.depth}</span>
         )}
@@ -424,5 +427,39 @@ export function ChatView() {
         </div>
       )}
     </div>
+  );
+}
+
+function HeaderPills() {
+  const [cwdName, setCwdName] = useState("");
+  const [branch, setBranch] = useState("");
+  const [branches, setBranches] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const a = api as unknown as { gitCwdName: () => Promise<string>; gitStatus: () => Promise<{ branch: string }>; gitBranches: () => Promise<string[]>; gitCheckout: (b: string) => Promise<{ ok: boolean }> };
+  useEffect(() => {
+    a.gitCwdName().then(setCwdName).catch(() => {});
+    a.gitStatus().then(s => setBranch(s.branch)).catch(() => {});
+  }, []);
+  const toggle = async () => {
+    if (!open) { try { setBranches(await a.gitBranches()); } catch {} }
+    setOpen(o => !o);
+  };
+  return (
+    <span style={{ display: "inline-flex", gap: 6, alignItems: "center", marginLeft: 10, position: "relative" }}>
+      <span className="header-pill"><FolderIcon size={12} />{cwdName || "…"}</span>
+      <button className="header-pill" onClick={toggle} title="Switch branch">
+        <GitForkIcon size={12} />{branch || "…"}<ChevronDownIcon size={10} />
+      </button>
+      {open && (
+        <span data-sp-menu="1" className="sp-menu" style={{ position: "absolute", top: 26, left: 0, minWidth: 160, background: "#1c1c1c", border: "1px solid #2e2e2e", borderRadius: 10, padding: 6, zIndex: 1500, boxShadow: "0 12px 32px rgba(0,0,0,.55)", display: "flex", flexDirection: "column" }}>
+          {branches.map(b => (
+            <button key={b} onClick={async () => { setOpen(false); try { await a.gitCheckout(b); setBranch(b); } catch {} }}
+              style={{ display: "flex", gap: 8, alignItems: "center", padding: "6px 10px", borderRadius: 8, background: b === branch ? "#252525" : "transparent", border: "none", color: "#e8e8e8", fontSize: 12, textAlign: "left", cursor: "pointer" }}>
+              <GitForkIcon size={11} />{b}
+            </button>
+          ))}
+        </span>
+      )}
+    </span>
   );
 }

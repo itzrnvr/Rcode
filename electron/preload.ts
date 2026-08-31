@@ -143,6 +143,12 @@ const electronAPI = {
   zoomIn: (): Promise<void> => ipcRenderer.invoke("window:zoomIn"),
   zoomOut: (): Promise<void> => ipcRenderer.invoke("window:zoomOut"),
   zoomReset: (): Promise<void> => ipcRenderer.invoke("window:zoomReset"),
+  gitStatus: (): Promise<{ branch: string; added: number; deleted: number; files: Array<{ path: string; status: string }> }> => ipcRenderer.invoke("git:status"),
+  gitBranches: (): Promise<string[]> => ipcRenderer.invoke("git:branches"),
+  gitCheckout: (b: string): Promise<{ ok: boolean }> => ipcRenderer.invoke("git:checkout", b),
+  gitCommit: (m: string): Promise<{ ok: boolean; out: string }> => ipcRenderer.invoke("git:commit", m),
+  gitPush: (): Promise<{ ok: boolean; out: string }> => ipcRenderer.invoke("git:push"),
+  gitCwdName: (): Promise<string> => ipcRenderer.invoke("git:cwdName"),
 
   // --- Debug ---
   debugScreenshot: (path: string): Promise<boolean> =>
