@@ -9,6 +9,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 import { useApp } from "../../state/AppContext";
+import { api } from "../../api/client";
 import { useSideChats } from "../../state/useSideChats";
 
 import {
@@ -56,7 +57,7 @@ function fmtAgo(ts?: number): string {
 }
 
 export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: boolean; width?: number; onToggleCollapse?: () => void } = {}) {
-  const { currentSessionId, sideChatVersion } = useApp();
+  const { currentSessionId, sideChatVersion, settings, bumpSideChats, setHasSideChats } = useApp();
   const { tabs: sideTabs, closedTabs: sideClosedTabs, closeTab: closeSideChatTab, reopenTab: reopenSideChatTab } = useSideChats(currentSessionId, sideChatVersion);
   const [openTabs, setOpenTabs] = useState<ZTab[]>([]);
   const [activeId, setActiveId] = useState<string>("");
@@ -107,7 +108,26 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     });
   }, [sideClosedTabs, sideTabs]);
 
-  const openNewTab = useCallback((type: ZTabType) => {
+  const openNewTab = useCallback(async (type: ZTabType) => {
+    // Side conversation = immediately fork a new side chat from the current session
+    if (type === "side-conversation" && currentSessionId) {
+      try {
+        const parent = await api.getSession(currentSessionId);
+        const result = await api.createSideChat({
+          parentSessionId: currentSessionId,
+          title: `Side: ${parent?.title ?? "chat"}`,
+          model: settings.model,
+          provider: settings.providerName,
+        });
+        bumpSideChats();
+        setHasSideChats(true);
+        setActiveId(result.session.id);
+        setShowPicker(false);
+        return;
+      } catch (e) {
+        console.error("create side chat failed", e);
+      }
+    }
     if (type === "trajectory" || type === "dsh") {
       const existing = openTabs.find(t => t.type === type);
       if (existing) {
@@ -126,7 +146,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
     setOpenTabs(prev => [nt, ...prev]);
     setActiveId(id);
     setShowPicker(false);
-  }, [openTabs]);
+  }, [openTabs, currentSessionId, settings.model, settings.providerName, bumpSideChats, setHasSideChats]);
 
   const closeTab = useCallback((id: string) => {
     const closing = openTabs.find(t => t.id === id);
