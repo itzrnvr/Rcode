@@ -20,8 +20,9 @@ interface TitleBarProps {
 }
 
 export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback }: TitleBarProps) {
+  const isWin = (navigator.platform || "").toLowerCase().includes("win");
   return (
-    <div className="titlebar">
+    <div className="titlebar" style={isWin ? { paddingRight: 138 } : undefined}>
       <div className="titlebar-left">
         <button
           className="titlebar-sidebar-toggle"
@@ -74,7 +75,7 @@ export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback 
             <PanelRightIcon size={16} />
           </button>
         )}
-        <div className="traffic-group">
+        {!isWin && <div className="traffic-group">
           <button
             className="traffic-light traffic-close"
             onClick={() => api.windowClose()}
@@ -93,7 +94,7 @@ export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback 
             title="Maximize"
             aria-label="Maximize window"
           />
-        </div>
+        </div>}
       </div>
     </div>
   );

@@ -26,7 +26,10 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: "#151718",
-    frame: false,
+    ...(process.platform === "win32"
+      ? { titleBarStyle: "hidden" as const, titleBarOverlay: { color: "#0a0a0a", symbolColor: "#d8d8d8", height: 36 } }
+      : { titleBarStyle: "hiddenInset" as const }),
+    icon: join(__dirname, "../assets/icon.png"),
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,

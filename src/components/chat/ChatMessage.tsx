@@ -91,15 +91,14 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
   );
 }
 
-function renderContent(content: string): ReactNode[] {
+function renderContent(content: string, turnCollapsed = false, onToggle?: () => void): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
   const { workedSecs, steps, usage: parsedUsage } = parseTurn(content);
-  const [turnCollapsed, setTurnCollapsed] = useState(false);
   const hasTrace = steps.some(s => s.kind !== "say");
   let key0 = 0;
   if (workedSecs != null || hasTrace) {
-    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} collapsible={hasTrace} collapsed={turnCollapsed} onToggle={() => setTurnCollapsed(c => !c)} />);
+    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} collapsible={hasTrace} collapsed={turnCollapsed} onToggle={onToggle} />);
   }
   let key = 0;
 
@@ -152,6 +151,7 @@ function renderContent(content: string): ReactNode[] {
 
 export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [turnCollapsed, setTurnCollapsed] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   const onCopyMessage = useCallback(async () => {
@@ -219,11 +219,14 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
       {model && <div className="message-model">{model}</div>}
       {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
-      {streaming && liveSteps?.map((s, i) => s.kind === "tool"
-        ? <ToolRow key={`live-${i}`} step={s} />
-        : s.kind === "thought"
-          ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen />
-          : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>)}
+      {streaming && liveSteps?.map((s, i) => {
+        const lastThought = liveSteps.map((x, j) => x.kind === "thought" ? j : -1).filter(j => j >= 0).pop();
+        return s.kind === "tool"
+          ? <ToolRow key={`live-${i}`} step={s} />
+          : s.kind === "thought"
+            ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen={i === lastThought} />
+            : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>;
+      })}
       {streaming && !content && <div className="thinking-row"><span className="tool-row-spinner" />Thinking…</div>}
       {reasoning && !streaming && <ThinkingBlock content={reasoning} />}
       <div className="message-assistant">
@@ -236,7 +239,7 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
             </div>
           </div>
         ) : streaming ? null : (
-          renderContent(content)
+          renderContent(content, turnCollapsed, () => setTurnCollapsed(c => !c))
         )}
       </div>
       <div className="message-actions">
