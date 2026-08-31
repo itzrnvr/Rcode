@@ -91,6 +91,27 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
   );
 }
 
+function OlderSteps({ steps }: { steps: LiveStep[] }) {
+  const [open, setOpen] = useState(false);
+  const thoughts = steps.filter(s => s.kind === "thought").length;
+  const tools = steps.filter(s => s.kind === "tool").length;
+  const says = steps.filter(s => s.kind === "say").length;
+  const label = [tools ? `${tools} tool${tools > 1 ? "s" : ""}` : "", thoughts ? `${thoughts} thought${thoughts > 1 ? "s" : ""}` : "", says ? `${says} note${says > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
+  return (
+    <div style={{ margin: "2px 0" }}>
+      <button className="tool-row-head" onClick={() => setOpen(o => !o)} style={{ background: "transparent", opacity: 0.75 }}>
+        <ChevronDownIcon size={11} className={open ? "rotate-180" : ""} />
+        <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>{label} earlier</span>
+      </button>
+      {open && steps.map((s, i) => s.kind === "tool"
+        ? <ToolRow key={`old-${i}`} step={s} />
+        : s.kind === "thought"
+          ? <ThinkingBlock key={`old-${i}`} content={s.text ?? ""} />
+          : <div key={`old-${i}`} className="message-assistant" style={{ padding: 0, opacity: 0.8 }}>{renderContent(s.text ?? "")}</div>)}
+    </div>
+  );
+}
+
 function renderContent(content: string, turnCollapsed = false, onToggle?: () => void): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
@@ -151,7 +172,7 @@ function renderContent(content: string, turnCollapsed = false, onToggle?: () => 
 
 export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [turnCollapsed, setTurnCollapsed] = useState(false);
+  const [turnCollapsed, setTurnCollapsed] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   const onCopyMessage = useCallback(async () => {
@@ -219,14 +240,25 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
       {model && <div className="message-model">{model}</div>}
       {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
-      {streaming && liveSteps?.map((s, i) => {
-        const lastThought = liveSteps.map((x, j) => x.kind === "thought" ? j : -1).filter(j => j >= 0).pop();
-        return s.kind === "tool"
-          ? <ToolRow key={`live-${i}`} step={s} />
-          : s.kind === "thought"
-            ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen={i === lastThought} />
-            : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>;
-      })}
+      {streaming && (() => {
+        const steps = liveSteps ?? [];
+        const older = steps.slice(0, Math.max(0, steps.length - 2));
+        const hot = steps.slice(Math.max(0, steps.length - 2));
+        const lastIdx = steps.length - 1;
+        return (
+          <>
+            {older.length > 0 && <OlderSteps key="older" steps={older} />}
+            {hot.map((s, k) => {
+              const i = older.length + k;
+              return s.kind === "tool"
+                ? <ToolRow key={`live-${i}`} step={s} />
+                : s.kind === "thought"
+                  ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen={i === lastIdx} />
+                  : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>;
+            })}
+          </>
+        );
+      })()}
       {streaming && !content && <div className="thinking-row"><span className="tool-row-spinner" />Thinking…</div>}
       {reasoning && !streaming && <ThinkingBlock content={reasoning} />}
       <div className="message-assistant">

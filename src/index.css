@@ -3296,7 +3296,8 @@ button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-
 .session-item:hover { transform: translateX(1px); }
 .session-item, .message-group { animation: fade-slide .16s ease-out; }
 @keyframes fade-slide { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-[data-radix-popper-content-wrapper] { animation: sp-pop .13s ease-out; }
+[data-radix-popper-content-wrapper] { animation: none; }
+[data-radix-popper-content-wrapper] > * { animation: sp-pop .13s ease-out; }
 .chat-input-pill, .chat-input-row { transition: border-color .15s ease; }
 .panel-side, .sidebar { transition: width .16s ease; }
 
