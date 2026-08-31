@@ -95,13 +95,16 @@ function renderContent(content: string): ReactNode[] {
   const nodes: ReactNode[] = [];
   // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
   const { workedSecs, steps, usage: parsedUsage } = parseTurn(content);
+  const [turnCollapsed, setTurnCollapsed] = useState(false);
+  const hasTrace = steps.some(s => s.kind !== "say");
   let key0 = 0;
-  if (workedSecs != null || steps.some(s => s.kind !== "say")) {
-    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} />);
+  if (workedSecs != null || hasTrace) {
+    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} collapsible={hasTrace} collapsed={turnCollapsed} onToggle={() => setTurnCollapsed(c => !c)} />);
   }
   let key = 0;
 
   for (const s of steps) {
+    if (turnCollapsed && (s.kind === "thought" || s.kind === "tool")) continue;
     if (s.kind === "say") {
       nodes.push(
         <ReactMarkdown

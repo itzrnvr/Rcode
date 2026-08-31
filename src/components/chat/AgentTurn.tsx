@@ -106,7 +106,14 @@ export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
   );
 }
 
-export function TurnHeader({ secs, live, usage }: { secs: number | null; live?: boolean; usage?: TurnUsage | null }) {
+function fmtSecs(s: number): string {
+  return s >= 60 ? `${Math.floor(s / 60)}m ${s % 60}s` : `${s}s`;
+}
+function fmtTok(n: number): string {
+  return n >= 1000 ? `${(n / 1000).toFixed(n >= 100000 ? 0 : 1)}K` : String(n);
+}
+
+export function TurnHeader({ secs, live, usage, collapsible, collapsed, onToggle }: { secs: number | null; live?: boolean; usage?: TurnUsage | null; collapsible?: boolean; collapsed?: boolean; onToggle?: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     if (!live) return;
@@ -115,17 +122,24 @@ export function TurnHeader({ secs, live, usage }: { secs: number | null; live?: 
     return () => clearInterval(id);
   }, [live]);
   const shown = live ? elapsed : secs ?? 0;
-  return (
-    <div className="turn-header">
+  const inner = (
+    <>
+      {collapsible && <ChevronDownIcon size={12} className={collapsed ? "" : "rotate-180"} />}
       <ClockIcon size={13} />
-      <span>{live ? `Working for ${shown}s` : `Worked for ${shown}s`}</span>
+      <span>{live ? `Working for ${fmtSecs(shown)}` : `Worked for ${fmtSecs(shown)}`}</span>
       {usage && (
         <span style={{ color: "var(--color-muted)", fontWeight: 500 }}>
-          · {usage.prompt_tokens ?? 0}↑ {usage.completion_tokens ?? 0}↓
-          {(usage.reasoning_tokens ?? 0) > 0 ? ` · ${usage.reasoning_tokens} think` : ""}
-          {(usage.cached_tokens ?? 0) > 0 ? ` · ${usage.cached_tokens} cached` : ""}
+          · {fmtTok(usage.prompt_tokens ?? 0)} in / {fmtTok(usage.completion_tokens ?? 0)} out
+          {(usage.reasoning_tokens ?? 0) > 0 ? ` · ${fmtTok(usage.reasoning_tokens ?? 0)} think` : ""}
+          {(usage.cached_tokens ?? 0) > 0 ? ` · ${fmtTok(usage.cached_tokens ?? 0)} cached` : ""}
         </span>
       )}
-    </div>
+    </>
+  );
+  if (!collapsible) return <div className="turn-header">{inner}</div>;
+  return (
+    <button className="turn-header" onClick={onToggle} style={{ cursor: "pointer", background: "transparent", border: "none", color: "inherit", width: "100%", textAlign: "left" }}>
+      {inner}
+    </button>
   );
 }

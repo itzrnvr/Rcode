@@ -255,9 +255,20 @@ ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
   return { system, tools, messages, cacheRate };
 });
 
+// Mid-turn steering: messages queued while the agent loop is running get
+// injected as user messages between tool rounds (dsh-style queue).
+const steeringQueues = new Map<string, string[]>();
+
 export function registerChatHandler(): void {
   // renderer approval round-trip for restricted mode
   const pendingApprovals = new Map<string, (ok: boolean) => void>();
+  ipcMain.handle("chat:queue", (_e, sessionId: string, text: string) => {
+    const q = steeringQueues.get(sessionId) ?? [];
+    q.push(text);
+    steeringQueues.set(sessionId, q);
+    return { queued: q.length };
+  });
+
   ipcMain.handle("chat:approvalResponse", (_e, approvalId: string, ok: boolean) => {
     const fn = pendingApprovals.get(approvalId);
     if (fn) {
@@ -321,7 +332,19 @@ export function registerChatHandler(): void {
     logTrace(sid, { kind: "turn_start", turn, model: endpoint.model, baseUrl: endpoint.baseUrl, mode, effort: effort ?? null, userMessage: request.userMessage });
     try {
 
+    const drainSteering = () => {
+      const q = steeringQueues.get(sid) ?? [];
+      if (q.length === 0) return;
+      steeringQueues.set(sid, []);
+      for (const msg of q) {
+        addMessage(sid, "user", msg);
+        apiMessages.push({ role: "user", content: msg });
+        logTrace(sid, { kind: "steering", turn, round: "inject", text: msg });
+      }
+    };
+
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      drainSteering();
       logTrace(sid, { kind: "request", turn, round, messages: apiMessages.map(m => ({ ...m as Record<string, unknown>, content: capStr((m as { content?: string }).content) })), toolNames: TOOL_DEFS.map(d => d.function.name) });
       const res = await streamOnce(event.sender, sid, endpoint, apiMessages, effort);
       logTrace(sid, { kind: "response", turn, round, status: "ok", firstChunkMs: res.firstChunkMs, totalMs: res.totalMs, chunks: res.chunks, usage: res.usage ?? null });
@@ -341,9 +364,12 @@ export function registerChatHandler(): void {
       }
       if (res.content) {
         steps.push({ kind: "say", text: res.content });
+        logTrace(sid, { kind: "content", turn, round, text: res.content });
       }
 
-      if (res.toolCalls.length === 0) break;
+      if (res.toolCalls.length === 0) {
+        if ((steeringQueues.get(sid) ?? []).length === 0) break;
+      }
 
       // assistant message with tool_calls, then tool results, then next round
       apiMessages.push({

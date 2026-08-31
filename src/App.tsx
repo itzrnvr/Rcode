@@ -106,7 +106,19 @@ function AppInner() {
       // Force sidebar list to reload
       bumpSessionList();
     }).catch(() => setSeedReady(true));
-  }, [seedReady, settings.model, settings.providerName]);
+  }, [seedReady, settings.model, settings.providerName])
+
+  // Ctrl+= / Ctrl+- / Ctrl+0 zoom the whole UI (browser-style)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
+      if (e.key === "=" || e.key === "+") { e.preventDefault(); api.zoomIn(); }
+      else if (e.key === "-") { e.preventDefault(); api.zoomOut(); }
+      else if (e.key === "0") { e.preventDefault(); api.zoomReset(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);;
 
   useEffect(() => {
     api.getSetting("sidebarCollapsed")

@@ -12,7 +12,7 @@
  * CONSUMERS: components/chat/ChatView.tsx, sidepanel/SideChatThread.tsx
  */
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 import { api } from "../api/client";
 import { useApp } from "./AppContext";
@@ -125,9 +125,18 @@ export function useChat(sessionId: string | null) {
     setMessages(msgs);
   }, []);
 
+  const isStreamingRef = useRef(false);
+  useEffect(() => { isStreamingRef.current = isStreaming; }, [isStreaming]);
+
   const sendMessage = useCallback(async (text: string, meta?: SendMeta) => {
     if (!sessionId || !text.trim()) return;
     const sid = sessionId;
+    if (isStreamingRef.current) {
+      const temp: Message = { id: `temp-q-${Date.now()}`, sessionId: sid, role: "user", content: text, createdAt: Date.now() };
+      setMessages(prev => [...prev, temp]);
+      await (api as unknown as { queueMessage: (id: string, t: string) => Promise<{ queued: number }> }).queueMessage(sid, text);
+      return;
+    }
 
     const tempUserMsg: Message = {
       id: `temp-${Date.now()}`,

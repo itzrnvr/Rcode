@@ -26,7 +26,7 @@ function createWindow(): void {
     minWidth: 800,
     minHeight: 600,
     backgroundColor: "#151718",
-    titleBarStyle: "hiddenInset",
+    frame: false,
     webPreferences: {
       preload: join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -76,6 +76,15 @@ app.whenReady().then(() => {
     else mainWindow.maximize();
   });
   ipcMain.handle("window:close", () => mainWindow?.close());
+  ipcMain.handle("window:zoomIn", () => {
+    const f = mainWindow?.webContents.getZoomFactor() ?? 1;
+    mainWindow?.webContents.setZoomFactor(Math.min(f * 1.1, 2));
+  });
+  ipcMain.handle("window:zoomOut", () => {
+    const f = mainWindow?.webContents.getZoomFactor() ?? 1;
+    mainWindow?.webContents.setZoomFactor(Math.max(f / 1.1, 0.6));
+  });
+  ipcMain.handle("window:zoomReset", () => mainWindow?.webContents.setZoomFactor(1));
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

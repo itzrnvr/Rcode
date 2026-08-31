@@ -150,7 +150,7 @@ export function ChatInput({
 
   const send = useCallback(() => {
     const trimmed = text.trim();
-    if (!trimmed || disabled || streaming) return;
+    if (!trimmed || disabled) return;
     // Handle slash commands
     if (trimmed.startsWith("/")) {
       const cmd = trimmed.split(" ")[0].toLowerCase();

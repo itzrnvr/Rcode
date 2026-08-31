@@ -90,6 +90,8 @@ const electronAPI = {
     ipcRenderer.invoke("chat:contextInfo", sessionId),
   compactChat: (sessionId: string): Promise<{ summary: string }> =>
     ipcRenderer.invoke("chat:compact", sessionId),
+  queueMessage: (sessionId: string, text: string): Promise<{ queued: number }> =>
+    ipcRenderer.invoke("chat:queue", sessionId, text),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);
@@ -138,6 +140,9 @@ const electronAPI = {
   windowMinimize: (): Promise<void> => ipcRenderer.invoke("window:minimize"),
   windowMaximize: (): Promise<void> => ipcRenderer.invoke("window:maximize"),
   windowClose: (): Promise<void> => ipcRenderer.invoke("window:close"),
+  zoomIn: (): Promise<void> => ipcRenderer.invoke("window:zoomIn"),
+  zoomOut: (): Promise<void> => ipcRenderer.invoke("window:zoomOut"),
+  zoomReset: (): Promise<void> => ipcRenderer.invoke("window:zoomReset"),
 
   // --- Debug ---
   debugScreenshot: (path: string): Promise<boolean> =>

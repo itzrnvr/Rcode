@@ -165,7 +165,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   };
 
   return (
-    <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', flexDirection:'column', background:'#0a0a0a', borderLeft:'1px solid #1f1f1f', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
+    <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', flexDirection:'column', background:'var(--color-bg)', borderLeft:'1px solid #1f1f1f', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
       {/* Header — Terminal pill + dropdown (Image 2,3) */}
       <div style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderBottom:'1px solid #1f1f1f'}}>
         <button onClick={() => setShowPicker(v => !v)} style={{display:'flex', alignItems:'center', gap:6, padding:'6px 10px', borderRadius:999, background:'#1a1a1a', border:'1px solid #262626', color:'#e8e8e8', fontSize:13, flex:1}}>
@@ -213,7 +213,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       </div>
 
       {/* Content */}
-      <div style={{flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'#0a0a0a'}}>
+      <div style={{flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'var(--color-bg)'}}>
         {!activeTab && <div style={{color:'#8a8a8a', textAlign:'center', marginTop:40, padding:12}}>Open tab<br/><span style={{fontSize:12}}>Choose a tab to open in the side pane.</span></div>}
         {activeTab?.type === "side-conversation" && (() => {
           const liveRow = sideTabs.find(st => st.sideChatId === activeTab.id);

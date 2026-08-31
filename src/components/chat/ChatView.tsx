@@ -304,7 +304,7 @@ export function ChatView() {
         <button
           className="chat-header-toggle"
           title="Open trajectory viewer"
-          onClick={() => window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } }))}
+          onClick={() => { setSidePanelCollapsed(false); window.dispatchEvent(new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } })); }}
         >
           <ActivityIcon size={14} />
         </button>
@@ -398,7 +398,7 @@ export function ChatView() {
         onSend={handleSend}
         onStop={stopStream}
         streaming={isStreaming}
-        disabled={isStreaming}
+        disabled={false}
         contextUsed={contextUsed}
         contextInfo={contextInfo}
       />

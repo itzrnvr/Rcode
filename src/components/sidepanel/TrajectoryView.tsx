@@ -83,6 +83,8 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
   const [view, setView] = useState<"duration" | "turns" | "calls">("duration");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Set<number>>(new Set());
+  const [sel, setSel] = useState<{ type: "model" | "tool"; round: number | string; name?: string } | null>(null);
+  const [selTab, setSelTab] = useState<"summary" | "preview" | "raw">("summary");
   const [reload, setReload] = useState(0);
 
   useEffect(() => {
@@ -122,8 +124,8 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
     const t0 = new Date(entries[0].ts).getTime();
     const t1 = Math.max(t0 + 1, new Date(entries[entries.length - 1].ts).getTime());
     const span = t1 - t0;
-    const modelBars: Array<{ left: number; width: number }> = [];
-    const toolBars: Array<{ left: number; width: number }> = [];
+    const modelBars: Array<{ left: number; width: number; round: number | string }> = [];
+    const toolBars: Array<{ left: number; width: number; round: number | string; name?: string }> = [];
     const inputTicks: Array<{ left: number }> = [];
     let lastModelStart: number | null = null;
     for (const e of entries) {
@@ -132,13 +134,13 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
       if (e.kind === "turn_start") inputTicks.push({ left });
       if (e.kind === "request") lastModelStart = left;
       if (e.kind === "response" && lastModelStart != null) {
-        modelBars.push({ left: lastModelStart, width: Math.max(0.4, left - lastModelStart) });
+        modelBars.push({ left: lastModelStart, width: Math.max(0.4, left - lastModelStart), round: e.round ?? 0 });
         lastModelStart = null;
       }
       if (e.kind === "tool_call") {
         const res = entries.find(x => x.kind === "tool_result" && x.round === e.round && x.name === e.name);
         const end = res ? ((new Date(res.ts).getTime() - t0) / span) * 100 : left + 0.4;
-        toolBars.push({ left, width: Math.max(0.4, end - left) });
+        toolBars.push({ left, width: Math.max(0.4, end - left), round: e.round ?? 0, name: e.name as string | undefined });
       }
     }
     return { modelBars, toolBars, inputTicks };
@@ -155,7 +157,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
   const toggle = (i: number) => setOpen(prev => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, position: "relative" }}>
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 4px", borderBottom: "1px solid var(--color-border)" }}>
         {(["duration", "turns", "calls"] as const).map(v => (
@@ -194,7 +196,8 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             <span style={{ width: 40, fontSize: 9, color: "#8a8a8a" }}>Model</span>
             <div style={{ flex: 1, position: "relative", height: 7 }}>
               {timeline.modelBars.map((b, i) => (
-                <span key={i} style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 0, height: 7, background: "#b07fd8", borderRadius: 2 }} />
+                <span key={i} onClick={() => { setSel({ type: "model", round: b.round }); setSelTab("summary"); }}
+                  style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 0, height: 7, background: "#b07fd8", borderRadius: 2, cursor: "pointer", outline: sel?.type === "model" && sel.round === b.round ? "2px solid #5a8ad8" : "none" }} />
               ))}
             </div>
           </div>
@@ -202,7 +205,8 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             <span style={{ width: 40, fontSize: 9, color: "#8a8a8a" }}>Tools</span>
             <div style={{ flex: 1, position: "relative", height: 7 }}>
               {timeline.toolBars.map((b, i) => (
-                <span key={i} style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 0, height: 7, background: "#d89a3f", borderRadius: 2 }} />
+                <span key={i} onClick={() => { setSel({ type: "tool", round: b.round, name: b.name }); setSelTab("summary"); }}
+                  style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 0, height: 7, background: "#d89a3f", borderRadius: 2, cursor: "pointer", outline: sel?.type === "tool" && sel.round === b.round && sel.name === b.name ? "2px solid #5a8ad8" : "none" }} />
               ))}
             </div>
           </div>
@@ -224,7 +228,11 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
                 borderRadius: 4, padding: "2px 0", marginTop: 1,
               }}>{badge}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <button onClick={() => toggle(i)} style={{ display: "flex", gap: 6, alignItems: "center", background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}>
+                <button onClick={() => {
+                  if (e.kind === "tool_call" || e.kind === "tool_result") { setSel({ type: "tool", round: e.round ?? 0, name: e.name as string | undefined }); }
+                  else if (e.kind !== "turn_start") { setSel({ type: "model", round: e.round ?? 0 }); }
+                  setSelTab("summary");
+                }} style={{ display: "flex", gap: 6, alignItems: "center", background: "transparent", border: "none", padding: 0, cursor: "pointer", width: "100%", textAlign: "left" }}>
                   <span style={{ fontSize: 11, color: "#c8c8c8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{rowText(e)}</span>
                   <ChevronDownIcon size={10} className={open.has(i) ? "rotate-180" : ""} />
                 </button>
@@ -258,6 +266,82 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
           ));
         })()}
       </div>
+
+      {/* Inspector — dsh-style right panel: Summary / Preview / Raw */}
+      {sel && (() => {
+        const roundEntries = entries.filter(e => sel.type === "tool"
+          ? (e.kind === "tool_call" || e.kind === "tool_result") && e.round === sel.round && (sel.name ? e.name === sel.name : true)
+          : (e.round === sel.round && ["request", "response", "reasoning", "content", "tool_call"].includes(e.kind)));
+        const req = roundEntries.find(e => e.kind === "request");
+        const resp = roundEntries.find(e => e.kind === "response");
+        const think = roundEntries.filter(e => e.kind === "reasoning").map(e => String(e.text ?? "")).join("\n");
+        const contents = roundEntries.filter(e => e.kind === "content").map(e => String(e.text ?? "")).join("\n");
+        const tools = roundEntries.filter(e => e.kind === "tool_call");
+        const u = resp?.usage as { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number } } | undefined;
+        const total = Number(resp?.totalMs ?? 0);
+        const ttft = Number(resp?.firstChunkMs ?? 0);
+        const tool = sel.type === "tool" ? roundEntries.find(e => e.kind === "tool_call") : undefined;
+        const toolRes = roundEntries.find(e => e.kind === "tool_result");
+        return (
+          <div style={{ position: "absolute", top: 40, right: 6, bottom: 34, width: "min(400px, 92%)", background: "#141414", border: "1px solid #333", borderRadius: 10, zIndex: 1600, display: "flex", flexDirection: "column", boxShadow: "0 12px 32px rgba(0,0,0,.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", borderBottom: "1px solid #262626" }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: sel.type === "tool" ? "#d89a3f" : "#7a7fd8", background: "#1d1d1d", border: "1px solid #2a2a2a", borderRadius: 4, padding: "2px 6px" }}>{sel.type === "tool" ? "TOOL" : "ASSISTANT"}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, flex: 1 }}>{sel.type === "tool" ? `${String(tool?.name ?? "")} · round ${String(sel.round)}` : `Turn · Request #${String(sel.round)}`}</span>
+              <button onClick={() => setSel(null)} style={{ background: "transparent", border: "none", color: "#8a8a8a", cursor: "pointer" }}>×</button>
+            </div>
+            <div style={{ display: "flex", gap: 12, padding: "6px 10px", borderBottom: "1px solid #262626" }}>
+              {(["summary", "preview", "raw"] as const).map(tb => (
+                <button key={tb} onClick={() => setSelTab(tb)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "2px 0", color: selTab === tb ? "#e8e8e8" : "#8a8a8a", borderBottom: selTab === tb ? "2px solid #5a8ad8" : "2px solid transparent", textTransform: "capitalize" }}>{tb}</button>
+              ))}
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: 10 }}>
+              {selTab === "summary" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 11 }}>
+                  {sel.type === "model" ? (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Source</span><span>Request #{String(sel.round)}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Status</span><span>{String(resp?.status ?? "—")}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Tokens</span><span>{u ? `${u.completion_tokens ?? 0} tok` : "—"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 12 }}><span style={{ color: "#8a8a8a" }}>Reasoning</span><span>{u?.completion_tokens_details?.reasoning_tokens ?? 0} tok</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 12 }}><span style={{ color: "#8a8a8a" }}>Content</span><span>{u ? `${(u.completion_tokens ?? 0) - (u.completion_tokens_details?.reasoning_tokens ?? 0)} tok` : "—"}</span></div>
+                      <div style={{ marginTop: 6, fontWeight: 700, fontSize: 10, color: "#8a8a8a" }}>REQUEST TIMING</div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Started</span><span>{req?.ts ? new Date(String(req.ts)).toLocaleTimeString() : "—"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Total duration</span><span>{(total / 1000).toFixed(1)}s</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>TTFT</span><span>{(ttft / 1000).toFixed(2)}s</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Generation</span><span>{((total - ttft) / 1000).toFixed(1)}s</span></div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Tool</span><span>{String(tool?.name ?? "")}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Status</span><span>{toolRes ? "Completed" : "Running"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a8a" }}>Duration</span><span>{toolRes?.ms != null ? `${toolRes.ms}ms` : "—"}</span></div>
+                    </>
+                  )}
+                </div>
+              )}
+              {selTab === "preview" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
+                  {sel.type === "tool" ? (
+                    <>
+                      <div style={{ fontWeight: 700, color: "#8a8a8a", fontSize: 10 }}>ARGS</div>
+                      <pre className="tool-result" style={{ maxHeight: 140 }}>{JSON.stringify(tool?.args ?? {}, null, 2)}</pre>
+                      <div style={{ fontWeight: 700, color: "#8a8a8a", fontSize: 10 }}>RESULT</div>
+                      <pre className="tool-result" style={{ maxHeight: 200 }}>{String(toolRes?.result ?? "")}</pre>
+                    </>
+                  ) : (
+                    <>
+                      {think && (<><div style={{ fontWeight: 700, color: "#b07fd8", fontSize: 10 }}>THINKING</div><pre className="tool-result" style={{ maxHeight: 180 }}>{think}</pre></>)}
+                      {contents && (<><div style={{ fontWeight: 700, color: "#8a8a8a", fontSize: 10 }}>CONTENT</div><pre className="tool-result" style={{ maxHeight: 180 }}>{contents}</pre></>)}
+                      {tools.length > 0 && (<><div style={{ fontWeight: 700, color: "#d89a3f", fontSize: 10 }}>TOOL CALLS</div>{tools.map((tl, i) => <pre key={i} className="tool-result" style={{ maxHeight: 100 }}>{String(tl.name ?? "")} {String(tl.args ?? "")}</pre>)}</>)}
+                    </>
+                  )}
+                </div>
+              )}
+              {selTab === "raw" && <pre className="tool-result" style={{ maxHeight: "100%" }}>{JSON.stringify(roundEntries, null, 2)}</pre>}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Stats footer — mirrors dsh's bottom bar */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "6px 6px", borderTop: "1px solid var(--color-border)", fontSize: 10, color: "#9a9a9a" }}>
