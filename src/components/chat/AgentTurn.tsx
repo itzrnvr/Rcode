@@ -107,9 +107,11 @@ export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
         )}
       </button>
       {open && (
-        <div className="tool-result-wrap">
-          {isShell && cmd && <div className="tool-cmd">$ {cmd}</div>}
-          {step.result != null && <pre className="tool-result">{step.result}</pre>}
+        <div className="tool-card">
+          {isShell
+            ? cmd && <div className="tool-cmdline">$ {cmd}</div>
+            : step.args && <div className="tool-cmdline">{step.name} {step.args}</div>}
+          {step.result != null && <pre className="tool-out">{step.result}</pre>}
         </div>
       )}
     </div>

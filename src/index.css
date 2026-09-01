@@ -3317,3 +3317,10 @@ button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-
 *::-webkit-scrollbar-thumb { background: #2a2a2e; border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
 *::-webkit-scrollbar-thumb:hover { background: #3a3a3e; border: 2px solid transparent; background-clip: padding-box; }
 * { scrollbar-width: thin; scrollbar-color: #2a2a2e transparent; }
+
+.tool-card { max-height: 340px; overflow-y: auto; background: #161619; border: 1px solid #26262a; border-radius: 10px; padding: 12px 14px; margin: 6px 0 4px; }
+.tool-cmdline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #c8c8cc; white-space: pre-wrap; line-height: 1.7; margin-bottom: 10px; }
+.tool-card .tool-out { background: transparent; border: none; margin: 0; padding: 0; max-height: none; color: #9a9aa2; font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; }
+
+.thinking-toggle:hover span { color: var(--color-fg); }
+.tool-row-head:hover .tool-row-name, .tool-row-head:hover .tool-row-args { color: #d0d0d4; }
