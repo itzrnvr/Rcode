@@ -1,24 +1,27 @@
 /*
- * PURPOSE: Trajectory viewer — 1:1 with dsh web's timeline view.
+ * PURPOSE: Trajectory viewer — dsh-web parity + Chrome-DevTools-Network-style
+ * horizontal timeline.
  *
- * Toolbar: Duration/Turns/Calls chips + Search + session-log download.
- * Timeline: Input/Model/Tools swim lanes with hairline guides; green input
- * ticks, dense purple model bars, orange tool bars (gray = no outcome,
- * blue = selected); a vertical dashed blue selection line spans all lanes.
- * Event list: lane-colored bullet dots (filled when selected), role pills
- * (ASSISTANT/TOOL/USER/SYSTEM/THINK/CONTEXT/MODEL), mono tool rows
- * `name {args} → result` with pink TOOL_OUTCOME_UNKNOWN, red-dot Turn N
- * divider rows. Clicking a row or bar selects: moves the dashed line,
- * fills the bullet, scrolls the row into view, opens the inspector
- * (Summary/Preview/Raw, "ROLE Turn X · Step N", tokens + request timing).
- * Footer: dsh-format stats groups separated by pipes.
+ * Timeline interactions:
+ *  - full-width time axis with a ruler (adaptive tick labels).
+ *  - wheel = anchored zoom (like Chrome network waterfall); shift+wheel or
+ *    horizontal wheel = pan; shift+drag = pan; plain drag = brush region
+ *    select (blue band) that filters the event list + shows a range chip.
+ *  - Escape resets zoom + selection. Tiny drags clear the brush.
+ *  - click a bar/row = focus select: dashed blue line across lanes, filled
+ *    bullet, row scroll-into-view, inspector (Summary/Preview/Raw).
+ *
+ * Lanes: Input (green ticks) / Model (dense purple bars) / Tools (orange
+ * bars, gray = no outcome). Event list: lane-colored bullets, role pills,
+ * mono tool rows `name {args} → result` with pink TOOL_OUTCOME_UNKNOWN,
+ * red-dot Turn N dividers. Footer: dsh-format pipe-separated stats.
  *
  * Data: JSONL trace via trace:list IPC, auto-refresh 3s.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../../api/client";
-import { RefreshIcon, SearchIcon, ClockIcon, ListIcon, LayoutGridIcon, DownloadIcon } from "../common/Icons";
+import { RefreshIcon, SearchIcon, ClockIcon, ListIcon, LayoutGridIcon, DownloadIcon, XIcon } from "../common/Icons";
 
 interface TraceEntry {
   ts: string;
@@ -64,19 +67,24 @@ interface UsageInfo { prompt: number; completion: number; cached: number; reason
 function readUsage(raw: unknown): UsageInfo | null {
   if (!raw || typeof raw !== "object") return null;
   const u = raw as Record<string, unknown>;
-  const details = (u.completion_tokens_details ?? u.prompt_tokens_details) as Record<string, unknown> | undefined;
   const pd = (u.prompt_tokens_details ?? {}) as Record<string, unknown>;
+  const cd = (u.completion_tokens_details ?? {}) as Record<string, unknown>;
   return {
     prompt: typeof u.prompt_tokens === "number" ? u.prompt_tokens : 0,
     completion: typeof u.completion_tokens === "number" ? u.completion_tokens : 0,
     cached: typeof pd.cached_tokens === "number" ? pd.cached_tokens : 0,
-    reasoning: typeof (u.completion_tokens_details as Record<string, unknown> | undefined)?.reasoning_tokens === "number" ? (u.completion_tokens_details as Record<string, unknown>).reasoning_tokens as number : 0,
+    reasoning: typeof cd.reasoning_tokens === "number" ? cd.reasoning_tokens : 0,
   };
-  void details;
 }
 
 function fmtTok(n: number): string {
   return n >= 1000000 ? `${(n / 1000000).toFixed(1)}M` : n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n);
+}
+
+function rulerStep(domainMs: number): number {
+  const candidates = [250, 500, 1000, 2000, 5000, 10000, 30000, 60000, 120000, 300000, 600000];
+  for (const c of candidates) if (domainMs / c <= 7) return c;
+  return 600000;
 }
 
 interface Row {
@@ -90,6 +98,8 @@ interface Row {
   outcomeUnknown?: boolean;
 }
 
+const LABEL_GUTTER = 46; // px reserved for lane labels
+
 export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
   const [entries, setEntries] = useState<TraceEntry[]>([]);
   const [view, setView] = useState<"duration" | "turns" | "calls">("duration");
@@ -98,7 +108,13 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
   const [selKey, setSelKey] = useState<number | null>(null);
   const [selTab, setSelTab] = useState<"summary" | "preview" | "raw">("summary");
   const [reload, setReload] = useState(0);
+  const [viewport, setViewport] = useState<{ start: number; end: number } | null>(null);
+  const [range, setRange] = useState<{ a: number; b: number } | null>(null);
+  const [draft, setDraft] = useState<{ a: number; b: number } | null>(null);
+  const panRef = useRef<{ startX: number; vp: { start: number; end: number } } | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const timelineRootRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -150,11 +166,96 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
     return out;
   }, [entries]);
 
+  const fullSpan = rows.length ? Math.max(1, rows[rows.length - 1].t) : 1;
+  const domain = viewport ?? { start: 0, end: fullSpan };
+  const domainDur = Math.max(1, domain.end - domain.start);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { setRange(null); setViewport(null); setDraft(null); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // wheel: zoom (anchored) or pan (shift / horizontal)
+  useEffect(() => {
+    const el = timelineRootRef.current;
+    if (!el) return;
+    const onWheel = (ev: WheelEvent) => {
+      ev.preventDefault();
+      const track = trackRef.current;
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      const f = Math.min(1, Math.max(0, (ev.clientX - rect.left) / Math.max(1, rect.width)));
+      const cur = viewport ?? { start: 0, end: fullSpan };
+      const dur = cur.end - cur.start;
+      const delta = Math.abs(ev.deltaX) > Math.abs(ev.deltaY) ? ev.deltaX : ev.shiftKey ? ev.deltaY : 0;
+      if (delta !== 0) {
+        // pan
+        const shift = (delta / Math.max(1, rect.width)) * dur * 2;
+        const start = Math.min(Math.max(cur.start + shift, 0), fullSpan - dur);
+        setViewport(start <= 0 && dur >= fullSpan * 0.999 ? null : { start, end: start + dur });
+        return;
+      }
+      const nextDur = Math.min(fullSpan, Math.max(fullSpan * 0.02, dur * Math.exp(ev.deltaY * 0.0015)));
+      if (nextDur >= fullSpan * 0.999) { setViewport(null); return; }
+      const anchor = cur.start + f * dur;
+      const start = Math.min(Math.max(anchor - f * nextDur, 0), fullSpan - nextDur);
+      setViewport({ start, end: start + nextDur });
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [viewport, fullSpan]);
+
+  const msAt = (clientX: number): number => {
+    const track = trackRef.current;
+    if (!track) return 0;
+    const rect = track.getBoundingClientRect();
+    const f = Math.min(1, Math.max(0, (clientX - rect.left) / Math.max(1, rect.width)));
+    return domain.start + f * domainDur;
+  };
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
+    if (e.shiftKey && viewport) {
+      panRef.current = { startX: e.clientX, vp: viewport };
+      return;
+    }
+    const m = msAt(e.clientX);
+    setDraft({ a: m, b: m });
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (panRef.current) {
+      const track = trackRef.current;
+      if (!track) return;
+      const rect = track.getBoundingClientRect();
+      const dur = panRef.current.vp.end - panRef.current.vp.start;
+      const shift = ((panRef.current.startX - e.clientX) / Math.max(1, rect.width)) * dur;
+      const start = Math.min(Math.max(panRef.current.vp.start + shift, 0), fullSpan - dur);
+      setViewport({ start, end: start + dur });
+      return;
+    }
+    if (draft) setDraft({ a: draft.a, b: msAt(e.clientX) });
+  };
+  const onPointerUp = () => {
+    if (panRef.current) { panRef.current = null; return; }
+    if (!draft) return;
+    const lo = Math.min(draft.a, draft.b);
+    const hi = Math.max(draft.a, draft.b);
+    if (hi - lo < Math.max(300, fullSpan * 0.004)) setRange(null);
+    else setRange({ a: lo, b: hi });
+    setDraft(null);
+  };
+
+  const visibleRows = useMemo(() => (range ? rows.filter(r => r.t >= range.a && r.t <= range.b) : rows), [rows, range]);
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return rows;
+    if (!query.trim()) return visibleRows;
     const q = query.toLowerCase();
-    return rows.filter(r => r.text.toLowerCase().includes(q) || r.badge.toLowerCase().includes(q));
-  }, [rows, query]);
+    return visibleRows.filter(r => r.text.toLowerCase().includes(q) || r.badge.toLowerCase().includes(q));
+  }, [visibleRows, query]);
 
   const selRow = selKey != null ? rows.find(r => r.key === selKey) ?? null : null;
 
@@ -179,21 +280,24 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
     return { turns, steps: calls.length, llmMs, toolMs, ttft, tps, cache: prompt ? cached / prompt : 0, inTok, outTok };
   }, [entries]);
 
+  const at = (t: number) => ((t - domain.start) / domainDur) * 100;
+  const inDomain = (t: number) => t >= domain.start && t <= domain.end;
+
   const timeline = useMemo(() => {
     if (rows.length === 0) return null;
-    const span = Math.max(1, rows[rows.length - 1].t);
-    const at = (t: number) => (t / span) * 100;
-    const inputTicks = rows.filter(r => r.e.kind === "user" || r.e.kind === "turn_start").map(r => ({ left: at(r.t), key: r.key }));
-    const modelBars = rows.filter(r => ["request", "response", "reasoning", "content"].includes(r.e.kind)).map(r => ({ left: at(r.t), key: r.key, wide: r.e.kind === "response" }));
-    const toolBars = rows.filter(r => r.e.kind === "tool_call").map(r => {
-      const end = r.e2 ? new Date(r.e2.ts).getTime() - (rows[0].t + (rows[0].t ? 0 : 0)) : null;
+    const inputTicks = rows.filter(r => (r.e.kind === "user" || r.e.kind === "turn_start") && inDomain(r.t)).map(r => ({ left: at(r.t), key: r.key }));
+    const modelBars = rows.filter(r => ["request", "response", "reasoning", "content"].includes(r.e.kind) && inDomain(r.t)).map(r => ({ left: at(r.t), key: r.key, wide: r.e.kind === "response" }));
+    const toolBars = rows.filter(r => r.e.kind === "tool_call" && inDomain(r.t)).map(r => {
       const endT = r.e2 ? new Date(r.e2.ts).getTime() - new Date(entries[0].ts).getTime() : r.t;
-      void end;
       return { left: at(r.t), width: Math.max(0.5, at(Math.max(endT, r.t + 1)) - at(r.t)), key: r.key, unknown: r.outcomeUnknown };
     });
-    const selLeft = selRow ? at(selRow.t) : null;
-    return { inputTicks, modelBars, toolBars, selLeft };
-  }, [rows, selRow, entries]);
+    const selLeft = selRow && inDomain(selRow.t) ? at(selRow.t) : null;
+    const step = rulerStep(domainDur);
+    const ticks: number[] = [];
+    for (let t = Math.ceil(domain.start / step) * step; t <= domain.end; t += step) ticks.push(t);
+    return { inputTicks, modelBars, toolBars, selLeft, ticks };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, selRow, entries, domain.start, domain.end]);
 
   const select = (key: number, fromTimeline = false) => {
     setSelKey(key);
@@ -217,6 +321,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
   if (!sessionId) return <div style={{ color: "var(--color-muted)", padding: 20, fontSize: 12 }}>Open a session to see its trajectory.</div>;
 
   const mono = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+  const activeRange = draft ? { a: Math.min(draft.a, draft.b), b: Math.max(draft.a, draft.b) } : range;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", minHeight: 0, position: "relative" }}>
@@ -238,22 +343,56 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             {v}
           </button>
         ))}
+        {range && (
+          <button
+            onClick={() => setRange(null)}
+            title="Clear range selection (Esc)"
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999, fontSize: 10.5, fontWeight: 600, cursor: "pointer", background: "#16233a", color: "#7ab0ff", border: "1px solid #2a4a7a" }}
+          >
+            <ClockIcon size={11} />
+            {fmtMs(range.b - range.a)} · {visibleRows.length} events
+            <XIcon size={10} />
+          </button>
+        )}
+        {viewport && (
+          <button onClick={() => setViewport(null)} title="Reset zoom (Esc)" style={{ padding: "4px 8px", borderRadius: 999, fontSize: 10.5, background: "#1a1a1d", color: "#8a8a92", border: "1px solid #2a2a2e", cursor: "pointer" }}>
+            {Math.round((domainDur / fullSpan) * 100)}%
+          </button>
+        )}
         <span style={{ flex: 1 }} />
+        <span style={{ fontSize: 9, color: "#5a5a62" }}>drag select · wheel zoom · shift+drag pan · esc reset</span>
         <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#161618", border: "1px solid #26262a", borderRadius: 8, padding: "4px 8px" }}>
           <SearchIcon size={11} />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search" style={{ background: "transparent", border: "none", outline: "none", color: "#e8e8ea", fontSize: 11, width: 90 }} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search" style={{ background: "transparent", border: "none", outline: "none", color: "#e8e8ea", fontSize: 11, width: 80 }} />
         </div>
         <button className="ms-iconbtn" title="Session log" onClick={downloadLog}><DownloadIcon size={13} /></button>
         <button className="ms-iconbtn" title="Refresh" onClick={() => setReload(r => r + 1)}><RefreshIcon size={13} /></button>
       </div>
 
-      {/* Timeline */}
+      {/* Timeline: ruler + lanes, brush + zoom + pan */}
       {view === "duration" && timeline && (
-        <div style={{ padding: "10px 8px 6px", borderBottom: "1px solid var(--color-border)", position: "relative" }}>
-          {(["Input", "Model", "Tools"] as const).map(lane => (
+        <div
+          ref={timelineRootRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          style={{ padding: "6px 8px 6px", borderBottom: "1px solid var(--color-border)", position: "relative", cursor: "crosshair", touchAction: "none", userSelect: "none" }}
+        >
+          {/* ruler */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 3 }}>
+            <span style={{ width: 38 }} />
+            <div style={{ flex: 1, position: "relative", height: 12, borderBottom: "1px solid #1c1c20" }}>
+              {timeline.ticks.map(t => (
+                <span key={t} style={{ position: "absolute", left: `${at(t)}%`, top: 0, height: 12, borderLeft: "1px solid #26262a" }}>
+                  <span style={{ position: "absolute", left: 3, top: 0, fontSize: 8, color: "#5a5a62", fontFamily: mono, whiteSpace: "nowrap" }}>{fmtMs(t)}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          {(["Input", "Model", "Tools"] as const).map((lane, li) => (
             <div key={lane} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <span style={{ width: 38, fontSize: 9, color: "#6a6a72", fontFamily: mono }}>{lane}</span>
-              <div style={{ flex: 1, position: "relative", height: 10, borderBottom: "1px solid #1c1c20" }}>
+              <div ref={li === 0 ? trackRef : undefined} style={{ flex: 1, position: "relative", height: 10, borderBottom: "1px solid #1c1c20", overflow: "hidden" }}>
                 {lane === "Input" && timeline.inputTicks.map(b => (
                   <span key={b.key} onClick={() => select(b.key, true)} style={{ position: "absolute", left: `${b.left}%`, top: 2, width: 3, height: 6, background: "#3fa14b", borderRadius: 1, cursor: "pointer" }} />
                 ))}
@@ -266,9 +405,20 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
               </div>
             </div>
           ))}
-          {/* dashed selection line across lanes */}
+          {/* brush band */}
+          {activeRange && (
+            <span style={{
+              position: "absolute", top: 20, bottom: 6,
+              left: `calc(${LABEL_GUTTER}px + (100% - ${LABEL_GUTTER + 8}px) * ${Math.max(0, Math.min(100, at(activeRange.a))) / 100})`,
+              width: `calc((100% - ${LABEL_GUTTER + 8}px) * ${Math.max(0, at(activeRange.b) - at(activeRange.a)) / 100})`,
+              background: "rgba(90,138,216,.14)",
+              borderLeft: "1px solid #5a8ad8", borderRight: "1px solid #5a8ad8",
+              pointerEvents: "none",
+            }} />
+          )}
+          {/* dashed focus line */}
           {timeline.selLeft != null && (
-            <span style={{ position: "absolute", top: 8, bottom: 8, left: `calc(${38 + 8}px + (100% - ${38 + 8 + 8}px) * ${timeline.selLeft / 100})`, borderLeft: "1px dashed #5a8ad8", pointerEvents: "none" }} />
+            <span style={{ position: "absolute", top: 20, bottom: 6, left: `calc(${LABEL_GUTTER}px + (100% - ${LABEL_GUTTER + 8}px) * ${timeline.selLeft / 100})`, borderLeft: "1px dashed #5a8ad8", pointerEvents: "none" }} />
           )}
         </div>
       )}
@@ -276,6 +426,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
       {/* Event list */}
       <div ref={listRef} style={{ flex: 1, overflowY: "auto", padding: "6px 6px" }}>
         {rows.length === 0 && <div style={{ color: "var(--color-muted)", fontSize: 12, padding: 12 }}>No trace yet — send a message to start recording.</div>}
+        {rows.length > 0 && filtered.length === 0 && <div style={{ color: "var(--color-muted)", fontSize: 12, padding: 12 }}>No events in the selected range.</div>}
 
         {view !== "turns" && filtered.map(r => (
           <div key={r.key}>
@@ -328,7 +479,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
 
         {view === "turns" && (() => {
           const map = new Map<number, Row[]>();
-          for (const r of rows) { const t = r.e.turn ?? 0; if (!map.has(t)) map.set(t, []); map.get(t)!.push(r); }
+          for (const r of visibleRows) { const t = r.e.turn ?? 0; if (!map.has(t)) map.set(t, []); map.get(t)!.push(r); }
           return [...map.entries()].sort((a, b) => b[0] - a[0]).map(([turn, rs]) => (
             <div key={turn} style={{ border: "1px solid var(--color-border)", borderRadius: 10, padding: 10, margin: "8px 2px", background: "var(--color-surface)" }}>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -370,7 +521,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: "1px solid #26262a" }}>
               <span style={{ fontSize: 9, fontWeight: 700, color: BADGE_COLOR[selRow.badge], background: "#1d1d21", border: "1px solid #2a2a2e", borderRadius: 4, padding: "2px 6px" }}>{isTool ? "TOOL" : selRow.badge}</span>
               <span style={{ fontSize: 11.5, fontWeight: 700, flex: 1 }}>
-                {isTool ? `${String(selRow.e.name ?? "")} · Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}` : `${selRow.badge === "ASSISTANT" || selRow.badge === "MODEL" ? "ASSISTANT" : selRow.badge} Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}`}
+                {isTool ? `${String(selRow.e.name ?? "")} · Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}` : `${selRow.badge} Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}`}
               </span>
               <button onClick={() => setSelKey(null)} style={{ background: "transparent", border: "none", color: "#8a8a92", cursor: "pointer" }}>×</button>
             </div>
