@@ -87,7 +87,7 @@ function argsSummary(args?: string): string {
   return args.length > 64 ? args.slice(0, 64) + "…" : args;
 }
 
-export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
+export function ToolRow({ step, delayMs }: { step: ToolStep | LiveStep; delayMs?: number }) {
   const [open, setOpen] = useState(false);
   const isShell = step.name === "run_command";
   let cmd = "";
@@ -95,7 +95,7 @@ export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
     try { cmd = String((JSON.parse(step.args || "{}") as Record<string, unknown>).command ?? ""); } catch { cmd = ""; }
   }
   return (
-    <div className="tool-row">
+    <div className="tool-row" style={delayMs != null ? { animationDelay: `${delayMs}ms` } : undefined}>
       <button className="tool-row-head" onClick={() => (step.result != null || isShell) && setOpen(o => !o)}>
         {toolIcon(step.name)}
         <span className="tool-row-name">{isShell ? "Terminal" : step.name}</span>
@@ -150,7 +150,7 @@ export function TurnHeader({ secs, live, usage, collapsible, collapsed, onToggle
   );
   if (!collapsible) return <div className="turn-header">{inner}</div>;
   return (
-    <button className="turn-header" onClick={onToggle} style={{ cursor: "pointer", background: "transparent", border: "none", color: "inherit", width: "100%", textAlign: "left" }}>
+    <button className="turn-header" onClick={onToggle} style={{ cursor: "pointer", background: "transparent", border: "none", width: "100%", textAlign: "left" }}>
       {inner}
     </button>
   );

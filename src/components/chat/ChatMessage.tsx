@@ -23,7 +23,6 @@ interface ChatMessageProps {
   role: MessageRole;
   content: string;
   streaming?: boolean;
-  model?: string;
   reasoning?: string;
   onEdit?: (newContent: string) => void;
   onDelete?: () => void;
@@ -63,10 +62,10 @@ function CodeBlock({ lang, code, children }: { lang: string; code: string; child
   );
 }
 
-export function ThinkingBlock({ content, defaultOpen = false, label = "Thought", meta = "" }: { content: string; defaultOpen?: boolean; label?: string; meta?: string }) {
+export function ThinkingBlock({ content, defaultOpen = false, label = "Thought", meta = "", delayMs }: { content: string; defaultOpen?: boolean; label?: string; meta?: string; delayMs?: number }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className={`thinking-block ${open ? "open" : ""}`}>
+    <div className={`thinking-block ${open ? "open" : ""}`} style={delayMs != null ? { animationDelay: `${delayMs}ms` } : undefined}>
       <button className="thinking-toggle" onClick={() => setOpen(o => !o)}>
         <ChevronDownIcon size={12} className={open ? "rotate-180" : ""} />
         <span style={{ fontWeight: 600 }}>{label}</span>
@@ -103,8 +102,10 @@ function renderContent(content: string, turnCollapsed = false, onToggle?: () => 
   }
   let key = 0;
 
+  let stepIdx = 0;
   for (const s of steps) {
     if (turnCollapsed && (s.kind === "thought" || s.kind === "tool")) continue;
+    const delay = s.kind === "say" ? undefined : stepIdx++ * 40;
     if (s.kind === "say") {
       nodes.push(
         <ReactMarkdown
@@ -150,7 +151,7 @@ function renderContent(content: string, turnCollapsed = false, onToggle?: () => 
   return nodes;
 }
 
-export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
+export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [turnCollapsed, setTurnCollapsed] = useState(true);
   const [traceOpen, setTraceOpen] = useState<boolean | null>(null);
@@ -219,7 +220,6 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
 
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
-      {model && <div className="message-model">{model}</div>}
       {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
       {streaming && (() => {
         const steps = liveSteps ?? [];
@@ -234,9 +234,9 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
             <TurnHeader secs={null} live usage={liveUsage} collapsible={hasTools} collapsed={collapsed} onToggle={() => setTraceOpen(!collapsed)} />
             {!collapsed && steps.map((s, i) =>
               s.kind === "tool"
-                ? <ToolRow key={`live-${i}`} step={s} />
+                ? <ToolRow key={`live-${i}`} step={s} delayMs={i * 40} />
                 : s.kind === "thought"
-                  ? <ThinkingBlock key={`live-${i}-${i === steps.length - 1 ? "a" : "b"}`} content={s.text ?? ""} defaultOpen={i === steps.length - 1} meta={s.secs != null ? `· ${s.secs <= 2 ? "a few seconds" : `${s.secs} seconds`}` : ""} />
+                  ? <ThinkingBlock key={`live-${i}-${i === steps.length - 1 ? "a" : "b"}`} content={s.text ?? ""} defaultOpen={i === steps.length - 1} meta={s.secs != null ? `· ${s.secs <= 2 ? "a few seconds" : `${s.secs} seconds`}` : ""} delayMs={i * 40} />
                   : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>)}
           </>
         );

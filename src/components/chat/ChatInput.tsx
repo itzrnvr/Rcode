@@ -276,7 +276,7 @@ export function ChatInput({
                   <ChevronDownIcon size={11} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="start" sideOffset={8} style={{ minWidth: 360 }}>
+              <PopoverContent align="start" sideOffset={8} style={{ minWidth: 240, maxWidth: 280 }}>
                 <div className="mode-picker-header">
                   <span>Agent mode</span>
                 </div>
@@ -357,7 +357,7 @@ export function ChatInput({
                   <ZapIcon size={12} /> {effort === "max" ? "Max" : effort[0].toUpperCase() + effort.slice(1)} <ChevronDownIcon size={10} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="end" sideOffset={8} style={{ minWidth: 150 }}>
+              <PopoverContent align="end" sideOffset={8} style={{ minWidth: 120 }}>
                 <div className="mode-picker-list" role="radiogroup" aria-label="Reasoning effort">
                   {["low", "medium", "high", "max"].map(lvl => (
                     <PopoverClose asChild key={lvl}>
@@ -385,7 +385,7 @@ export function ChatInput({
                   <ChevronDownIcon size={11} />
                 </button>
               </PopoverTrigger>
-              <PopoverContent align="end" sideOffset={8} style={{ minWidth: 440 }}>
+              <PopoverContent align="end" sideOffset={8} style={{ minWidth: 300, maxWidth: 340 }}>
                 <div className="model-picker-header">
                   <span>Choose a model</span>
                   <span className="model-picker-count">{liveModels.length} available</span>

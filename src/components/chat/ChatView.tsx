@@ -183,6 +183,7 @@ export function ChatView() {
 
   const [railHover, setRailHover] = useState<{ i: number; top: number; left: number } | null>(null);
   const [activeMsgIdx, setActiveMsgIdx] = useState(0);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   const stripMarkers = (s: string) => s
     .replace(/\[worked:\d+s\]/g, "")
@@ -192,32 +193,29 @@ export function ChatView() {
     .replace(/\s+/g, " ")
     .trim();
 
-  const scrollToMsg = useCallback((id: string) => {
-    document.querySelector(`[data-mid="${id}"]`)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  // Minimap-style navigator: active index derived from scroll fraction
+  // (same technique as editor minimaps — deterministic, no rect queries).
+  const syncActiveIdx = useCallback((el: HTMLElement) => {
+    const max = Math.max(1, el.scrollHeight - el.clientHeight);
+    const fraction = Math.min(1, Math.max(0, el.scrollTop / max));
+    setActiveMsgIdx(Math.round(fraction * Math.max(0, messages.length - 1)));
+  }, [messages.length]);
 
   useEffect(() => {
-    const el = document.querySelector(".chat-messages");
-    if (!el) return;
-    const nodes = [...el.querySelectorAll<HTMLElement>("[data-mid]")];
-    let idx = 0;
-    for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i].getBoundingClientRect().top - el.getBoundingClientRect().top <= 90) idx = i;
-    }
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) idx = nodes.length - 1;
-    setActiveMsgIdx(idx);
-  }, [messages]);
+    const el = chatScrollRef.current;
+    if (el) syncActiveIdx(el);
+  }, [messages, syncActiveIdx]);
 
   const handleMsgScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    const nodes = [...el.querySelectorAll<HTMLElement>("[data-mid]")];
-    let idx = 0;
-    for (let i = 0; i < nodes.length; i++) {
-      if (nodes[i].getBoundingClientRect().top - el.getBoundingClientRect().top <= 90) idx = i;
-    }
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 40) idx = nodes.length - 1;
-    setActiveMsgIdx(idx);
-  }, []);
+    syncActiveIdx(e.currentTarget);
+  }, [syncActiveIdx]);
+
+  const jumpToMsg = useCallback((i: number) => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+    const n = Math.max(1, messages.length - 1);
+    el.scrollTo({ top: (i / n) * (el.scrollHeight - el.clientHeight), behavior: "smooth" });
+  }, [messages.length]);
 
   const handleFork = useCallback(async (messageId: string) => {
     if (!currentSessionId) return;
@@ -340,7 +338,7 @@ export function ChatView() {
                 title=""
                 onMouseEnter={e => { const r = e.currentTarget.getBoundingClientRect(); const rail = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect(); setRailHover({ i, top: r.top, left: rail.right }); }}
                 onMouseLeave={() => setRailHover(null)}
-                onClick={() => scrollToMsg(m.id)}
+                onClick={() => jumpToMsg(i)}
               >
                 <span className="msg-bar" style={{ width: w }} />
               </button>
@@ -357,7 +355,7 @@ export function ChatView() {
           </div>
         );
       })()}
-      <div className="chat-messages" onContextMenu={handleContextMenu} onScroll={handleMsgScroll}>
+      <div className="chat-messages" ref={chatScrollRef} onContextMenu={handleContextMenu} onScroll={handleMsgScroll}>
         {messages.map((msg, i) => {
           const prevUser = msg.role === "assistant"
             ? messages.slice(0, i).reverse().find(m => m.role === "user")
@@ -369,7 +367,6 @@ export function ChatView() {
               mid={msg.id}
               role={msg.role}
               content={msg.content}
-              model={msg.role === "assistant" ? session?.model : undefined}
               onEdit={newContent => {
                 // Editing a user prompt re-sends the turn; assistant edits just save.
                 if (msg.role === "user") {
@@ -389,7 +386,7 @@ export function ChatView() {
           );
         })}
         {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming model={session?.model} />
+          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
         )}
         {isStreaming && !streamingContent && (
           <div className="message-assistant stream-cursor" />

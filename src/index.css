@@ -1040,20 +1040,7 @@ body {
 .message-group-assistant {
   align-items: stretch;
 }
-.message-model {
-  display: inline-flex;
-  align-items: center;
-  font-size: 10.5px;
-  font-weight: 500;
-  color: var(--color-muted);
-  letter-spacing: 0.02em;
-  margin-bottom: 4px;
-  padding: 2px 8px;
-  background: #202020;
-  border: 1px solid #ffffff1f;
-  border-radius: 6px;
-  width: fit-content;
-}
+
 /* Footer actions bar — replaces absolute overlay that overlapped text */
 .message-actions {
   display: flex;
@@ -3294,7 +3281,9 @@ body {
 .panel-side button:hover { transform: translateY(-0.5px); }
 .msg-bar { transition: width .16s ease, background .16s ease; }
 .ctx-card, .msg-rail-card { animation: sp-pop .13s ease-out; }
-.thinking-block, .tool-row { animation: sp-pop .12s ease-out; }
+@keyframes reveal-down { from { opacity: 0; clip-path: inset(0 0 100% 0); } to { opacity: 1; clip-path: inset(0 0 0 0); } }
+.thinking-block, .tool-row { animation: reveal-down .22s ease-out both; }
+.tool-card { animation: reveal-down .18s ease-out both; }
 
 /* comfy-snappy global micro-motion */
 button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-pill, .effort-badge {
