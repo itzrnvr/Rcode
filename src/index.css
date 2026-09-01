@@ -1193,18 +1193,14 @@ body {
 
 /* --- Thinking / reasoning block --- */
 .thinking-block {
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--color-surface) 90%, transparent);
-  margin: 8px 0;
-  overflow: hidden;
+  margin: 4px 0;
 }
 .thinking-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   width: 100%;
-  padding: 9px 12px;
+  padding: 3px 0;
   border: none;
   background: transparent;
   color: var(--color-muted);
@@ -1215,13 +1211,16 @@ body {
 }
 .thinking-toggle:hover { color: var(--color-fg); }
 .thinking-content {
-  padding: 12px;
-  border-top: 1px solid var(--color-border);
-  font-size: 13px;
+  margin: 4px 0 6px 2px;
+  padding: 6px 12px;
+  border-left: 2px solid #2a2a2e;
+  font-size: 12.5px;
   line-height: 1.6;
-  color: var(--color-muted);
+  color: #7a7a82;
   white-space: pre-wrap;
   font-family: var(--font-ui);
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 /* --- Tool call block --- */
@@ -3152,23 +3151,23 @@ body {
   font-size: 12px;
   margin: 2px 0 8px;
 }
-.tool-row { margin: 6px 0; }
+.tool-row { margin: 4px 0; }
 .tool-row-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   width: 100%;
-  padding: 6px 10px;
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-  background: var(--color-surface);
-  color: var(--color-fg);
+  padding: 3px 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-muted);
   font-size: 12px;
   cursor: pointer;
   text-align: left;
 }
-.tool-row-head:hover { background: var(--color-bg-tertiary); }
-.tool-row-name { font-weight: 600; }
+.tool-row-head:hover { color: var(--color-fg); }
+.tool-row-name { font-weight: 500; color: var(--color-muted); }
 .tool-row-args {
   flex: 1;
   min-width: 0;
