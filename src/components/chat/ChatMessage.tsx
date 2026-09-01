@@ -63,13 +63,14 @@ function CodeBlock({ lang, code, children }: { lang: string; code: string; child
   );
 }
 
-export function ThinkingBlock({ content, defaultOpen = false }: { content: string; defaultOpen?: boolean }) {
+export function ThinkingBlock({ content, defaultOpen = false, label = "Thought", meta = "" }: { content: string; defaultOpen?: boolean; label?: string; meta?: string }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className={`thinking-block ${open ? "open" : ""}`}>
       <button className="thinking-toggle" onClick={() => setOpen(o => !o)}>
         <ChevronDownIcon size={12} className={open ? "rotate-180" : ""} />
-        <span>{open ? "Hide reasoning" : "Show reasoning"}</span>
+        <span style={{ fontWeight: 600 }}>{label}</span>
+        {meta && <span style={{ color: "var(--color-muted)", fontSize: 11, fontWeight: 400 }}>{meta}</span>}
       </button>
       {open && <div className="thinking-content">{content}</div>}
     </div>
@@ -87,27 +88,6 @@ function ToolCallBlock({ name, args, result }: { name: string; args: string; res
       {result != null && (
         <pre className="tool-call-result"><code>{result}</code></pre>
       )}
-    </div>
-  );
-}
-
-function OlderSteps({ steps }: { steps: LiveStep[] }) {
-  const [open, setOpen] = useState(false);
-  const thoughts = steps.filter(s => s.kind === "thought").length;
-  const tools = steps.filter(s => s.kind === "tool").length;
-  const says = steps.filter(s => s.kind === "say").length;
-  const label = [tools ? `${tools} tool${tools > 1 ? "s" : ""}` : "", thoughts ? `${thoughts} thought${thoughts > 1 ? "s" : ""}` : "", says ? `${says} note${says > 1 ? "s" : ""}` : ""].filter(Boolean).join(" · ");
-  return (
-    <div style={{ margin: "2px 0" }}>
-      <button className="tool-row-head" onClick={() => setOpen(o => !o)} style={{ background: "transparent", opacity: 0.75 }}>
-        <ChevronDownIcon size={11} className={open ? "rotate-180" : ""} />
-        <span style={{ fontSize: 11.5, color: "var(--color-muted)" }}>{label} earlier</span>
-      </button>
-      {open && steps.map((s, i) => s.kind === "tool"
-        ? <ToolRow key={`old-${i}`} step={s} />
-        : s.kind === "thought"
-          ? <ThinkingBlock key={`old-${i}`} content={s.text ?? ""} />
-          : <div key={`old-${i}`} className="message-assistant" style={{ padding: 0, opacity: 0.8 }}>{renderContent(s.text ?? "")}</div>)}
     </div>
   );
 }
@@ -173,6 +153,7 @@ function renderContent(content: string, turnCollapsed = false, onToggle?: () => 
 export function ChatMessage({ role, content, streaming, model, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [turnCollapsed, setTurnCollapsed] = useState(true);
+  const [traceOpen, setTraceOpen] = useState<boolean | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState(content);
   const onCopyMessage = useCallback(async () => {
@@ -242,20 +223,21 @@ export function ChatMessage({ role, content, streaming, model, reasoning, onEdit
       {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
       {streaming && (() => {
         const steps = liveSteps ?? [];
-        const older = steps.slice(0, Math.max(0, steps.length - 2));
-        const hot = steps.slice(Math.max(0, steps.length - 2));
-        const lastIdx = steps.length - 1;
+        const hasTools = steps.some(s => s.kind === "tool");
+        const lastKind = steps[steps.length - 1]?.kind;
+        // ZCode flow: steps progress visibly; once the final answer starts
+        // streaming the whole trace folds under the Worked header. New tool
+        // calls unfold it again. Each step stays individually collapsible.
+        const collapsed = traceOpen ?? (hasTools && lastKind === "say");
         return (
           <>
-            {older.length > 0 && <OlderSteps key="older" steps={older} />}
-            {hot.map((s, k) => {
-              const i = older.length + k;
-              return s.kind === "tool"
+            <TurnHeader secs={null} live usage={liveUsage} collapsible={hasTools} collapsed={collapsed} onToggle={() => setTraceOpen(!collapsed)} />
+            {!collapsed && steps.map((s, i) =>
+              s.kind === "tool"
                 ? <ToolRow key={`live-${i}`} step={s} />
                 : s.kind === "thought"
-                  ? <ThinkingBlock key={`live-${i}`} content={s.text ?? ""} defaultOpen={i === lastIdx} />
-                  : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>;
-            })}
+                  ? <ThinkingBlock key={`live-${i}-${i === steps.length - 1 ? "a" : "b"}`} content={s.text ?? ""} defaultOpen={i === steps.length - 1} meta={s.secs != null ? `· ${s.secs <= 2 ? "a few seconds" : `${s.secs} seconds`}` : ""} />
+                  : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>)}
           </>
         );
       })()}

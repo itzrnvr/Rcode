@@ -63,8 +63,17 @@ export function useChat(sessionId: string | null) {
       setPendingApproval({ approvalId: chunk.approvalId ?? "", command: chunk.tool?.name ?? "" });
       return;
     }
+    const finalizeThought = (p: LiveStep[]): LiveStep[] => {
+      const last = p[p.length - 1];
+      if (last?.kind === "thought" && last.secs == null && last.bornAt != null) {
+        const next = [...p];
+        next[next.length - 1] = { ...last, secs: Math.max(1, Math.round((Date.now() - (last.bornAt ?? Date.now())) / 1000)) };
+        return next;
+      }
+      return p;
+    };
     if (chunk.kind === "tool_call") {
-      setLiveSteps(p => [...p, { kind: "tool", name: chunk.tool?.name, args: chunk.tool?.args, status: "running" }]);
+      setLiveSteps(p => [...finalizeThought(p), { kind: "tool", name: chunk.tool?.name, args: chunk.tool?.args, status: "running" }]);
       return;
     }
     if (chunk.kind === "tool_result") {
@@ -86,11 +95,12 @@ export function useChat(sessionId: string | null) {
           next[next.length - 1] = { ...last, text: (last.text ?? "") + chunk.reasoning };
           return next;
         }
-        return [...p, { kind: "thought", text: chunk.reasoning }];
+        return [...p, { kind: "thought", text: chunk.reasoning, bornAt: Date.now() }];
       });
       return;
     }
     if (chunk.content) {
+      setLiveSteps(p => finalizeThought(p));
       setStreamingContent(prev => prev + chunk.content);
       setLiveSteps(p => {
         const last = p[p.length - 1];

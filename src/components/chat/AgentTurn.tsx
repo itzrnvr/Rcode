@@ -28,6 +28,8 @@ export interface LiveStep {
   args?: string;
   result?: string;
   status?: "running" | "done";
+  secs?: number;
+  bornAt?: number;
 }
 
 export interface TurnUsage { prompt_tokens?: number; completion_tokens?: number; reasoning_tokens?: number; cached_tokens?: number }
@@ -87,20 +89,28 @@ function argsSummary(args?: string): string {
 
 export function ToolRow({ step }: { step: ToolStep | LiveStep }) {
   const [open, setOpen] = useState(false);
+  const isShell = step.name === "run_command";
+  let cmd = "";
+  if (isShell) {
+    try { cmd = String((JSON.parse(step.args || "{}") as Record<string, unknown>).command ?? ""); } catch { cmd = ""; }
+  }
   return (
     <div className="tool-row">
-      <button className="tool-row-head" onClick={() => step.result != null && setOpen(o => !o)}>
+      <button className="tool-row-head" onClick={() => (step.result != null || isShell) && setOpen(o => !o)}>
         {toolIcon(step.name)}
-        <span className="tool-row-name">{step.name}</span>
-        <span className="tool-row-args">{argsSummary(step.args)}</span>
+        <span className="tool-row-name">{isShell ? "Terminal" : step.name}</span>
+        <span className="tool-row-args">{isShell ? (cmd.length > 90 ? cmd.slice(0, 90) + "…" : cmd) : argsSummary(step.args)}</span>
         {step.status === "running" ? (
           <span className="tool-row-spinner" />
         ) : (
           <ChevronDownIcon size={12} className={open ? "rotate-180" : ""} />
         )}
       </button>
-      {open && step.result != null && (
-        <pre className="tool-result">{step.result}</pre>
+      {open && (
+        <div className="tool-result-wrap">
+          {isShell && cmd && <div className="tool-cmd">$ {cmd}</div>}
+          {step.result != null && <pre className="tool-result">{step.result}</pre>}
+        </div>
       )}
     </div>
   );
