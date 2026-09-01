@@ -45,7 +45,7 @@ const BADGE: Record<string, string> = {
 };
 
 const BADGE_COLOR: Record<string, string> = {
-  SYSTEM: "#8a8a92",
+  SYSTEM: "#a3a3a3",
   USER: "#3b82f6",
   CONTEXT: "#3fa14b",
   THINK: "#b07fd8",
@@ -333,9 +333,9 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             onClick={() => setView(v)}
             style={{
               display: "flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, cursor: "pointer",
-              background: view === v ? "#242428" : "#1a1a1d",
-              color: view === v ? "#e8e8ea" : "#8a8a92",
-              border: "1px solid #2a2a2e",
+              background: view === v ? "#2a2a2a" : "#1e1e1e",
+              color: view === v ? "#ececec" : "#a3a3a3",
+              border: "1px solid #ffffff30",
               textTransform: "capitalize",
             }}
           >
@@ -355,15 +355,15 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
           </button>
         )}
         {viewport && (
-          <button onClick={() => setViewport(null)} title="Reset zoom (Esc)" style={{ padding: "4px 8px", borderRadius: 999, fontSize: 10.5, background: "#1a1a1d", color: "#8a8a92", border: "1px solid #2a2a2e", cursor: "pointer" }}>
+          <button onClick={() => setViewport(null)} title="Reset zoom (Esc)" style={{ padding: "4px 8px", borderRadius: 999, fontSize: 10.5, background: "#1e1e1e", color: "#a3a3a3", border: "1px solid #ffffff30", cursor: "pointer" }}>
             {Math.round((domainDur / fullSpan) * 100)}%
           </button>
         )}
         <span style={{ flex: 1 }} />
-        <span style={{ fontSize: 9, color: "#5a5a62" }}>drag select · wheel zoom · shift+drag pan · esc reset</span>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#161618", border: "1px solid #26262a", borderRadius: 8, padding: "4px 8px" }}>
+        <span style={{ fontSize: 9, color: "#6f6f6f" }}>drag select · wheel zoom · shift+drag pan · esc reset</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, background: "#1e1e1e", border: "1px solid #ffffff1f", borderRadius: 8, padding: "4px 8px" }}>
           <SearchIcon size={11} />
-          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search" style={{ background: "transparent", border: "none", outline: "none", color: "#e8e8ea", fontSize: 11, width: 80 }} />
+          <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search" style={{ background: "transparent", border: "none", outline: "none", color: "#ececec", fontSize: 11, width: 80 }} />
         </div>
         <button className="ms-iconbtn" title="Session log" onClick={downloadLog}><DownloadIcon size={13} /></button>
         <button className="ms-iconbtn" title="Refresh" onClick={() => setReload(r => r + 1)}><RefreshIcon size={13} /></button>
@@ -381,18 +381,18 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
           {/* ruler */}
           <div style={{ display: "flex", gap: 8, marginBottom: 3 }}>
             <span style={{ width: 38 }} />
-            <div style={{ flex: 1, position: "relative", height: 12, borderBottom: "1px solid #1c1c20" }}>
+            <div style={{ flex: 1, position: "relative", height: 12, borderBottom: "1px solid #232323" }}>
               {timeline.ticks.map(t => (
-                <span key={t} style={{ position: "absolute", left: `${at(t)}%`, top: 0, height: 12, borderLeft: "1px solid #26262a" }}>
-                  <span style={{ position: "absolute", left: 3, top: 0, fontSize: 8, color: "#5a5a62", fontFamily: mono, whiteSpace: "nowrap" }}>{fmtMs(t)}</span>
+                <span key={t} style={{ position: "absolute", left: `${at(t)}%`, top: 0, height: 12, borderLeft: "1px solid #ffffff1f" }}>
+                  <span style={{ position: "absolute", left: 3, top: 0, fontSize: 8, color: "#6f6f6f", fontFamily: mono, whiteSpace: "nowrap" }}>{fmtMs(t)}</span>
                 </span>
               ))}
             </div>
           </div>
           {(["Input", "Model", "Tools"] as const).map((lane, li) => (
             <div key={lane} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <span style={{ width: 38, fontSize: 9, color: "#6a6a72", fontFamily: mono }}>{lane}</span>
-              <div ref={li === 0 ? trackRef : undefined} style={{ flex: 1, position: "relative", height: 10, borderBottom: "1px solid #1c1c20", overflow: "hidden" }}>
+              <span style={{ width: 38, fontSize: 9, color: "#7d7d7d", fontFamily: mono }}>{lane}</span>
+              <div ref={li === 0 ? trackRef : undefined} style={{ flex: 1, position: "relative", height: 10, borderBottom: "1px solid #232323", overflow: "hidden" }}>
                 {lane === "Input" && timeline.inputTicks.map(b => (
                   <span key={b.key} onClick={() => select(b.key, true)} style={{ position: "absolute", left: `${b.left}%`, top: 2, width: 3, height: 6, background: "#3fa14b", borderRadius: 1, cursor: "pointer" }} />
                 ))}
@@ -400,7 +400,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
                   <span key={b.key} onClick={() => select(b.key, true)} style={{ position: "absolute", left: `${b.left}%`, top: b.wide ? 1 : 3, width: b.wide ? 3 : 2, height: b.wide ? 8 : 5, background: selKey === b.key ? "#5a8ad8" : "#b07fd8", borderRadius: 1, cursor: "pointer" }} />
                 ))}
                 {lane === "Tools" && timeline.toolBars.map(b => (
-                  <span key={b.key} onClick={() => select(b.key, true)} style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 2, height: 6, background: selKey === b.key ? "#5a8ad8" : b.unknown ? "#8a8a92" : "#d89a3f", borderRadius: 2, cursor: "pointer" }} />
+                  <span key={b.key} onClick={() => select(b.key, true)} style={{ position: "absolute", left: `${b.left}%`, width: `${b.width}%`, top: 2, height: 6, background: selKey === b.key ? "#5a8ad8" : b.unknown ? "#a3a3a3" : "#d89a3f", borderRadius: 2, cursor: "pointer" }} />
                 ))}
               </div>
             </div>
@@ -433,13 +433,13 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
             {r.turnStart != null && (
               <div style={{ display: "flex", alignItems: "center", gap: 7, padding: "10px 2px 4px" }}>
                 <span style={{ width: 7, height: 7, borderRadius: 999, background: "#e04343" }} />
-                <span style={{ fontSize: 10, color: "#8a8a92", fontWeight: 700 }}>Turn {r.turnStart}</span>
+                <span style={{ fontSize: 10, color: "#a3a3a3", fontWeight: 700 }}>Turn {r.turnStart}</span>
               </div>
             )}
             <div
               data-rowkey={r.key}
               onClick={() => select(r.key)}
-              style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "5px 4px", cursor: "pointer", background: selKey === r.key ? "#1c1c22" : "transparent", borderRadius: 6 }}
+              style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "5px 4px", cursor: "pointer", background: selKey === r.key ? "#242424" : "transparent", borderRadius: 6 }}
             >
               <span style={{
                 flex: "none", width: 7, height: 7, borderRadius: 999, marginTop: 5,
@@ -448,19 +448,19 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
               }} />
               <span style={{
                 flex: "none", width: 64, textAlign: "center", fontSize: 8.5, fontWeight: 700, letterSpacing: 0.4,
-                color: BADGE_COLOR[r.badge], background: "#1b1b1f", border: "1px solid #28282c",
+                color: BADGE_COLOR[r.badge], background: "#232323", border: "1px solid #ffffff26",
                 borderRadius: 5, padding: "2px 0", marginTop: 2,
               }}>{r.badge}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 {r.e.kind === "tool_call" ? (
-                  <span style={{ fontFamily: mono, fontSize: 11, color: "#c8c8cc", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {String(r.e.name ?? "")} <span style={{ color: "#7a7a82" }}>{JSON.stringify(r.e.args ?? {}).slice(0, 60)}</span>
+                  <span style={{ fontFamily: mono, fontSize: 11, color: "#d6d6d6", display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {String(r.e.name ?? "")} <span style={{ color: "#8f8f8f" }}>{JSON.stringify(r.e.args ?? {}).slice(0, 60)}</span>
                     {r.e2
-                      ? <span> → <span style={{ color: "#9a9aa2" }}>{String(r.e2.result ?? "").replace(/\n/g, " ").slice(0, 90)}…</span></span>
+                      ? <span> → <span style={{ color: "#b0b0b0" }}>{String(r.e2.result ?? "").replace(/\n/g, " ").slice(0, 90)}…</span></span>
                       : <span style={{ color: "#e0608a" }}> TOOL_OUTCOME_UNKNOWN</span>}
                   </span>
                 ) : (
-                  <span style={{ fontSize: 11.5, color: "#c8c8cc", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.text}</span>
+                  <span style={{ fontSize: 11.5, color: "#d6d6d6", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.text}</span>
                 )}
                 {open.has(r.key) && (
                   <pre className="tool-result" style={{ maxHeight: 220, margin: "6px 0 4px", whiteSpace: "pre-wrap" }}>
@@ -472,7 +472,7 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
                   </pre>
                 )}
               </div>
-              <button onClick={e => { e.stopPropagation(); setOpen(prev => { const n = new Set(prev); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; }); }} style={{ background: "transparent", border: "none", color: "#6a6a72", cursor: "pointer", padding: 2 }}>{open.has(r.key) ? "−" : "+"}</button>
+              <button onClick={e => { e.stopPropagation(); setOpen(prev => { const n = new Set(prev); if (n.has(r.key)) n.delete(r.key); else n.add(r.key); return n; }); }} style={{ background: "transparent", border: "none", color: "#7d7d7d", cursor: "pointer", padding: 2 }}>{open.has(r.key) ? "−" : "+"}</button>
             </div>
           </div>
         ))}
@@ -517,17 +517,17 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
         const total = Number(resp?.totalMs ?? 0);
         const ttft = Number(resp?.firstChunkMs ?? 0);
         return (
-          <div style={{ position: "absolute", top: 44, right: 8, bottom: 36, width: "min(400px, 94%)", background: "#141416", border: "1px solid #333338", borderRadius: 12, zIndex: 1600, display: "flex", flexDirection: "column", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: "1px solid #26262a" }}>
-              <span style={{ fontSize: 9, fontWeight: 700, color: BADGE_COLOR[selRow.badge], background: "#1d1d21", border: "1px solid #2a2a2e", borderRadius: 4, padding: "2px 6px" }}>{isTool ? "TOOL" : selRow.badge}</span>
+          <div style={{ position: "absolute", top: 44, right: 8, bottom: 36, width: "min(400px, 94%)", background: "#1c1c1c", border: "1px solid #ffffff3b", borderRadius: 12, zIndex: 1600, display: "flex", flexDirection: "column", boxShadow: "0 12px 32px rgba(0,0,0,.55)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderBottom: "1px solid #ffffff1f" }}>
+              <span style={{ fontSize: 9, fontWeight: 700, color: BADGE_COLOR[selRow.badge], background: "#262626", border: "1px solid #ffffff30", borderRadius: 4, padding: "2px 6px" }}>{isTool ? "TOOL" : selRow.badge}</span>
               <span style={{ fontSize: 11.5, fontWeight: 700, flex: 1 }}>
                 {isTool ? `${String(selRow.e.name ?? "")} · Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}` : `${selRow.badge} Turn ${String(selRow.e.turn ?? "")} · Step ${selRow.key}`}
               </span>
-              <button onClick={() => setSelKey(null)} style={{ background: "transparent", border: "none", color: "#8a8a92", cursor: "pointer" }}>×</button>
+              <button onClick={() => setSelKey(null)} style={{ background: "transparent", border: "none", color: "#a3a3a3", cursor: "pointer" }}>×</button>
             </div>
-            <div style={{ display: "flex", gap: 14, padding: "7px 12px", borderBottom: "1px solid #26262a" }}>
+            <div style={{ display: "flex", gap: 14, padding: "7px 12px", borderBottom: "1px solid #ffffff1f" }}>
               {(["summary", "preview", "raw"] as const).map(tb => (
-                <button key={tb} onClick={() => setSelTab(tb)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "2px 0", color: selTab === tb ? "#e8e8ea" : "#8a8a92", borderBottom: selTab === tb ? "2px solid #5a8ad8" : "2px solid transparent", textTransform: "capitalize" }}>{tb}</button>
+                <button key={tb} onClick={() => setSelTab(tb)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, padding: "2px 0", color: selTab === tb ? "#ececec" : "#a3a3a3", borderBottom: selTab === tb ? "2px solid #5a8ad8" : "2px solid transparent", textTransform: "capitalize" }}>{tb}</button>
               ))}
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 12 }}>
@@ -535,23 +535,23 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 11.5 }}>
                   {!isTool && (
                     <>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Source</span><span>Request #{String(selRow.e.round ?? 0)}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Status</span><span style={{ color: "#3fa14b" }}>{String(resp?.status ?? "—") === "ok" ? "Completed" : String(resp?.status ?? "—")}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Tokens</span><span>{u ? fmtTok(u.completion) : "—"}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 14 }}><span style={{ color: "#8a8a92" }}>Reasoning</span><span>{fmtTok(u?.reasoning ?? 0)}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 14 }}><span style={{ color: "#8a8a92" }}>Content</span><span>{u ? fmtTok(u.completion - u.reasoning) : "—"}</span></div>
-                      <div style={{ marginTop: 8, fontWeight: 700, fontSize: 10, color: "#8a8a92", letterSpacing: 0.5 }}>REQUEST TIMING</div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Started</span><span style={{ fontFamily: mono }}>{req?.ts ? new Date(String(req.ts)).toLocaleTimeString() : "—"}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Total duration</span><span style={{ fontFamily: mono }}>{(total / 1000).toFixed(1)}s</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>TTFT</span><span style={{ fontFamily: mono }}>{(ttft / 1000).toFixed(2)}s</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Generation</span><span style={{ fontFamily: mono }}>{((total - ttft) / 1000).toFixed(1)}s</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Source</span><span>Request #{String(selRow.e.round ?? 0)}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Status</span><span style={{ color: "#3fa14b" }}>{String(resp?.status ?? "—") === "ok" ? "Completed" : String(resp?.status ?? "—")}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Tokens</span><span>{u ? fmtTok(u.completion) : "—"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 14 }}><span style={{ color: "#a3a3a3" }}>Reasoning</span><span>{fmtTok(u?.reasoning ?? 0)}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 14 }}><span style={{ color: "#a3a3a3" }}>Content</span><span>{u ? fmtTok(u.completion - u.reasoning) : "—"}</span></div>
+                      <div style={{ marginTop: 8, fontWeight: 700, fontSize: 10, color: "#a3a3a3", letterSpacing: 0.5 }}>REQUEST TIMING</div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Started</span><span style={{ fontFamily: mono }}>{req?.ts ? new Date(String(req.ts)).toLocaleTimeString() : "—"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Total duration</span><span style={{ fontFamily: mono }}>{(total / 1000).toFixed(1)}s</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>TTFT</span><span style={{ fontFamily: mono }}>{(ttft / 1000).toFixed(2)}s</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Generation</span><span style={{ fontFamily: mono }}>{((total - ttft) / 1000).toFixed(1)}s</span></div>
                     </>
                   )}
                   {isTool && (
                     <>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Tool</span><span style={{ fontFamily: mono }}>{String(selRow.e.name ?? "")}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Status</span><span style={{ color: selRow.e2 ? "#3fa14b" : "#e0608a" }}>{selRow.e2 ? "Completed" : "Unknown"}</span></div>
-                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#8a8a92" }}>Duration</span><span style={{ fontFamily: mono }}>{selRow.e2?.ms != null ? `${selRow.e2.ms}ms` : "—"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Tool</span><span style={{ fontFamily: mono }}>{String(selRow.e.name ?? "")}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Status</span><span style={{ color: selRow.e2 ? "#3fa14b" : "#e0608a" }}>{selRow.e2 ? "Completed" : "Unknown"}</span></div>
+                      <div style={{ display: "flex", justifyContent: "space-between" }}><span style={{ color: "#a3a3a3" }}>Duration</span><span style={{ fontFamily: mono }}>{selRow.e2?.ms != null ? `${selRow.e2.ms}ms` : "—"}</span></div>
                     </>
                   )}
                 </div>
@@ -560,15 +560,15 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 11 }}>
                   {isTool ? (
                     <>
-                      <div style={{ fontWeight: 700, color: "#8a8a92", fontSize: 10 }}>ARGS</div>
+                      <div style={{ fontWeight: 700, color: "#a3a3a3", fontSize: 10 }}>ARGS</div>
                       <pre className="tool-result" style={{ maxHeight: 140 }}>{JSON.stringify(selRow.e.args ?? {}, null, 2)}</pre>
-                      <div style={{ fontWeight: 700, color: "#8a8a92", fontSize: 10 }}>RESULT</div>
+                      <div style={{ fontWeight: 700, color: "#a3a3a3", fontSize: 10 }}>RESULT</div>
                       <pre className="tool-result" style={{ maxHeight: 200 }}>{String(selRow.e2?.result ?? "(none)")}</pre>
                     </>
                   ) : (
                     <>
                       {think && (<><div style={{ fontWeight: 700, color: "#b07fd8", fontSize: 10 }}>[thinking]</div><pre className="tool-result" style={{ maxHeight: 180 }}>{think}</pre></>)}
-                      {contents && (<><div style={{ fontWeight: 700, color: "#8a8a92", fontSize: 10 }}>CONTENT</div><pre className="tool-result" style={{ maxHeight: 180 }}>{contents}</pre></>)}
+                      {contents && (<><div style={{ fontWeight: 700, color: "#a3a3a3", fontSize: 10 }}>CONTENT</div><pre className="tool-result" style={{ maxHeight: 180 }}>{contents}</pre></>)}
                       {tools.length > 0 && (<><div style={{ fontWeight: 700, color: "#d89a3f", fontSize: 10 }}>TOOL CALLS</div>{tools.map((tl, i) => <pre key={i} className="tool-result" style={{ maxHeight: 100 }}>{String(tl.name ?? "")} {String(tl.args ?? "")}</pre>)}</>)}
                     </>
                   )}
@@ -581,15 +581,15 @@ export function TrajectoryView({ sessionId }: { sessionId: string | null }) {
       })()}
 
       {/* Footer stats — dsh format */}
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "7px 10px", borderTop: "1px solid var(--color-border)", fontSize: 10, color: "#8a8a92" }}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", padding: "7px 10px", borderTop: "1px solid var(--color-border)", fontSize: 10, color: "#a3a3a3" }}>
         <span>{stats.turns} turns · {stats.steps} steps</span>
-        <span style={{ color: "#3a3a3e" }}>|</span>
+        <span style={{ color: "#4d4d4d" }}>|</span>
         <span>LLM {fmtMs(stats.llmMs)} · Tool call {fmtMs(stats.toolMs)}</span>
-        <span style={{ color: "#3a3a3e" }}>|</span>
+        <span style={{ color: "#4d4d4d" }}>|</span>
         <span>TTFT avg {fmtMs(stats.ttft)} · {Math.round(stats.tps)} tok/s</span>
-        <span style={{ color: "#3a3a3e" }}>|</span>
+        <span style={{ color: "#4d4d4d" }}>|</span>
         <span>Cache hit {Math.round(stats.cache * 100)}%</span>
-        <span style={{ color: "#3a3a3e" }}>|</span>
+        <span style={{ color: "#4d4d4d" }}>|</span>
         <span>Input {fmtTok(stats.inTok)} tok · Output {fmtTok(stats.outTok)} tok</span>
       </div>
     </div>

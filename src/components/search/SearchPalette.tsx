@@ -119,7 +119,7 @@ export function SearchPalette({ open, onClose }: SearchPaletteProps) {
         style={{
           width: 640,
           maxHeight: "70vh",
-          background: "#1a1a1a",
+          background: "#1e1e1e",
           border: "1px solid #262626",
           borderRadius: 12,
           overflow: "hidden",

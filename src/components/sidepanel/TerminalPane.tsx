@@ -33,7 +33,7 @@ export function TerminalPane({ terminalId }: TerminalPaneProps) {
       cursorBlink: true,
       cursorStyle: "block",
       theme: {
-        background: "#0a0a0a",
+        background: "#161616",
         foreground: "#e8e8e8",
         cursor: "#e8e8e8",
         selectionBackground: "#264f78",
@@ -134,7 +134,7 @@ export function TerminalPane({ terminalId }: TerminalPaneProps) {
         width: "100%",
         height: "100%",
         minHeight: 200,
-        background: "#0a0a0a",
+        background: "#161616",
         padding: 8,
         borderRadius: 8,
         border: "1px solid #262626",

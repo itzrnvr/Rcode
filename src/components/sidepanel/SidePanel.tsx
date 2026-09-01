@@ -217,14 +217,14 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           data-sp-trigger="1"
           onClick={() => { setShowManager(v => !v); setShowPicker(false); }}
           title="Search tabs / resume closed tabs"
-          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
+          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1e1e1e', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
         ><ChevronDownIcon size={14} /></button>
 
         <div style={{display:'flex', gap:6, flex:1, overflowX:'auto'}}>
           {openTabs.map(t => {
             const Def = TAB_DEFS[t.type];
             return (
-              <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : '#1a1a1a', border:'1px solid ' + (t.id===activeId ? '#3a3a3a' : '#262626'), color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap', cursor:'pointer'}}>
+              <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : '#1e1e1e', border:'1px solid ' + (t.id===activeId ? '#3a3a3a' : '#262626'), color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap', cursor:'pointer'}}>
                 <Def.Icon size={13} />{t.title}
                 <span onClick={e => { e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }} style={{marginLeft:2, opacity:0.6, display:'flex'}}><XIcon size={11} /></span>
               </button>
@@ -236,7 +236,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           data-sp-trigger="1"
           onClick={() => { setShowPicker(v => !v); setShowManager(false); }}
           title="Open a new tab"
-          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1a1a1a', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
+          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1e1e1e', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
         ><PlusIcon size={14} /></button>
 
         {showPicker && (
@@ -314,7 +314,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
             <div style={{flex:1, overflowY:'auto', padding:12}}>
               <div style={{fontSize:11, color:'#8a8a8a', marginBottom:8, textTransform:'uppercase', letterSpacing:0.5}}>Side conversations • {sideTabs.length} open • {sideClosedTabs.length} closed</div>
               {sideTabs.length === 0 && sideClosedTabs.length === 0 ? (
-                <div style={{background:'#1a1a1a', border:'1px solid #262626', borderRadius:8, padding:12, minHeight:80}}>
+                <div style={{background:'#1e1e1e', border:'1px solid #262626', borderRadius:8, padding:12, minHeight:80}}>
                   <div style={{fontSize:13, color:'#e8e8e8'}}>No side chats yet. Select text in the main chat and right-click → Create side chat.</div>
                   <div style={{fontSize:12, color:'#8a8a8a', marginTop:6}}>Active tab: {activeTab.title}</div>
                 </div>
@@ -327,7 +327,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
                           key={t.id}
                           onClick={() => setActiveId(t.sideChatId)}
                           title="Open this side chat in the panel"
-                          style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background: activeId === t.sideChatId ? '#252525' : '#1a1a1a', border:'1px solid #262626', borderRadius:8, cursor:'pointer'}}
+                          style={{display:'flex', alignItems:'center', gap:8, padding:'8px 10px', background: activeId === t.sideChatId ? '#252525' : '#1e1e1e', border:'1px solid #262626', borderRadius:8, cursor:'pointer'}}
                         >
                           <MessageCircleIcon size={12} />
                           <span style={{flex:1, fontSize:13, color:'#e8e8e8', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.sideChatTitle ?? t.sideChatId.slice(0,8)}</span>
@@ -364,7 +364,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         })()}
         {activeTab?.type === "trajectory" && <TrajectoryView sessionId={currentSessionId} />}
         {activeTab?.type === "dsh" && (
-          <iframe src="http://127.0.0.1:3080/" style={{ flex: 1, minHeight: 0, border: "none", width: "100%", height: "100%", background: "#0a0a0a" }} title="dsh web" />
+          <iframe src="http://127.0.0.1:3080/" style={{ flex: 1, minHeight: 0, border: "none", width: "100%", height: "100%", background: "#161616" }} title="dsh web" />
         )}
         {activeTab?.type === "terminal" && (
           <div style={{flex:1, minHeight:0, padding:12}}><TerminalPane terminalId={activeTab.id} /></div>
