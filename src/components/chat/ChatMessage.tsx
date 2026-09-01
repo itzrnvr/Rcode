@@ -68,7 +68,7 @@ export function ThinkingBlock({ content, defaultOpen = false, label = "Thought",
     <div className={`thinking-block ${open ? "open" : ""}`} style={delayMs != null ? { animationDelay: `${delayMs}ms` } : undefined}>
       <button className="thinking-toggle" onClick={() => setOpen(o => !o)}>
         <ChevronDownIcon size={12} className={open ? "rotate-180" : ""} />
-        <span style={{ fontWeight: 600 }}>{label}</span>
+        <span style={{ fontWeight: 400 }}>{label}</span>
         {meta && <span style={{ color: "var(--color-muted)", fontSize: 11, fontWeight: 400 }}>{meta}</span>}
       </button>
       {open && <div className="thinking-content">{content}</div>}
