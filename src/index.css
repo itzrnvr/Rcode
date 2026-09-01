@@ -1196,7 +1196,7 @@ body {
   cursor: pointer;
   text-align: left;
 }
-.thinking-toggle:hover, .thinking-toggle:hover span { color: #b4b4b4; }
+
 .thinking-content {
   margin: 4px 0 6px 2px;
   padding: 6px 12px;
@@ -3153,7 +3153,7 @@ body {
   cursor: pointer;
   text-align: left;
 }
-.tool-row-head:hover, .tool-row-head:hover .tool-row-name, .tool-row-head:hover .tool-row-args { color: #b4b4b4; }
+
 .tool-row-name { font-weight: 400; color: var(--color-muted); }
 .tool-row-args {
   flex: 1;
