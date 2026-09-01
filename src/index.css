@@ -1193,7 +1193,7 @@ body {
 
 /* --- Thinking / reasoning block --- */
 .thinking-block {
-  margin: 4px 0;
+  margin: 10px 0;
 }
 .thinking-toggle {
   display: inline-flex;
@@ -3151,7 +3151,7 @@ body {
   font-size: 12px;
   margin: 2px 0 8px;
 }
-.tool-row { margin: 4px 0; }
+.tool-row { margin: 10px 0; }
 .tool-row-head {
   display: flex;
   align-items: center;
