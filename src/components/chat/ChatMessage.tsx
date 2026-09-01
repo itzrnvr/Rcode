@@ -220,7 +220,6 @@ export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDel
 
   return (
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
-      {streaming && <TurnHeader secs={null} live usage={liveUsage} />}
       {streaming && (() => {
         const steps = liveSteps ?? [];
         const hasTools = steps.some(s => s.kind === "tool");

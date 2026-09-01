@@ -1384,7 +1384,7 @@ body {
   box-shadow: 0 4px 24px rgba(0,0,0,0.32);
 }
 .chat-input-pill.streaming {
-  border-color: var(--color-accent);
+  border-color: var(--color-border);
 }
 
 .chat-input {
