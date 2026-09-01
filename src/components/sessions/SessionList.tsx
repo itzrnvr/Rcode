@@ -35,6 +35,7 @@ import {
   CompassIcon,
   SparkleIcon,
   HistoryIcon,
+  GitForkIcon,
 } from "../common/Icons";
 
 function formatTimeAgo(dateInput: string | number): string {
@@ -245,6 +246,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
               >
                 <PinIcon size={12} className="pin-icon" />
                 <span className="session-item-title" style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{s.title}</span>
+                {s.parentId && <span title="Forked session" style={{display:'flex', color:'#9a7fd8', opacity:.85}}><GitForkIcon size={11} /></span>}
                 <button
                   className="session-action-btn"
                   onClick={e => { e.stopPropagation(); handleTogglePin(s.id); }}
@@ -335,7 +337,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
                 />
               ) : (
                 <>
-                  <div className="session-item-title">{session.title}</div>
+                  <div className="session-item-title" style={{display:'flex', alignItems:'center', gap:6}}>{session.title}{session.parentId && <span title="Forked session" style={{display:'flex', flex:'none', color:'var(--color-muted)'}}><GitForkIcon size={11} /></span>}</div>
                   <div className="session-item-time">{formatTimeAgo(session.updatedAt)}</div>
                   <div className="session-item-actions">
                     <button
