@@ -24,12 +24,13 @@ import { app } from "electron";
 import { getSession } from "../db/sessions";
 import { getMessages, addMessage, appendAssistantVersion, archiveTail } from "../db/messages";
 import { getSettings, setSetting, getSetting } from "../db/settings";
-import { getProvider } from "../db/providers";
+import { getProvider, listProviders } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
 import { TOOL_DEFS, executeTool, type AgentMode } from "../agent/tools";
 import { logTrace, readTrace } from "../agent/trace";
-import { sendTurn, forwardNotifications, dropSession, ZCODE_PATH, type Json } from "../agent/zcode-bridge";
+import { sendTurn, forwardNotifications, dropSession, syncZcodeConfig, ZCODE_PATH, type Json } from "../agent/zcode-bridge";
+import { runPiTurn, dropPiSession, piAvailable } from "../agent/pi-bridge";
 import { homedir } from "os";
 import { existsSync } from "fs";
 
@@ -263,6 +264,64 @@ ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
 const steeringQueues = new Map<string, string[]>();
 
 
+
+// pi engine path: open-source typed SDK; same chunk/persistence contract.
+async function runPiEngineTurn(event: IpcMainInvokeEvent, request: ChatRequest, settings: Settings): Promise<void> {
+  const sid = request.sessionId;
+  const session = getSession(sid);
+  const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${sid}`, chunk);
+  const startedAt = Date.now();
+  let finalContent = "";
+  const steps: TurnStep[] = [];
+  const providerRow = getProvider(settings.providerName);
+  const turn = readTrace(sid).filter(e => e.kind === "turn_start").length + 1;
+  logTrace(sid, { kind: "turn_start", turn, model: request.model ?? settings.model, baseUrl: providerRow?.baseUrl ?? settings.apiBase, engine: "pi", userMessage: request.userMessage });
+  await runPiTurn(sid, request.userMessage, {
+    providerId: settings.providerName,
+    baseUrl: providerRow?.baseUrl || settings.apiBase,
+    apiKey: providerRow?.apiKey || "",
+    modelId: request.model ?? settings.model,
+    modelList: providerRow?.modelList.map(m => m.id),
+    cwd: homedir(),
+    systemPrompt: buildSystemPrompt(settings.globalInstructions, session?.customInstructions ?? null),
+    onChunk: c => {
+      if (c.kind === "text" && c.delta) {
+        finalContent += c.delta;
+        const last = steps[steps.length - 1];
+        if (last?.kind === "say") last.text = (last.text ?? "") + c.delta;
+        else steps.push({ kind: "say", text: c.delta });
+        sendChunk({ content: c.delta, done: false });
+      } else if (c.kind === "reasoning" && c.delta) {
+        const last = steps[steps.length - 1];
+        if (last?.kind === "thought") last.text = (last.text ?? "") + c.delta;
+        else steps.push({ kind: "thought", text: c.delta });
+        sendChunk({ content: "", reasoning: c.delta, done: false });
+      } else if (c.kind === "tool_start") {
+        steps.push({ kind: "tool", name: c.toolName, args: c.args, status: "running" });
+        logTrace(sid, { kind: "tool_call", turn, name: c.toolName ?? "tool", args: c.args });
+        sendChunk({ content: "", done: false, kind: "tool_call", tool: { name: c.toolName ?? "tool", args: c.args } });
+      } else if (c.kind === "tool_end") {
+        const running = [...steps].reverse().find(s => s.kind === "tool" && s.name === c.toolName && s.status === "running");
+        if (running) { running.status = "done"; running.result = c.result; }
+        logTrace(sid, { kind: "tool_result", turn, name: c.toolName ?? "tool", result: c.result });
+        sendChunk({ content: "", done: false, kind: "tool_result", tool: { name: c.toolName ?? "tool", result: c.result } });
+      }
+    },
+  });
+  const secs = Math.round((Date.now() - startedAt) / 1000);
+  logTrace(sid, { kind: "content", turn, round: "final", text: finalContent });
+  logTrace(sid, { kind: "turn_end", turn, secs });
+  const parts: string[] = [];
+  if (secs > 0 || steps.some(s => s.kind === "tool")) parts.push(`[worked:${secs}s]`);
+  for (const s of steps) {
+    if (s.kind === "thought" && s.text) parts.push(`<think>\n${s.text}\n</think>`);
+    else if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
+    else if (s.kind === "say" && s.text) parts.push(s.text);
+  }
+  addMessage(sid, "assistant", parts.join("\n\n") || finalContent || "(no response)");
+  sendChunk({ content: "", done: true, secs });
+}
+
 // zcode-cli engine path: the ZCode agent core drives the turn; notifications
 // are mapped onto the same ChatChunk stream the builtin loop emits.
 async function runZcodeTurn(event: IpcMainInvokeEvent, request: ChatRequest): Promise<void> {
@@ -397,7 +456,14 @@ export function registerChatHandler(): void {
     const effort = request.reasoningEffort || (settings as Settings & { reasoningEffort?: string }).reasoningEffort;
     const cwd = app.getPath("home");
 
-    if (((settings as Settings & { engine?: string }).engine ?? (existsSync(ZCODE_PATH) ? "zcode" : "builtin")) === "zcode") {
+    const enginePref = (settings as Settings & { engine?: string }).engine;
+    const engine = enginePref ?? ((await piAvailable()) ? "pi" : existsSync(ZCODE_PATH) ? "zcode" : "builtin");
+    if (engine === "pi") {
+      return runPiEngineTurn(event, request, settings);
+    }
+    if (engine === "zcode") {
+      const provs = listProviders().filter(p => p.enabled).map(p => ({ id: p.id, name: p.name, baseUrl: p.baseUrl, apiKey: p.apiKey }));
+      syncZcodeConfig(provs, settings.providerName, request.model ?? settings.model);
       return runZcodeTurn(event, request);
     }
     const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${request.sessionId}`, chunk);
@@ -527,6 +593,7 @@ export function registerChatHandler(): void {
     // History is about to be rewritten from Rcode's truth; the engine must not
     // keep the invalidated turn in context.
     dropSession(request.sessionId);
+    dropPiSession(request.sessionId);
 
     const history = getMessages(request.sessionId);
     const anchorIdx = history.findIndex(m => m.id === request.anchorUserMessageId && m.role === "user");

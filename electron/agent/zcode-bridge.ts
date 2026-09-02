@@ -22,7 +22,7 @@ import { spawn, type ChildProcess } from "child_process";
 import { createInterface } from "readline";
 import { homedir } from "os";
 import { join } from "path";
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync, mkdirSync } from "fs";
 import { logTrace } from "./trace";
 
 const ZCODE_BUNDLE = "D:/zcode-cli/core/zcode.cjs";
@@ -160,3 +160,27 @@ export function forwardNotifications(rcodeSid: string, fn: (msg: Json) => void):
 }
 
 export const ZCODE_PATH = ZCODE_BUNDLE;
+
+export interface RcodeProvider { id: string; name: string; baseUrl: string; apiKey: string }
+
+// Rcode's provider UI drives the zcode engine: rewrite ~/.zcode/cli/config.json
+// from Rcode's provider store before each turn (merged, never clobbering
+// providers the CLI knows that Rcode doesn't, e.g. OAuth ones).
+export function syncZcodeConfig(providers: RcodeProvider[], providerId: string, modelId: string): void {
+  const path = join(homedir(), ".zcode/cli/config.json");
+  let existing: Record<string, unknown> = {};
+  try { existing = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>; } catch { /* fresh */ }
+  const prov = (existing.provider ?? {}) as Record<string, unknown>;
+  for (const p of providers) {
+    if (!p.baseUrl) continue;
+    prov[p.id] = {
+      kind: "openai-compatible",
+      name: p.name,
+      options: { apiKey: p.apiKey || "rcode-local", baseURL: p.baseUrl },
+    };
+  }
+  existing.provider = prov;
+  existing.model = { main: `${providerId}/${modelId}`, lite: `${providerId}/${modelId}` };
+  mkdirSync(join(homedir(), ".zcode/cli"), { recursive: true });
+  writeFileSync(path, JSON.stringify(existing, null, 2));
+}
