@@ -518,12 +518,15 @@ export function registerChatHandler(): void {
     sendChunk({ content: "", done: true, secs, usage: turnUsage });
   });
 
-  dropSession(request.sessionId);
   // Re-run a turn anchored at a user message (retry / edit-and-resend).
   ipcMain.handle("chat:resend", async (event: IpcMainInvokeEvent, request: { sessionId: string; anchorUserMessageId: string; model?: string }) => {
     const settings = getSettings();
     const session = getSession(request.sessionId);
     if (!session) throw new Error("Session not found");
+
+    // History is about to be rewritten from Rcode's truth; the engine must not
+    // keep the invalidated turn in context.
+    dropSession(request.sessionId);
 
     const history = getMessages(request.sessionId);
     const anchorIdx = history.findIndex(m => m.id === request.anchorUserMessageId && m.role === "user");
