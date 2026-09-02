@@ -80,18 +80,14 @@ const electronAPI = {
     ipcRenderer.invoke("chat:send", request),
   resendChat: (request: { sessionId: string; anchorUserMessageId: string; model?: string }): Promise<void> =>
     ipcRenderer.invoke("chat:resend", request),
-  approvalResponse: (approvalId: string, ok: boolean): Promise<void> =>
-    ipcRenderer.invoke("chat:approvalResponse", approvalId, ok),
   traceList: (sessionId: string): Promise<unknown[]> =>
     ipcRenderer.invoke("trace:list", sessionId),
-  forkSession: (sessionId: string, upToMessageId: string): Promise<import("../src/types").Session> =>
+  forkSession: (sessionId: string, upToMessageId: string): Promise<Session> =>
     ipcRenderer.invoke("session:fork", sessionId, upToMessageId),
   contextInfo: (sessionId: string): Promise<{ system: number; tools: number; messages: number; cacheRate: number | null }> =>
     ipcRenderer.invoke("chat:contextInfo", sessionId),
   compactChat: (sessionId: string): Promise<{ summary: string }> =>
     ipcRenderer.invoke("chat:compact", sessionId),
-  queueMessage: (sessionId: string, text: string): Promise<{ queued: number }> =>
-    ipcRenderer.invoke("chat:queue", sessionId, text),
   onChatChunk: (sessionId: string, callback: (chunk: ChatChunk) => void): (() => void) => {
     const channel = `chat:chunk:${sessionId}`;
     const handler = (_e: IpcRendererEvent, chunk: ChatChunk) => callback(chunk);
@@ -132,6 +128,16 @@ const electronAPI = {
     ipcRenderer.invoke("provider:delete", id),
   toggleProvider: (id: string): Promise<number> =>
     ipcRenderer.invoke("provider:toggle", id),
+
+  // --- ZCode import ---
+  zcodeImportStatus: (): Promise<{
+    available: boolean; total: number; interactive: number; forks: number;
+    sideChats: number; subagents: number; alreadyImported: number;
+  }> => ipcRenderer.invoke("zcode:importStatus"),
+  zcodeImport: (): Promise<{
+    sessions: number; sideChats: number; messages: number;
+    skippedSubagents: number; settingsApplied: boolean;
+  }> => ipcRenderer.invoke("zcode:import"),
 
   // --- Platform ---
   platform: process.platform,

@@ -16,6 +16,7 @@ import { registerModelCatalogHandler } from "./modelCatalog";
 import { registerFeedbackHandlers } from "./feedback";
 import { ipcMain } from "electron";
 import { registerGitHandlers } from "./git";
+import { registerZcodeImportHandlers } from "./zcodeImport";
 import { readTrace } from "../agent/trace";
 
 export function registerAllHandlers(): void {
@@ -30,4 +31,5 @@ export function registerAllHandlers(): void {
   registerFeedbackHandlers();
   ipcMain.handle("trace:list", (_e, sessionId: string) => readTrace(sessionId));
   registerGitHandlers();
+  registerZcodeImportHandlers();
 }

@@ -71,7 +71,7 @@ export function ChatView() {
     settings,
     setSidePanelCollapsed,
   } = useApp();
-  const { messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage, respondApproval, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages } = useChat(currentSessionId);
+  const { messages, streamingContent, streamingReasoning, liveSteps, turnUsage, isStreaming, error, sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages } = useChat(currentSessionId);
   const [session, setSession] = useState<Session | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [draftPrompt, setDraftPrompt] = useState("");
@@ -409,19 +409,6 @@ export function ChatView() {
 
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menuItems} onClose={() => setMenu(null)} />
-      )}
-
-      {pendingApproval && (
-        <div className="approval-dialog">
-          <div className="approval-card">
-            <div style={{ fontSize: 14, fontWeight: 700 }}>Run this command?</div>
-            <pre className="approval-cmd">{pendingApproval.command}</pre>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button className="ms-btn" onClick={() => respondApproval(false)}>Deny</button>
-              <button className="ms-btn primary" onClick={() => respondApproval(true)}>Allow</button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

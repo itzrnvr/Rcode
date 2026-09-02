@@ -9,18 +9,24 @@
  * Protocol (one JSON object per line):
  *   → {id, op:"ping"}
  *   → {id, op:"prompt", sid, prompt, provider:{id,baseUrl,apiKey}, modelId,
- *      modelList, cwd, systemPrompt}
+ *      modelList, cwd, systemPrompt, mode, effort}
  *   → {op:"drop", sid}
+ *   → {id, op:"compact", sid}
  *   ← {id, kind:"text"|"reasoning", delta}
  *   ← {id, kind:"tool_start", toolName, args}
  *   ← {id, kind:"tool_end", toolName, result, isError}
  *   ← {id, kind:"usage", usage:{input,output}}
  *   ← {id, kind:"error", message}
  *   ← {id, kind:"end"}
+ *
+ * Sessions persist to disk (Rcode/pi-sessions) so agent context survives
+ * restarts; a map file links Rcode session ids -> pi session files.
  */
 import { createInterface } from "node:readline";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 
 const PI_PKG = "C:/Users/babys/AppData/Roaming/npm/node_modules/@earendil-works/pi-coding-agent";
 const pi = (await import(pathToFileURL(join(PI_PKG, "dist/index.js")).href));
@@ -28,6 +34,29 @@ const piCore = (await import(pathToFileURL(join(PI_PKG, "node_modules/@earendil-
 
 // sid -> {session, currentId}
 const sessions = new Map();
+
+// --- session persistence -----------------------------------------------------
+const DATA_DIR = join(process.env.APPDATA ?? join(homedir(), ".config"), "Rcode");
+const SESSION_DIR = join(DATA_DIR, "pi-sessions");
+const MAP_FILE = join(DATA_DIR, "pi-session-map.json");
+
+function loadSessionMap() {
+  try { return JSON.parse(readFileSync(MAP_FILE, "utf8")); } catch { return {}; }
+}
+function saveSessionMap(map) {
+  try { writeFileSync(MAP_FILE, JSON.stringify(map, null, 2)); } catch { /* non-fatal */ }
+}
+function openOrCreateSessionManager(sid, cwd) {
+  mkdirSync(SESSION_DIR, { recursive: true });
+  const map = loadSessionMap();
+  const existing = map[sid];
+  if (existing && existsSync(existing)) {
+    try { return pi.SessionManager.open(existing, SESSION_DIR, cwd); } catch { /* fall through to fresh */ }
+  }
+  const mgr = pi.SessionManager.create(cwd, SESSION_DIR);
+  if (mgr.sessionFile) { map[sid] = mgr.sessionFile; saveSessionMap(map); }
+  return mgr;
+}
 
 function resultText(result) {
   if (!result) return "";
@@ -44,6 +73,18 @@ function emit(obj) {
   process.stdout.write(JSON.stringify(obj) + "\n");
 }
 
+// pi ships 7 tools but only activates 4 by default; Rcode exposes them all,
+// gated by the composer mode (mirrors builtin tools.ts gating).
+const ALL_TOOLS = ["read", "bash", "edit", "write", "grep", "find", "ls"];
+const MODE_TOOLS = {
+  "full-access": ALL_TOOLS,
+  restricted: ["read", "edit", "write", "grep", "find", "ls"],
+  plan: ["read", "grep", "find", "ls"],
+};
+
+// composer reasoning effort -> pi ThinkingLevel
+const EFFORT_TO_THINKING = { minimal: "minimal", low: "low", medium: "medium", high: "high", max: "xhigh" };
+
 function mapEvent(ev, id) {
   if (!ev || typeof ev.type !== "string") return;
   switch (ev.type) {
@@ -57,14 +98,20 @@ function mapEvent(ev, id) {
       }
       return;
     }
-    case "message_end": {
+    case "messageₑnd": {
       const msg = ev.message;
-      if (msg && msg.stopReason === "error" && msg.errorMessage) {
-        emit({ id, kind: "error", message: String(msg.errorMessage) });
-        return;
-      }
       if (msg && msg.role === "assistant" && msg.usage) {
         emit({ id, kind: "usage", usage: { input: msg.usage.input || 0, output: msg.usage.output || 0 } });
+      }
+      return;
+    }
+    case "agentₑnd": {
+      // Terminal error check: per-attempt message_end errors are retried by pi,
+      // so only surface an error if the FINAL state of the run is an error.
+      const msgs = ev.messages;
+      const last = Array.isArray(msgs) ? msgs[msgs.length - 1] : null;
+      if (last && last.stopReason === "error" && last.errorMessage) {
+        emit({ id, kind: "error", message: String(last.errorMessage) });
       }
       return;
     }
@@ -105,7 +152,7 @@ async function buildSession(req) {
     registry.getAll().find(m => m.provider === o.provider.id);
   if (!model) throw new Error("pi: model not registered: " + o.provider.id + "/" + o.modelId);
   const agentDir = join(o.cwd, ".pi-agent");
-  const sessionManager = pi.SessionManager.inMemory(o.cwd);
+  const sessionManager = openOrCreateSessionManager(req.sid, o.cwd);
   const settingsManager = pi.SettingsManager.inMemory();
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: o.cwd,
@@ -159,12 +206,35 @@ rl.on("line", async line => {
         sessions.set(req.sid, entry);
       }
       entry.currentId = req.id;
+      if (typeof entry.session.setActiveToolsByName === "function") {
+        entry.session.setActiveToolsByName(MODE_TOOLS[req.mode] ?? ALL_TOOLS);
+      }
+      const thinking = EFFORT_TO_THINKING[req.effort];
+      if (thinking && typeof entry.session.setThinkingLevel === "function") {
+        try { entry.session.setThinkingLevel(thinking); } catch { /* model may not support thinking */ }
+      }
       try {
         await entry.session.prompt(req.prompt);
       } catch (e) {
         emit({ id: req.id, kind: "error", message: String((e && e.message) || e) });
       }
       entry.currentId = null;
+      emit({ id: req.id, kind: "end" });
+      return;
+    }
+    if (req.op === "compact") {
+      const entry = sessions.get(req.sid);
+      if (!entry) {
+        emit({ id: req.id, kind: "error", message: "no active pi session for this chat yet" });
+        emit({ id: req.id, kind: "end" });
+        return;
+      }
+      try {
+        const res = await entry.session.compact();
+        emit({ id: req.id, kind: "text", delta: res?.summary ? "Compacted: " + String(res.summary).slice(0, 200) : "Compacted." });
+      } catch (e) {
+        emit({ id: req.id, kind: "error", message: String((e && e.message) || e) });
+      }
       emit({ id: req.id, kind: "end" });
     }
   } catch (e) {

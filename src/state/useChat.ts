@@ -6,7 +6,6 @@
  *   reasoning  → streamingReasoning (live thought)
  *   tool_call  → liveSteps tool row (running)
  *   tool_result→ fills the running row's result
- *   approval   → pendingApproval (renderer shows Allow/Deny dialog)
  *   done       → turnSecs (+reload messages from DB)
  *
  * CONSUMERS: components/chat/ChatView.tsx, sidepanel/SideChatThread.tsx
@@ -32,7 +31,6 @@ export function useChat(sessionId: string | null) {
   const [streamingContent, setStreamingContent] = useState("");
   const [streamingReasoning, setStreamingReasoning] = useState("");
   const [liveSteps, setLiveSteps] = useState<LiveStep[]>([]);
-  const [pendingApproval, setPendingApproval] = useState<{ approvalId: string; command: string } | null>(null);
   const [turnUsage, setTurnUsage] = useState<{ prompt_tokens?: number; completion_tokens?: number; reasoning_tokens?: number; cached_tokens?: number } | null>(null);
   const [turnSecs, setTurnSecs] = useState<number | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -58,10 +56,6 @@ export function useChat(sessionId: string | null) {
     }
     if (chunk.done && chunk.usage) {
       setTurnUsage({ prompt_tokens: chunk.usage.prompt_tokens, completion_tokens: chunk.usage.completion_tokens, reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens, cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens });
-    }
-    if (chunk.kind === "approval") {
-      setPendingApproval({ approvalId: chunk.approvalId ?? "", command: chunk.tool?.name ?? "" });
-      return;
     }
     const finalizeThought = (p: LiveStep[]): LiveStep[] => {
       const last = p[p.length - 1];
@@ -121,7 +115,6 @@ export function useChat(sessionId: string | null) {
     setStreamingReasoning("");
     setLiveSteps([]);
     setTurnSecs(null);
-    setPendingApproval(null);
     setTurnUsage(null);
   }, []);
 
@@ -205,12 +198,6 @@ export function useChat(sessionId: string | null) {
     }
   }, [sessionId, settings.model, handleChunk, beginTurn, endTurn]);
 
-  const respondApproval = useCallback(async (ok: boolean) => {
-    if (!pendingApproval) return;
-    await (api as unknown as { approvalResponse: (id: string, ok: boolean) => Promise<void> }).approvalResponse(pendingApproval.approvalId, ok);
-    setPendingApproval(null);
-  }, [pendingApproval]);
-
   const setVersion = useCallback(async (messageId: string, index: number) => {
     if (!sessionId) return;
     await api.setMessageVersion(messageId, index);
@@ -249,8 +236,8 @@ export function useChat(sessionId: string | null) {
   }, [sessionId]);
 
   return {
-    messages, streamingContent, streamingReasoning, liveSteps, pendingApproval, turnUsage,
-    respondApproval, turnSecs, isStreaming, error,
+    messages, streamingContent, streamingReasoning, liveSteps, turnUsage,
+    turnSecs, isStreaming, error,
     sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages,
   };
 }

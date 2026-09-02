@@ -97,10 +97,9 @@ export interface ChatChunk {
   content: string;
   done: boolean;
   reasoning?: string;
-  kind?: "tool_call" | "tool_result" | "approval";
+  kind?: "tool_call" | "tool_result";
   tool?: { name: string; args?: string; result?: string };
   secs?: number;
-  approvalId?: string;
   usage?: { prompt_tokens?: number; completion_tokens?: number; prompt_tokens_details?: { cached_tokens?: number }; completion_tokens_details?: { reasoning_tokens?: number } };
 }
 

@@ -29,7 +29,7 @@ import { TrajectoryView } from "./TrajectoryView";
 import { GitPanel } from "./GitPanel";
 import { SideChatThread } from "./SideChatThread";
 
-type ZTabType = "side-conversation" | "review" | "terminal" | "browser" | "trajectory" | "dsh";
+type ZTabType = "side-conversation" | "review" | "terminal" | "browser" | "trajectory";
 
 interface ZTab {
   id: string;
@@ -44,7 +44,6 @@ const TAB_DEFS: Record<ZTabType, { label: string; Icon: React.FC<{ size?: number
   terminal: { label: "Terminal", Icon: TerminalSquareIcon },
   browser: { label: "Browser", Icon: GlobeIcon },
   trajectory: { label: "Trajectory", Icon: ActivityIcon },
-  dsh: { label: "Agent (dsh web)", Icon: GlobeIcon },
 };
 
 function fmtAgo(ts?: number): string {
@@ -128,7 +127,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         console.error("create side chat failed", e);
       }
     }
-    if (type === "trajectory" || type === "dsh") {
+    if (type === "trajectory") {
       const existing = openTabs.find(t => t.type === type);
       if (existing) {
         setActiveId(existing.id);
@@ -363,9 +362,6 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           );
         })()}
         {activeTab?.type === "trajectory" && <TrajectoryView sessionId={currentSessionId} />}
-        {activeTab?.type === "dsh" && (
-          <iframe src="http://127.0.0.1:3080/" style={{ flex: 1, minHeight: 0, border: "none", width: "100%", height: "100%", background: "#161616" }} title="dsh web" />
-        )}
         {activeTab?.type === "terminal" && (
           <div style={{flex:1, minHeight:0, padding:12}}><TerminalPane terminalId={activeTab.id} /></div>
         )}

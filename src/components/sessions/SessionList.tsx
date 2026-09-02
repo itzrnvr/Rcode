@@ -13,7 +13,7 @@
  * Right-click on session → context menu (Delete, Promote, Rename)
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 import { useApp } from "../../state/AppContext";
 import { useSessions } from "../../state/useSessions";
@@ -36,6 +36,7 @@ import {
   SparkleIcon,
   HistoryIcon,
   GitForkIcon,
+  DownloadIcon,
 } from "../common/Icons";
 
 function formatTimeAgo(dateInput: string | number): string {
@@ -76,6 +77,33 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
   const [editTitle, setEditTitle] = useState("");
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [localOrder, setLocalOrder] = useState<string[] | null>(null);
+
+  // ZCode one-shot import: shown only when there is unimported zcode history.
+  const [zcodeLeft, setZcodeLeft] = useState(0);
+  const [importing, setImporting] = useState(false);
+  const [importNote, setImportNote] = useState<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.zcodeImportStatus()
+      .then(s => { if (live) setZcodeLeft(Math.max(0, s.total - s.alreadyImported - s.subagents)); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [importNote]);
+  const handleZcodeImport = useCallback(async () => {
+    if (importing) return;
+    setImporting(true);
+    try {
+      const r = await api.zcodeImport();
+      setImportNote(`Imported ${r.sessions + r.sideChats} sessions, ${r.messages} messages`);
+      bumpSessionList();
+      setTimeout(() => setImportNote(null), 6000);
+    } catch (e) {
+      setImportNote("Import failed: " + (e instanceof Error ? e.message : String(e)));
+      setTimeout(() => setImportNote(null), 6000);
+    } finally {
+      setImporting(false);
+    }
+  }, [importing, bumpSessionList]);
 
   // Derive ordered sessions from localOrder if set, otherwise from DB
   const orderedSessions = (() => {
@@ -206,6 +234,19 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
           <HistoryIcon size={16} />
           <span className="sidebar-nav-btn-label">Scheduled</span>
         </button>
+        {zcodeLeft > 0 && (
+          <button
+            className="sidebar-nav-btn"
+            onClick={handleZcodeImport}
+            disabled={importing}
+            title="One-time import of your ZCode sessions and settings"
+          >
+            <DownloadIcon size={16} />
+            <span className="sidebar-nav-btn-label">
+              {importNote ?? (importing ? "Importing…" : `Import from ZCode (${zcodeLeft})`)}
+            </span>
+          </button>
+        )}
         <button
           className="sidebar-nav-btn"
           onClick={() => {}}

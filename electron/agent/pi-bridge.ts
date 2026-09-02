@@ -40,6 +40,10 @@ export interface PiRunOptions {
   modelList?: string[];
   cwd: string;
   systemPrompt: string;
+  /** composer mode: full-access | restricted | plan (tool gating) */
+  mode?: string;
+  /** reasoning effort: minimal | low | medium | high | max */
+  effort?: string;
   onChunk: (c: PiChunk) => void;
 }
 
@@ -153,6 +157,24 @@ export async function runPiTurn(rcodeSid: string, prompt: string, o: PiRunOption
     modelList: o.modelList ?? [],
     cwd: o.cwd,
     systemPrompt: o.systemPrompt,
+    mode: o.mode,
+    effort: o.effort,
   });
   await promise;
+}
+
+export async function runPiCompact(rcodeSid: string): Promise<string> {
+  await startWorker();
+  const id = nextId++;
+  const { promise, resolve, reject } = Promise.withResolvers<string>();
+  let text = "";
+  pending.set(id, {
+    onChunk: c => {
+      if (c.kind === "text" && c.delta) text += c.delta;
+    },
+    resolve: () => resolve(text || "Compacted."),
+    reject,
+  });
+  send({ id, op: "compact", sid: rcodeSid });
+  return promise;
 }
