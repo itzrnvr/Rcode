@@ -3,6 +3,7 @@ dist
 refs/
 *.ps1
 *.mjs
+!electron/agent/pi-worker.mjs
 *.cjs
 *.log
 .env*
