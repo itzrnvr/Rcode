@@ -8,6 +8,7 @@
  */
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 export interface ContextMenuItem {
   label: string;
@@ -43,7 +44,9 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
     };
   }, [onClose]);
 
-  return (
+  // Portal to body: fixed-position menus must escape ancestors whose
+  // backdrop-filter/transform creates a containing block (e.g. the sidebar).
+  return createPortal(
     <div ref={ref} className="context-menu" style={{ left: x, top: y }}>
       {items.map((item, i) =>
         item.separator ? (
@@ -59,5 +62,7 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
         )
       )}
     </div>
+    ,
+    document.body
   );
 }

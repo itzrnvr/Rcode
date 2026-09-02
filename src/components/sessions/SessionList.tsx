@@ -139,6 +139,7 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
   }, [bumpSessionList]);
 
   const menuItems: ContextMenuItem[] = [
+    { label: "Copy session ID", onClick: () => { if (menu) navigator.clipboard.writeText(menu.sessionId); } },
     { label: "Rename", onClick: handleRename },
     { label: "Archive", onClick: handleArchive },
     { label: "Promote to main session", onClick: handlePromote },
