@@ -29,7 +29,7 @@ import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
 import { TOOL_DEFS, executeTool, type AgentMode } from "../agent/tools";
 import { logTrace, readTrace } from "../agent/trace";
-import { sendTurn, forwardNotifications, ZCODE_PATH, type Json } from "../agent/zcode-bridge";
+import { sendTurn, forwardNotifications, dropSession, ZCODE_PATH, type Json } from "../agent/zcode-bridge";
 import { homedir } from "os";
 import { existsSync } from "fs";
 
@@ -518,6 +518,7 @@ export function registerChatHandler(): void {
     sendChunk({ content: "", done: true, secs, usage: turnUsage });
   });
 
+  dropSession(request.sessionId);
   // Re-run a turn anchored at a user message (retry / edit-and-resend).
   ipcMain.handle("chat:resend", async (event: IpcMainInvokeEvent, request: { sessionId: string; anchorUserMessageId: string; model?: string }) => {
     const settings = getSettings();

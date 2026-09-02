@@ -137,6 +137,15 @@ export async function ensureZcodeSession(rcodeSid: string, workspacePath: string
   return zsid;
 }
 
+// Retry/fork in Rcode rewrites history; the zcode engine must not keep the
+// invalidated turn in context. Drop the mapping so the next turn starts a
+// fresh engine session consistent with Rcode's SQLite truth.
+export function dropSession(rcodeSid: string): void {
+  const zsid = sessionMap.get(rcodeSid);
+  if (zsid) subscriptions.delete(zsid);
+  sessionMap.delete(rcodeSid);
+}
+
 export async function sendTurn(rcodeSid: string, content: string, workspacePath: string): Promise<string> {
   const zsid = await ensureZcodeSession(rcodeSid, workspacePath);
   await request("session/send", { sessionId: zsid, content }, 30000);
