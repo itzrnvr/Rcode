@@ -228,10 +228,13 @@ export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDel
         // streaming the whole trace folds under the Worked header. New tool
         // calls unfold it again. Each step stays individually collapsible.
         const collapsed = traceOpen ?? (hasTools && lastKind === "say");
+        // When folded, the streaming response itself stays visible — only
+        // reasoning/tool steps tuck under the header.
+        const visible = collapsed ? steps.filter(s => s.kind === "say") : steps;
         return (
           <>
             <TurnHeader secs={null} live usage={liveUsage} collapsible={hasTools} collapsed={collapsed} onToggle={() => setTraceOpen(!collapsed)} />
-            {!collapsed && steps.map((s, i) =>
+            {!collapsed && visible.map((s, i) =>
               s.kind === "tool"
                 ? <ToolRow key={`live-${i}`} step={s} delayMs={i * 40} />
                 : s.kind === "thought"
