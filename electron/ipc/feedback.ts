@@ -11,7 +11,7 @@
  * anywhere. The agent reads latest.md / the png when the user says "read it".
  */
 
-import { ipcMain, clipboard, nativeImage, app } from "electron";
+import { ipcMain, clipboard, nativeImage, app, ClipboardItem } from "electron";
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 
@@ -43,7 +43,10 @@ export function registerFeedbackHandlers(): void {
       "utf8",
     );
 
-    clipboard.writeImage(image);
+    // Electron 44: clipboard is async + item-based (writeImage was removed).
+    await clipboard.write([
+      new ClipboardItem({ "image/png": new Blob([image.toPNG()], { type: "image/png" }) }),
+    ]);
     return { pngPath, txtPath, latestPath };
   });
 }

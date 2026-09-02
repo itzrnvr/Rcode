@@ -88,7 +88,13 @@ function startWorker(): Promise<void> {
         }
         const id = Number(msg.id);
         const p = pending.get(id);
-        if (!p) continue;
+        if (!p) {
+          // Never drop silently: unknown ids mean a turn's events lost their
+          // request routing (seen once via a stolen currentId in the worker).
+          // eslint-disable-next-line no-console
+          console.error("[pi-bridge] chunk with unknown id dropped:", JSON.stringify(msg).slice(0, 200));
+          continue;
+        }
         const kind = String(msg.kind);
         if (kind === "end") {
           pending.delete(id);

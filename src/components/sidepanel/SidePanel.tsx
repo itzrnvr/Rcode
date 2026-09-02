@@ -220,7 +220,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
         ><ChevronDownIcon size={14} /></button>
 
         <div style={{display:'flex', gap:6, flex:1, overflowX:'auto'}}>
-          {openTabs.map(t => {
+          {openTabs.filter(t => TAB_DEFS[t.type]).map(t => {
             const Def = TAB_DEFS[t.type];
             return (
               <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : '#1e1e1e', border:'1px solid ' + (t.id===activeId ? '#3a3a3a' : '#262626'), color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap', cursor:'pointer'}}>
@@ -253,7 +253,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
 
         {showManager && (() => {
           const q = tabSearch.toLowerCase();
-          const open = openTabs.filter(t => !q || t.title.toLowerCase().includes(q));
+          const open = openTabs.filter(t => TAB_DEFS[t.type] && (!q || t.title.toLowerCase().includes(q)));
           const closed = recentlyClosed.filter(t => !q || t.title.toLowerCase().includes(q));
           return (
             <div data-sp-menu="1" className="sp-menu" style={{position:'absolute', top:44, left:8, right:8, maxHeight:'70vh', overflowY:'auto', background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>

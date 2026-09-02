@@ -93,19 +93,23 @@ function mapEvent(ev, id) {
       if (!ame) return;
       if (ame.type === "text_delta" && typeof ame.delta === "string") {
         emit({ id, kind: "text", delta: ame.delta });
-      } else if (ame.type === "reasoning_delta" && typeof ame.delta === "string") {
+      } else if (
+        (ame.type === "thinking_delta" || ame.type === "reasoning_delta") &&
+        typeof ame.delta === "string"
+      ) {
+        // pi-ai's openai-completions emits thinking_delta for reasoning streams
         emit({ id, kind: "reasoning", delta: ame.delta });
       }
       return;
     }
-    case "messageₑnd": {
+    case "message_end": {
       const msg = ev.message;
       if (msg && msg.role === "assistant" && msg.usage) {
         emit({ id, kind: "usage", usage: { input: msg.usage.input || 0, output: msg.usage.output || 0 } });
       }
       return;
     }
-    case "agentₑnd": {
+    case "agent_end": {
       // Terminal error check: per-attempt message_end errors are retried by pi,
       // so only surface an error if the FINAL state of the run is an error.
       const msgs = ev.messages;
@@ -199,13 +203,9 @@ rl.on("line", async line => {
       let entry = sessions.get(req.sid);
       if (!entry) {
         const session = await buildSession(req);
-        entry = { session, currentId: null };
-        // Subscribe exactly once per session; currentId routes events to the
-        // in-flight request (re-subscribing per prompt would duplicate chunks).
-        entry.session.subscribe(ev => mapEvent(ev, entry.currentId));
+        entry = { session };
         sessions.set(req.sid, entry);
       }
-      entry.currentId = req.id;
       if (typeof entry.session.setActiveToolsByName === "function") {
         entry.session.setActiveToolsByName(MODE_TOOLS[req.mode] ?? ALL_TOOLS);
       }
@@ -213,12 +213,17 @@ rl.on("line", async line => {
       if (thinking && typeof entry.session.setThinkingLevel === "function") {
         try { entry.session.setThinkingLevel(thinking); } catch { /* model may not support thinking */ }
       }
+      // Per-prompt listener: this request's id is captured in the closure, so a
+      // concurrent second prompt can never steal the event routing (a shared
+      // mutable currentId silently dropped whole turns before).
+      const unsub = entry.session.subscribe(ev => mapEvent(ev, req.id));
       try {
         await entry.session.prompt(req.prompt);
       } catch (e) {
         emit({ id: req.id, kind: "error", message: String((e && e.message) || e) });
+      } finally {
+        unsub();
       }
-      entry.currentId = null;
       emit({ id: req.id, kind: "end" });
       return;
     }

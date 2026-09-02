@@ -52,10 +52,10 @@ export function useChat(sessionId: string | null) {
   const handleChunk = useCallback((chunk: ChatChunk) => {
     if (chunk.done) {
       if (chunk.secs != null) setTurnSecs(chunk.secs);
+      if (chunk.usage) {
+        setTurnUsage({ prompt_tokens: chunk.usage.prompt_tokens, completion_tokens: chunk.usage.completion_tokens, reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens, cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens });
+      }
       return;
-    }
-    if (chunk.done && chunk.usage) {
-      setTurnUsage({ prompt_tokens: chunk.usage.prompt_tokens, completion_tokens: chunk.usage.completion_tokens, reasoning_tokens: chunk.usage.completion_tokens_details?.reasoning_tokens, cached_tokens: chunk.usage.prompt_tokens_details?.cached_tokens });
     }
     const finalizeThought = (p: LiveStep[]): LiveStep[] => {
       const last = p[p.length - 1];
