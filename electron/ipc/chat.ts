@@ -29,6 +29,9 @@ import { buildSystemPrompt } from "../chat/systemPrompt";
 import { sseLines, parseSSEData } from "../chat/streamClient";
 import { TOOL_DEFS, executeTool, type AgentMode } from "../agent/tools";
 import { logTrace, readTrace } from "../agent/trace";
+import { sendTurn, forwardNotifications, ZCODE_PATH, type Json } from "../agent/zcode-bridge";
+import { homedir } from "os";
+import { existsSync } from "fs";
 
 import type { ChatRequest, ChatChunk, Session, Settings } from "../../src/types";
 
@@ -133,7 +136,7 @@ function replayMessage(m: { role: string; content: string }): Record<string, unk
   tools.forEach((s, i) => out.push({ role: "tool", tool_call_id: `hist_${i}`, content: s.result ?? "" }));
   return out;
 }
-interface TurnStep { kind: "thought" | "tool" | "say"; text?: string; name?: string; args?: string; result?: string }
+interface TurnStep { kind: "thought" | "tool" | "say"; text?: string; name?: string; args?: string; result?: string; status?: "running" | "done" }
 
 interface StreamResult {
   content: string;
@@ -259,6 +262,96 @@ ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
 // injected as user messages between tool rounds (dsh-style queue).
 const steeringQueues = new Map<string, string[]>();
 
+
+// zcode-cli engine path: the ZCode agent core drives the turn; notifications
+// are mapped onto the same ChatChunk stream the builtin loop emits.
+async function runZcodeTurn(event: IpcMainInvokeEvent, request: ChatRequest): Promise<void> {
+  const sid = request.sessionId;
+  const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${sid}`, chunk);
+  const startedAt = Date.now();
+  let finalContent = "";
+  const steps: TurnStep[] = [];
+  const { promise: donePromise, resolve: resolveDone } = Promise.withResolvers<void>();
+  let done = false;
+  const finish = () => { if (!done) { done = true; resolveDone(); } };
+
+  forwardNotifications(sid, (msg: Json) => {
+    const method = String(msg.method ?? "");
+    const params = (msg.params ?? {}) as Record<string, unknown>;
+    const type = String(params.type ?? "");
+    const payload = (params.payload ?? {}) as Record<string, unknown>;
+    const kind = String(payload.kind ?? params.kind ?? "");
+
+    // streaming text / reasoning deltas (ZCode Protocol 0.16.5)
+    if (type === "model.streaming" || kind === "text_delta" || kind === "reasoning_delta") {
+      const delta = typeof payload.delta === "string" ? payload.delta : "";
+      if (!delta) return;
+      if (kind === "reasoning_delta") {
+        const last = steps[steps.length - 1];
+        if (last?.kind === "thought") last.text = (last.text ?? "") + delta;
+        else steps.push({ kind: "thought", text: delta });
+        sendChunk({ content: "", reasoning: delta, done: false });
+      } else {
+        finalContent += delta;
+        const last = steps[steps.length - 1];
+        if (last?.kind === "say") last.text = (last.text ?? "") + delta;
+        else steps.push({ kind: "say", text: delta });
+        sendChunk({ content: delta, done: false });
+      }
+      return;
+    }
+    // tool lifecycle
+    if (/tool/i.test(type + kind) && /start|begin|call|invoke/i.test(type + kind)) {
+      const name = String(payload.name ?? payload.tool ?? payload.toolName ?? "tool");
+      const args = typeof payload.arguments === "string" ? payload.arguments : JSON.stringify(payload.arguments ?? payload.input ?? {});
+      steps.push({ kind: "tool", name, args, status: "running" });
+      sendChunk({ content: "", done: false, kind: "tool_call", tool: { name, args } });
+      return;
+    }
+    if (/tool/i.test(type + kind) && /complet|done|result|finish|end/i.test(type + kind)) {
+      const name = String(payload.name ?? payload.tool ?? payload.toolName ?? "tool");
+      const result = String(payload.result ?? payload.output ?? payload.content ?? "");
+      const running = [...steps].reverse().find(s => s.kind === "tool" && s.name === name && s.status === "running");
+      if (running) { running.status = "done"; running.result = result; }
+      sendChunk({ content: "", done: false, kind: "tool_result", tool: { name, result } });
+      return;
+    }
+    // turn terminal: emit usage + finish
+    if (type === "turn.completed" || kind === "turn.terminal" || kind === "turn-completed" || /turn-completed|turn\.terminal/.test(method)) {
+      const usageRaw = (payload.usage ?? {}) as Record<string, unknown>;
+      sendChunk({
+        content: "", done: false,
+        usage: {
+          prompt_tokens: typeof usageRaw.inputTokens === "number" ? usageRaw.inputTokens : undefined,
+          completion_tokens: typeof usageRaw.outputTokens === "number" ? usageRaw.outputTokens : undefined,
+          prompt_tokens_details: { cached_tokens: typeof usageRaw.cacheReadTokens === "number" ? usageRaw.cacheReadTokens : undefined },
+          completion_tokens_details: { reasoning_tokens: typeof usageRaw.reasoningTokens === "number" ? usageRaw.reasoningTokens : undefined },
+        },
+      });
+      finish();
+    }
+  });
+
+  try {
+    await sendTurn(sid, request.userMessage, homedir());
+  } catch (e) {
+    sendChunk({ content: "", done: true, secs: 0 });
+    throw e;
+  }
+  await Promise.race([donePromise, new Promise(r => setTimeout(r, 600000))]);
+
+  const secs = Math.round((Date.now() - startedAt) / 1000);
+  const parts: string[] = [];
+  if (secs > 0 || steps.some(s => s.kind === "tool")) parts.push(`[worked:${secs}s]`);
+  for (const s of steps) {
+    if (s.kind === "thought" && s.text) parts.push(`<think>\n${s.text}\n</think>`);
+    else if (s.kind === "tool") parts.push(`[tool:${s.name}(${s.args ?? "{}"})]\n<toolresult>\n${s.result ?? ""}\n</toolresult>`);
+    else if (s.kind === "say" && s.text) parts.push(s.text);
+  }
+  addMessage(sid, "assistant", parts.join("\n\n") || finalContent || "(no response)");
+  sendChunk({ content: "", done: true, secs });
+}
+
 export function registerChatHandler(): void {
   // renderer approval round-trip for restricted mode
   const pendingApprovals = new Map<string, (ok: boolean) => void>();
@@ -304,6 +397,9 @@ export function registerChatHandler(): void {
     const effort = request.reasoningEffort || (settings as Settings & { reasoningEffort?: string }).reasoningEffort;
     const cwd = app.getPath("home");
 
+    if (((settings as Settings & { engine?: string }).engine ?? (existsSync(ZCODE_PATH) ? "zcode" : "builtin")) === "zcode") {
+      return runZcodeTurn(event, request);
+    }
     const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${request.sessionId}`, chunk);
 
     const askApproval = (command: string) =>
