@@ -151,14 +151,26 @@ function createSchema(): void {
     getDb().prepare("INSERT OR REPLACE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES ('wandb', 'Wandb-Proxy', 'http://127.0.0.1:3478/v1', 'openai-completions', '', ?, 1, 0, ?)").run(ml, now);
     getDb().prepare("INSERT OR IGNORE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES ('zai', 'Z.ai', 'http://127.0.0.1:3459/v1', 'openai-completions', '', ?, 1, 0, ?)").run(JSON.stringify([{id:"glm-5.2",context:128000},{id:"glm-5.3",context:128000},{id:"glm-5.3-flash",context:128000},{id:"glm-5.1",context:128000},{id:"glm-4.7",context:128000}]), now);
     getDb().prepare("INSERT OR IGNORE INTO providers (id, name, base_url, api_format, api_key, model_list, enabled, is_custom, created_at) VALUES ('minimax-proxy', 'Minimax-Proxy', 'http://127.0.0.1:3477/v1', 'openai-completions', '', ?, 1, 1, ?)").run(JSON.stringify([{id:"MiniMax-M3",context:128000},{id:"MiniMax-M2.5",context:128000},{id:"qwen3.8-27b",context:262144},{id:"deepseek-v4-pro-0813",context:128000},{id:"kimi-k3",context:262144}]), now);
-    // Point defaults at a configured model if current selection is not in the list
+    // Point defaults at a configured model if the current selection is not in
+    // the SELECTED provider's list (provider-aware, so a valid GLM/minimax
+    // choice survives restarts instead of being reset to wandb).
     const cur = getDb().prepare("SELECT value FROM settings WHERE key = 'model'").get() as { value: string } | undefined;
-    const list: string[] = (JSON.parse(ml) as Array<{id:string}>).map(m => m.id);
-    if (!cur || !list.includes(cur.value)) {
+    const curProv = getDb().prepare("SELECT value FROM settings WHERE key = 'providerName'").get() as { value: string } | undefined;
+    const wandbList: string[] = (JSON.parse(ml) as Array<{ id: string }>).map(m => m.id);
+    let validList = wandbList;
+    if (curProv?.value && curProv.value !== "wandb") {
+      const provRow = getDb().prepare("SELECT model_list FROM providers WHERE id = ?").get(curProv.value) as { model_list: string } | undefined;
+      if (provRow) {
+        try { validList = (JSON.parse(provRow.model_list) as Array<{ id: string }>).map(m => m.id); } catch { /* keep wandb list */ }
+      }
+    }
+    if (!cur || !validList.includes(cur.value)) {
       getDb().prepare("INSERT INTO settings (key, value) VALUES ('model', 'deepseek-ai/DeepSeek-V4-Flash-0731') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
       getDb().prepare("INSERT INTO settings (key, value) VALUES ('providerName', 'wandb') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
     } else {
-      getDb().prepare("INSERT INTO settings (key, value) VALUES ('providerName', 'wandb') ON CONFLICT(key) DO UPDATE SET value = excluded.value").run();
+      // Valid selection: never clobber the user's provider choice (it used to
+      // be force-reset to wandb on every startup).
+      getDb().prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('providerName', 'wandb')").run();
     }
   } catch (e) {
     console.error("provider seed failed", e);
