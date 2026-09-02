@@ -157,6 +157,16 @@ async function buildSession(req) {
   if (!model) throw new Error("pi: model not registered: " + o.provider.id + "/" + o.modelId);
   const agentDir = join(o.cwd, ".pi-agent");
   const sessionManager = openOrCreateSessionManager(req.sid, o.cwd);
+  // Resume: seed the agent with the persisted transcript (root->leaf branch),
+  // otherwise every worker/app restart starts the conversation blank even
+  // though the session file exists on disk.
+  let resumedMessages = [];
+  try {
+    resumedMessages = sessionManager
+      .getBranch()
+      .filter(e => e && e.type === "message" && e.message)
+      .map(e => e.message);
+  } catch { /* fresh session */ }
   const settingsManager = pi.SettingsManager.inMemory();
   const resourceLoader = new pi.DefaultResourceLoader({
     cwd: o.cwd,
@@ -170,6 +180,7 @@ async function buildSession(req) {
   });
   const agent = new piCore.Agent({
     getApiKey: provider => registry.getApiKeyForProvider(provider),
+    ...(resumedMessages.length ? { initialState: { messages: resumedMessages } } : {}),
   });
   const session = new pi.AgentSession({
     agent,
