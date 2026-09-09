@@ -221,3 +221,33 @@ This produced nested/incomplete Thought widgets inside Worked and persisted
 - 1000px live pass: side panel collapses automatically and the chat column
   remains usable.
 - Browser console/page errors after the pass: none.
+
+## 2026-09-10 — Retry replaces its target in place
+
+### Problem
+
+Retry streamed the regenerated answer into a temporary assistant message at the
+bottom of the transcript. The old answer remained visible above it until the
+backend appended the branch and the final refetch collapsed them into one
+message. This made retry look like a separate follow-up turn.
+
+### Change
+
+- `useChat` now identifies the assistant target immediately after the retry
+  anchor before starting the resend.
+- The streaming turn records that target ID.
+- Main chat and side chat remove the target response from the visible transcript
+  only while its retry is streaming.
+- The streaming response is rendered in the target's exact transcript position.
+- On completion, the normal refetch replaces it with the updated response and
+  its branch selector.
+
+### Verification
+
+- Renderer and Electron/main TypeScript: pass.
+- Live retry on the fork session:
+  - mid-stream DOM had one assistant message (`Working`), not the old answer
+    plus a second streaming message;
+  - completion returned to one assistant message in the original position;
+  - versions advanced and the final refetch rendered the new active branch.
+- Mechanical UI detector on changed files: zero findings.

@@ -34,6 +34,7 @@ export function useChat(sessionId: string | null) {
   const [turnSecs, setTurnSecs] = useState<number | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [streamingTargetId, setStreamingTargetId] = useState<string | null>(null);
 
   // Load messages when session changes
   useEffect(() => {
@@ -104,12 +105,18 @@ export function useChat(sessionId: string | null) {
     setTurnUsage(null);
   }, []);
 
+  const beginTurnForTarget = useCallback((targetMessageId: string | null) => {
+    setStreamingTargetId(targetMessageId);
+    beginTurn();
+  }, [beginTurn]);
+
   const endTurn = useCallback(async (sid: string, removeListener: () => void) => {
     removeListener();
     setIsStreaming(false);
     setStreamingContent("");
     setStreamingReasoning("");
     setLiveSteps([]);
+    setStreamingTargetId(null);
     const msgs = await api.getMessages(sid);
     setMessages(msgs);
   }, []);
@@ -137,7 +144,7 @@ export function useChat(sessionId: string | null) {
     setMessages(prev => [...prev, tempUserMsg]);
 
     const removeListener = api.onChatChunk(sid, handleChunk);
-    beginTurn();
+    beginTurnForTarget(null);
     try {
       await api.sendChat({ sessionId: sid, userMessage: text, model: meta?.model ?? settings.model, mode: meta?.mode, reasoningEffort: meta?.reasoningEffort });
     } catch (err) {
@@ -159,7 +166,7 @@ export function useChat(sessionId: string | null) {
     };
     setMessages(prev => [...prev, tempUserMsg]);
     const removeListener = api.onChatChunk(targetId, handleChunk);
-    beginTurn();
+    beginTurnForTarget(null);
     try {
       await api.sendChat({ sessionId: targetId, userMessage: text, model: meta?.model ?? settings.model, mode: meta?.mode, reasoningEffort: meta?.reasoningEffort });
     } catch (err) {
@@ -173,8 +180,14 @@ export function useChat(sessionId: string | null) {
   const resend = useCallback(async (anchorUserMessageId: string, meta?: SendMeta) => {
     if (!sessionId) return;
     const sid = sessionId;
+    // A retry must replace the response being regenerated, not append a second
+    // answer after it. Find that response before the backend archives the tail.
+    const anchorIndex = messages.findIndex(message => message.id === anchorUserMessageId);
+    const replacedTarget = anchorIndex >= 0
+      ? messages.slice(anchorIndex + 1).find(message => message.role === "assistant")
+      : undefined;
     const removeListener = api.onChatChunk(sid, handleChunk);
-    beginTurn();
+    beginTurnForTarget(replacedTarget?.id ?? null);
     try {
       await api.resendChat({ sessionId: sid, anchorUserMessageId, model: meta?.model ?? settings.model });
     } catch (err) {
@@ -182,7 +195,7 @@ export function useChat(sessionId: string | null) {
     } finally {
       await endTurn(sid, removeListener);
     }
-  }, [sessionId, settings.model, handleChunk, beginTurn, endTurn]);
+  }, [sessionId, settings.model, handleChunk, beginTurnForTarget, endTurn, messages]);
 
   const setVersion = useCallback(async (messageId: string, index: number) => {
     if (!sessionId) return;
@@ -199,6 +212,7 @@ export function useChat(sessionId: string | null) {
     setStreamingContent("");
     setStreamingReasoning("");
     setLiveSteps([]);
+    setStreamingTargetId(null);
   }, []);
 
   const editMessage = useCallback(async (id: string, newContent: string) => {
@@ -223,7 +237,7 @@ export function useChat(sessionId: string | null) {
 
   return {
     messages, streamingContent, streamingReasoning, liveSteps, turnUsage,
-    turnSecs, isStreaming, error,
+    turnSecs, isStreaming, streamingTargetId, error,
     sendMessage, sendTo, resend, setVersion, stopStream, editMessage, deleteMessage, refreshMessages,
   };
 }

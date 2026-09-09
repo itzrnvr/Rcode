@@ -71,11 +71,22 @@ export function ChatView() {
     setVersion,
     stopStream,
     streamingContent,
+    streamingTargetId,
     turnUsage,
   } = useChat(currentSessionId);
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+
+  // During retry, the temporary streaming message takes the old response's
+  // exact position. This prevents the model output from appearing as a new,
+  // unrelated turn at the bottom of the transcript.
+  const retryTargetIndex = isStreaming && streamingTargetId
+    ? messages.findIndex(message => message.id === streamingTargetId)
+    : -1;
+  const visibleMessages = retryTargetIndex === -1
+    ? messages
+    : messages.filter((_, index) => index !== retryTargetIndex);
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -300,7 +311,7 @@ export function ChatView() {
       <AgentConversation onContextMenu={handleContextMenu}>
         {messages.length === 0 && !isStreaming ? emptyState : null}
 
-        {messages.map((message, index) => {
+        {visibleMessages.map((message, index) => {
           const previousUser = message.role === "assistant"
             ? messages.slice(0, index).reverse().find(item => item.role === "user")
             : undefined;

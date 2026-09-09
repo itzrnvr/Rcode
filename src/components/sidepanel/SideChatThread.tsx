@@ -28,6 +28,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
     setVersion,
     stopStream,
     streamingContent,
+    streamingTargetId,
     turnUsage,
   } = useChat(sessionId);
 
@@ -54,7 +55,15 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
           />
         ) : null}
 
-        {messages.map((message, index) => {
+        {(() => {
+          const retryTargetIndex = isStreaming && streamingTargetId
+            ? messages.findIndex(message => message.id === streamingTargetId)
+            : -1;
+          const visibleMessages = retryTargetIndex === -1
+            ? messages
+            : messages.filter((_, index) => index !== retryTargetIndex);
+
+          return visibleMessages.map((message, index) => {
           const previousUser = message.role === "assistant"
             ? messages.slice(0, index).reverse().find(item => item.role === "user")
             : undefined;
@@ -79,7 +88,8 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
               onVersionChange={nextIndex => setVersion(message.id, nextIndex)}
             />
           );
-        })}
+          });
+        })()}
 
         {isStreaming && (
           <AgentMessage
