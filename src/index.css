@@ -1,3 +1,5 @@
+@import "@fontsource-variable/geist";
+
 /*
  * Rcode — global styles + theme CSS variables
  *
@@ -494,7 +496,6 @@ body {
   font-size: 10px;
   color: var(--color-muted);
 }
-
 
 .titlebar-divider {
   width: 1px;
@@ -1354,7 +1355,6 @@ body {
   cursor: not-allowed;
 }
 
-
 /* --- Chat composer (Codex-style: textarea + horizontal toolbar) --- */
 .chat-input-wrap {
   padding: 12px 24px 16px;
@@ -1652,9 +1652,6 @@ body {
   margin: 0 2px;
 }
 
-
-
-
 /* --- Tab bar (side panel tabs) --- */
 .tab-item {
   display: flex;
@@ -1736,7 +1733,6 @@ body {
 .depth-3 .depth-bar { background: #C4B5FD; opacity: 0.5; }
 .depth-4 .depth-bar { background: #F0ABFC; opacity: 0.4; }
 .depth-5 .depth-bar { background: #FBCFE8; opacity: 0.3; }
-
 
 .settings-sections {
   display: flex;
@@ -3134,6 +3130,84 @@ body {
   font-size: 12px;
   margin: 2px 0 16px;
 }
+
+/* --- AI Elements chat surface (Rcode layout skin) --- */
+.rcode-conversation {
+  flex: 1;
+  min-height: 0;
+}
+.rcode-conversation-content {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 20px 24px 16px;
+  gap: 28px;
+}
+.rcode-conversation-content > * {
+  width: 100%;
+}
+.rcode-quick-prompts {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 14px;
+}
+.rcode-prompt-input {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0 24px 16px;
+  box-sizing: border-box;
+}
+.rcode-prompt-input [data-slot="input-group"] {
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border-color: color-mix(in srgb, var(--color-fg) 12%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+}
+.rcode-prompt-input [data-slot="input-group-control"] {
+  min-height: 92px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--color-fg);
+}
+
+/* Narrow side-chat variant of the prebuilt chat surface */
+.side-chat-thread {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.side-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  border-bottom: 1px solid var(--color-border);
+}
+.side-chat-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-fg);
+}
+.side-chat-label {
+  font-size: 11px;
+  color: var(--color-muted);
+}
+.side-chat-thread .rcode-conversation-content {
+  max-width: none;
+  padding: 12px;
+  gap: 20px;
+}
+.side-chat-thread .rcode-prompt-input {
+  max-width: none;
+  padding: 0 12px 12px;
+}
 .worked-widget {
   margin: 0 0 14px;
   border: 1px solid var(--color-border);
@@ -3410,5 +3484,90 @@ button, .session-item, .msg-tick, .titlebar-sidebar-toggle, .mode-badge, .model-
 .tool-cmdline { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 11.5px; color: #d6d6d6; white-space: pre-wrap; line-height: 1.7; margin-bottom: 10px; }
 .tool-card .tool-out { background: transparent; border: none; margin: 0; padding: 0; max-height: none; color: #b0b0b0; font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; }
 
-
 .tool-row-head:hover .tool-row-name, .tool-row-head:hover .tool-row-args { color: #e0e0e0; }
+/*
+ ---break---
+ */
+@layer base {
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', sans-serif;
+  }
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.145 0 0);
+    --primary: oklch(0.205 0 0);
+    --primary-foreground: oklch(0.985 0 0);
+    --secondary: oklch(0.97 0 0);
+    --secondary-foreground: oklch(0.205 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --accent: oklch(0.97 0 0);
+    --accent-foreground: oklch(0.205 0 0);
+    --destructive: oklch(0.577 0.245 27.325);
+    --border: oklch(0.922 0 0);
+    --input: oklch(0.922 0 0);
+    --ring: oklch(0.708 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --radius: 0.625rem;
+    --sidebar: oklch(0.985 0 0);
+    --sidebar-foreground: oklch(0.145 0 0);
+    --sidebar-primary: oklch(0.205 0 0);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.97 0 0);
+    --sidebar-accent-foreground: oklch(0.205 0 0);
+    --sidebar-border: oklch(0.922 0 0);
+    --sidebar-ring: oklch(0.708 0 0);
+  }
+  .dark {
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.87 0 0);
+    --chart-2: oklch(0.556 0 0);
+    --chart-3: oklch(0.439 0 0);
+    --chart-4: oklch(0.371 0 0);
+    --chart-5: oklch(0.269 0 0);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
+  }
+  * {
+    border-color: var(--border);
+    outline-color: var(--ring);
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

@@ -43,8 +43,8 @@ export interface TurnUsage {
 export type AgentTurnEvent =
   | { kind: "reasoning"; text: string }
   | { kind: "response"; text: string }
-  | { kind: "tool_call"; name: string; args?: string }
-  | { kind: "tool_result"; name: string; result?: string; isError?: boolean };
+  | { kind: "tool_call"; name: string; args?: string; status?: "running" | "done" }
+  | { kind: "tool_result"; name: string; result?: string; isError?: boolean; status?: "running" | "done" };
 
 export interface AgentTurn {
   secs: number;
@@ -52,6 +52,11 @@ export interface AgentTurn {
   events: AgentTurnEvent[];
   finalContent: string;
 }
+
+export type LiveStep = AgentTurnEvent & {
+  status?: "running" | "done";
+  bornAt?: number;
+};
 
 export interface SideChatTab {
   id: string;

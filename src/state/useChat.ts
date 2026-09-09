@@ -16,8 +16,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { api } from "../api/client";
 import { useApp } from "./AppContext";
 
-import type { Message, ChatChunk } from "../types";
-import type { LiveStep } from "../components/chat/AgentTurn";
+import type { LiveStep, Message, ChatChunk } from "../types";
 
 export interface SendMeta {
   mode?: string;

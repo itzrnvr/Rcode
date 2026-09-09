@@ -10,4 +10,5 @@ refs/
 *.db
 *.db-journal
 .DS_Store
+.just-scrape/
 .project-context/zcode-side-chat-backup/
