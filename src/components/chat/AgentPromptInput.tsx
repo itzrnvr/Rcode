@@ -121,8 +121,8 @@ export function AgentPromptInput({
           />
         </PromptInputBody>
 
-        <PromptInputFooter>
-          <PromptInputTools>
+        <PromptInputFooter className="rcode-prompt-footer">
+          <PromptInputTools className="rcode-prompt-tools">
             <PromptInputActionMenu>
               <PromptInputActionMenuTrigger>
                 <PlusIcon size={16} />
@@ -200,6 +200,7 @@ export function AgentPromptInput({
           </PromptInputTools>
 
           <PromptInputSubmit
+            className="rcode-prompt-submit"
             disabled={disabled && !streaming}
             onStop={onStop}
             status={streaming ? "streaming" : undefined}

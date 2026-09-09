@@ -168,7 +168,10 @@ export function AgentMessage({
     );
 
   return (
-    <Message from={message.role === "user" ? "user" : "assistant"}>
+    <Message
+      className="rcode-message"
+      from={message.role === "user" ? "user" : "assistant"}
+    >
       {content}
       <MessageToolbar>
         <MessageActions>

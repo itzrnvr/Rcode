@@ -179,3 +179,45 @@ This produced nested/incomplete Thought widgets inside Worked and persisted
 - Worked content retains `16px` indentation and `14px` left padding.
 - Fresh live turn with the same model persisted one complete reasoning event and
   one complete response event; final content was `PING`.
+
+## 2026-09-09 — Stale-session guard and UI layout pass
+
+### Session resend diagnosis
+
+- The reported `chat:resend: Session not found` came from a stale session entry
+  left in the open renderer after its row was deleted directly from SQLite
+  during backend verification.
+- The backend behaved correctly, but the UI allowed an unreachable session to
+  remain current.
+- `AppContext` now validates the current session ID against the database. If it
+  disappears, the ID is released and the session list is refreshed.
+
+### UI cleanup
+
+- Removed 279 rules covering 169 dead custom classes left over from the old
+  chat implementation; `index.css` shrank from roughly 3,476 to under 2,100
+  lines before the focused layout additions.
+- Replaced fixed popup coordinates with measured viewport clamping for session
+  context menus.
+- Converted context-menu rows from non-focusable divs to real buttons, added
+  menu semantics, focus placement, bounded scrolling, and consistent spacing.
+- Fixed sidebar session-title overflow by giving the title and fork badge an
+  explicit flex/ellipsis contract.
+- Rebuilt side-panel tab, search, empty-state, and popup styling around design
+  tokens; removed nested interactive controls from tab pills.
+- Added a responsive shell pass that preserves the chat column by collapsing
+  the side panel below 1120px and the sidebar below 860px.
+- Added message-level min-width/overflow contracts for assistant and user
+  bubbles, tables, code, and Worked trace widgets.
+- Allowed composer controls to wrap and raised the submit target to 36px.
+- Removed width layout animations and elastic easing after detector review.
+
+### Verification
+
+- Renderer and Electron/main TypeScript: pass.
+- Impeccable mechanical UI detector on all changed UI files: zero findings.
+- 1280px live pass: no document-level horizontal overflow; right-edge context
+  menu remains fully inside the viewport.
+- 1000px live pass: side panel collapses automatically and the chat column
+  remains usable.
+- Browser console/page errors after the pass: none.

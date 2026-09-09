@@ -338,7 +338,14 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
                 />
               ) : (
                 <>
-                  <div className="session-item-title" style={{display:'flex', alignItems:'center', gap:6}}>{session.title}{session.parentId && <span title="Forked session" style={{display:'flex', flex:'none', color:'var(--color-muted)'}}><GitForkIcon size={11} /></span>}</div>
+                  <div className="session-item-title">
+                    <span className="session-item-title-text">{session.title}</span>
+                    {session.parentId && (
+                      <span className="session-item-fork" title="Forked session">
+                        <GitForkIcon size={11} />
+                      </span>
+                    )}
+                  </div>
                   <div className="session-item-time">{formatTimeAgo(session.updatedAt)}</div>
                   <div className="session-item-actions">
                     <button

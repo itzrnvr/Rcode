@@ -7,7 +7,7 @@
  * CONSUMERS: sessions/SessionList.tsx, sidepanel/SidePanel.tsx
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 export interface ContextMenuItem {
@@ -26,6 +26,18 @@ interface ContextMenuProps {
 
 export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: x, top: y, ready: false });
+
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const rect = element.getBoundingClientRect();
+    const left = Math.max(8, Math.min(x, Math.floor(window.innerWidth - rect.width) - 8));
+    const top = Math.max(8, Math.min(y, Math.floor(window.innerHeight - rect.height) - 8));
+    setPosition({ left, top, ready: true });
+    element.querySelector<HTMLElement>("button:not([disabled])")?.focus();
+  }, [x, y, items]);
 
   useEffect(() => {
     const clickHandler = (e: MouseEvent) => {
@@ -47,18 +59,30 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   // Portal to body: fixed-position menus must escape ancestors whose
   // backdrop-filter/transform creates a containing block (e.g. the sidebar).
   return createPortal(
-    <div ref={ref} className="context-menu" style={{ left: x, top: y }}>
+    <div
+      ref={ref}
+      className="context-menu"
+      role="menu"
+      aria-label="Session actions"
+      style={{
+        left: position.left,
+        top: position.top,
+        visibility: position.ready ? "visible" : "hidden",
+      }}
+    >
       {items.map((item, i) =>
         item.separator ? (
           <div key={i} className="context-menu-separator" />
         ) : (
-          <div
+          <button
             key={i}
             className={`context-menu-item ${item.danger ? "danger" : ""}`}
+            type="button"
+            role="menuitem"
             onClick={() => { item.onClick(); onClose(); }}
           >
             {item.label}
-          </div>
+          </button>
         )
       )}
     </div>

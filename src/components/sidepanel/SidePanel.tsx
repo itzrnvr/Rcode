@@ -209,41 +209,56 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
   };
 
   return (
-    <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', flexDirection:'column', background:'var(--color-bg)', borderLeft:'1px solid #1f1f1f', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
+    <aside className="panel-side" aria-label="Side panel" style={{display: collapsed ? 'none' : 'flex', width: collapsed ? 0 : (width ? `${width}px` : undefined), minWidth: collapsed ? 0 : (width ? `${width}px` : undefined)}}>
       {/* Header — chevron (tab manager) + pills + plus (new tab) */}
-      <div style={{display:'flex', alignItems:'center', gap:6, padding:'8px 10px', borderBottom:'1px solid #1f1f1f', position:'relative'}}>
+      <div className="sidepanel-toolbar">
         <button
+          className="sidepanel-icon-btn"
           data-sp-trigger="1"
           onClick={() => { setShowManager(v => !v); setShowPicker(false); }}
           title="Search tabs / resume closed tabs"
-          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1e1e1e', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
         ><ChevronDownIcon size={14} /></button>
 
-        <div style={{display:'flex', gap:6, flex:1, overflowX:'auto'}}>
+        <div className="sidepanel-tab-rail">
           {openTabs.filter(t => TAB_DEFS[t.type]).map(t => {
             const Def = TAB_DEFS[t.type];
             return (
-              <button key={t.id} onClick={() => setActiveId(t.id)} style={{display:'flex', alignItems:'center', gap:6, padding:'5px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : '#1e1e1e', border:'1px solid ' + (t.id===activeId ? '#3a3a3a' : '#262626'), color: t.id===activeId ? '#fff' : '#8a8a8a', fontSize:12, whiteSpace:'nowrap', cursor:'pointer'}}>
-                <Def.Icon size={13} />{t.title}
-                <span onClick={e => { e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }} style={{marginLeft:2, opacity:0.6, display:'flex'}}><XIcon size={11} /></span>
-              </button>
+              <div className={`sidepanel-pill ${t.id === activeId ? "active" : ""}`} key={t.id}>
+                <button
+                  className="sidepanel-pill-open"
+                  onClick={() => setActiveId(t.id)}
+                  title={t.title}
+                  type="button"
+                >
+                  <Def.Icon size={13} />
+                  <span>{t.title}</span>
+                </button>
+                <button
+                  aria-label={`Close ${t.title}`}
+                  className="sidepanel-pill-close"
+                  onClick={() => { if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }}
+                  type="button"
+                >
+                  <XIcon size={11} />
+                </button>
+              </div>
             );
           })}
         </div>
 
         <button
+          className="sidepanel-icon-btn"
           data-sp-trigger="1"
           onClick={() => { setShowPicker(v => !v); setShowManager(false); }}
           title="Open a new tab"
-          style={{width:28, height:28, flex:'none', borderRadius:8, background:'#1e1e1e', border:'1px solid #262626', color:'#c8c8c8', display:'flex', alignItems:'center', justifyContent:'center', cursor:'pointer'}}
         ><PlusIcon size={14} /></button>
 
         {showPicker && (
-          <div data-sp-menu="1" className="sp-menu" style={{position:'absolute', top:44, right:8, width:220, background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
+          <div className="sp-menu sidepanel-menu anchored-right" data-sp-menu="1">
             {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
               const D = TAB_DEFS[type];
               return (
-                <button key={type} onClick={() => openNewTab(type)} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'8px 10px', borderRadius:8, background:'transparent', border:'none', color:'#e8e8e8', fontSize:13, textAlign:'left', cursor:'pointer'}}>
+                <button className="sidepanel-menu-item" key={type} onClick={() => openNewTab(type)} type="button">
                   <D.Icon size={14} />{D.label}
                 </button>
               );
@@ -256,29 +271,43 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           const open = openTabs.filter(t => TAB_DEFS[t.type] && (!q || t.title.toLowerCase().includes(q)));
           const closed = recentlyClosed.filter(t => !q || t.title.toLowerCase().includes(q));
           return (
-            <div data-sp-menu="1" className="sp-menu" style={{position:'absolute', top:44, left:8, right:8, maxHeight:'70vh', overflowY:'auto', background:'#1c1c1c', border:'1px solid #2e2e2e', borderRadius:10, padding:6, zIndex:1400, boxShadow:'0 12px 32px rgba(0,0,0,.55)'}}>
-              <div style={{display:'flex', alignItems:'center', gap:8, padding:'6px 8px', background:'#111', borderRadius:8, marginBottom:6}}>
-                <span style={{opacity:0.5, display:'flex'}}><SearchIcon size={13} /></span>
-                <input value={tabSearch} onChange={e => setTabSearch(e.target.value)} placeholder="Search tabs..." autoFocus style={{flex:1, background:'transparent', border:'none', outline:'none', color:'#e8e8e8', fontSize:13}} />
+            <div className="sp-menu sidepanel-menu manager" data-sp-menu="1">
+              <div className="sidepanel-search">
+                <span className="sidepanel-search-icon"><SearchIcon size={13} /></span>
+                <input className="sidepanel-search-input" value={tabSearch} onChange={e => setTabSearch(e.target.value)} placeholder="Search tabs..." autoFocus />
               </div>
-              <div style={{fontSize:11, color:'#8a8a8a', padding:'4px 8px'}}>Open tabs</div>
-              {open.length === 0 && <div style={{fontSize:12, color:'#5a5a5a', padding:'4px 8px'}}>none</div>}
+              <div className="sidepanel-menu-heading">Open tabs</div>
+              {open.length === 0 && <div className="sidepanel-menu-empty">None</div>}
               {open.map(t => {
                 const Def = TAB_DEFS[t.type];
                 return (
-                  <button key={t.id} onClick={() => { setActiveId(t.id); setShowManager(false); }} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'7px 10px', borderRadius:8, background: t.id===activeId ? '#252525' : 'transparent', border:'none', color:'#e8e8e8', fontSize:13, textAlign:'left', cursor:'pointer'}}>
-                    <Def.Icon size={13} /><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.title}</span>
-                    <span onClick={e => { e.stopPropagation(); if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }} style={{opacity:0.6, display:'flex'}}><XIcon size={12} /></span>
-                  </button>
+                  <div className="sidepanel-menu-row" key={t.id}>
+                    <button
+                      className={`sidepanel-menu-item ${t.id === activeId ? "active" : ""}`}
+                      onClick={() => { setActiveId(t.id); setShowManager(false); }}
+                      type="button"
+                    >
+                      <Def.Icon size={13} />
+                      <span className="sidepanel-menu-label">{t.title}</span>
+                    </button>
+                    <button
+                      aria-label={`Close ${t.title}`}
+                      className="sidepanel-pill-close"
+                      onClick={() => { if (t.type === "side-conversation") handleCloseSideChat(t.id); closeTab(t.id); }}
+                      type="button"
+                    >
+                      <XIcon size={12} />
+                    </button>
+                  </div>
                 );
               })}
-              <div style={{fontSize:11, color:'#8a8a8a', padding:'6px 8px 2px'}}>Recently closed tabs</div>
-              {closed.length === 0 && <div style={{fontSize:12, color:'#5a5a5a', padding:'4px 8px'}}>none</div>}
+              <div className="sidepanel-menu-heading">Recently closed tabs</div>
+              {closed.length === 0 && <div className="sidepanel-menu-empty">None</div>}
               {closed.map(t => {
                 const Def = TAB_DEFS[t.type];
                 return (
-                  <button key={t.id} onClick={() => { reopenRecent(t); setShowManager(false); }} style={{display:'flex', alignItems:'center', gap:10, width:'100%', padding:'7px 10px', borderRadius:8, background:'transparent', border:'none', color:'#9a9a9a', fontSize:13, textAlign:'left', cursor:'pointer'}}>
-                    <Def.Icon size={13} /><span style={{flex:1, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap'}}>{t.title}</span><span style={{fontSize:11, opacity:0.6}}>{fmtAgo(t.closedAt)}</span>
+                  <button className="sidepanel-menu-item muted" key={t.id} onClick={() => { reopenRecent(t); setShowManager(false); }} type="button">
+                    <Def.Icon size={13} /><span className="sidepanel-menu-label">{t.title}</span><span className="sidepanel-menu-meta">{fmtAgo(t.closedAt)}</span>
                   </button>
                 );
               })}
@@ -288,16 +317,16 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
       </div>
 
       {/* Content */}
-      <div style={{flex:1, minHeight:0, display:'flex', flexDirection:'column', background:'var(--color-bg)'}}>
+      <div className="sidepanel-content">
         {!activeTab && (
-          <div style={{flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:10, padding:24}}>
-            <div style={{fontSize:17, fontWeight:700, color:'#e8e8e8'}}>Open tab</div>
-            <div style={{fontSize:12, color:'#8a8a8a', marginBottom:10}}>Choose a tab to open in the side pane.</div>
+          <div className="sidepanel-empty-state">
+            <div className="sidepanel-empty-title">Open tab</div>
+            <div className="sidepanel-empty-description">Choose a tab to open in the side pane.</div>
             {(Object.keys(TAB_DEFS) as ZTabType[]).map(type => {
               const D = TAB_DEFS[type];
               return (
-                <button key={type} onClick={() => openNewTab(type)} style={{display:'flex', alignItems:'center', gap:12, width:'100%', maxWidth:340, padding:'12px 14px', background:'#161616', border:'1px solid #262626', borderRadius:10, color:'#e8e8e8', fontSize:13, fontWeight:600, textAlign:'left', cursor:'pointer'}}>
-                  <span style={{display:'flex', padding:6, background:'#1f1f1f', borderRadius:8, border:'1px solid #2a2a2a'}}><D.Icon size={15} /></span>
+                <button className="sidepanel-choice" key={type} onClick={() => openNewTab(type)} type="button">
+                  <span className="sidepanel-choice-icon"><D.Icon size={15} /></span>
                   {D.label}
                 </button>
               );

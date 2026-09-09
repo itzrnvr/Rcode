@@ -59,6 +59,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSettings(s);
   }, []);
 
+  // The database is the source of truth. If a session disappears while the UI
+  // still holds its ID, release the stale ID instead of letting later chat
+  // operations fail with an opaque backend error.
+  useEffect(() => {
+    if (!currentSessionId) return;
+    let cancelled = false;
+
+    api.getSession(currentSessionId).then(session => {
+      if (cancelled || session) return;
+      setCurrentSessionId(null);
+      setSessionListVersion(version => version + 1);
+    }).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentSessionId]);
+
   const setSetting = useCallback(async (key: string, value: string) => {
     await api.setSetting(key, value);
     // Optimistically update local state

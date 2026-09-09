@@ -65,6 +65,20 @@ function AppInner() {
   const [sidebarWidth, setSidebarWidth] = useState(280);
   const [settingsCategory, setSettingsCategory] = useState<string | undefined>(undefined);
   const [feedbackMode, setFeedbackMode] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+
+  useEffect(() => {
+    const updateViewportWidth = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", updateViewportWidth, { passive: true });
+    return () => window.removeEventListener("resize", updateViewportWidth);
+  }, []);
+
+  useEffect(() => {
+    // Preserve the chat column at desktop breakpoints. The user can still
+    // explicitly reopen either panel; this only intervenes on a narrowing path.
+    if (viewportWidth < 1120 && !sidePanelCollapsed) void setSidePanelCollapsed(true);
+    if (viewportWidth < 860 && !sidebarCollapsed) void setSidebarCollapsed(true);
+  }, [viewportWidth, sidePanelCollapsed, sidebarCollapsed, setSidePanelCollapsed, setSidebarCollapsed]);
   const openSettingsAt = (cat?: string) => {
     setSettingsCategory(cat);
     setShowSettings(true);
