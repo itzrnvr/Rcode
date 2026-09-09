@@ -22,14 +22,27 @@ import { createInterface } from "readline";
 // the runtime tree).
 const WORKER = join(__dirname, "..", "..", "..", "electron", "agent", "pi-worker.mjs");
 
+export interface PiAssistantBlock {
+  type: "text" | "thinking";
+  text: string;
+}
+
 export interface PiChunk {
-  kind: "text" | "reasoning" | "tool_start" | "tool_end" | "usage" | "error";
+  kind:
+    | "text"
+    | "reasoning"
+    | "tool_start"
+    | "tool_end"
+    | "usage"
+    | "assistant_end"
+    | "error";
   delta?: string;
   toolName?: string;
   args?: string;
   result?: string;
   isError?: boolean;
   usage?: { input: number; output: number };
+  blocks?: PiAssistantBlock[];
 }
 
 export interface PiRunOptions {

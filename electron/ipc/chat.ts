@@ -18,7 +18,7 @@ import { getSettings } from "../db/settings";
 import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { logTrace, readTrace } from "../agent/trace";
-import { runPiTurn, dropPiSession, runPiCompact } from "../agent/pi-bridge";
+import { runPiTurn, dropPiSession, runPiCompact, type PiAssistantBlock } from "../agent/pi-bridge";
 import { homedir } from "os";
 
 import type { AgentTurn, AgentTurnEvent, ChatRequest, ChatChunk, Settings, TurnUsage } from "../../src/types";
@@ -45,6 +45,25 @@ async function runTurn(
   const events: AgentTurnEvent[] = [];
   let usageIn = 0;
   let usageOut = 0;
+  // Keep tool results as turn-segment boundaries. At each pi assistant message
+  // end we replace only the latest raw delta segment with pi's canonical blocks.
+  // This repairs fragmented provider streams without changing earlier traces or
+  // assuming that all text/reasoning deltas arrive as one contiguous run.
+  const reconcileAssistantSegment = (blocks: PiAssistantBlock[]) => {
+    const boundary = events.findLastIndex(item => item.kind === "tool_result");
+    const segmentStart = boundary + 1;
+    const canonical = blocks.flatMap(block => {
+      const kind = block.type === "thinking" ? "reasoning" : "response";
+      if (!block.text.trim()) return [];
+      return [{ kind, text: block.text } as AgentTurnEvent];
+    });
+
+    events.splice(segmentStart, events.length - segmentStart, ...canonical);
+    const lastResponse = canonical.findLast(item => item.kind === "response");
+    if (lastResponse && lastResponse.kind === "response") {
+      finalContent = lastResponse.text;
+    }
+  };
   const providerRow = getProvider(settings.providerName);
   const turn = readTrace(sid).filter(e => e.kind === "turn_start").length + 1;
   logTrace(sid, {
@@ -92,6 +111,8 @@ async function runTurn(
         } else if (c.kind === "usage" && c.usage) {
           usageIn += c.usage.input;
           usageOut += c.usage.output;
+        } else if (c.kind === "assistant_end" && c.blocks) {
+          reconcileAssistantSegment(c.blocks);
         }
       },
     });

@@ -140,3 +140,42 @@ turn by parsing that string. This caused several defects:
   response version.
 - Live fork: copied typed user/assistant turns with newly generated message IDs.
 - Renderer runtime errors after reload: none.
+
+## 2026-09-09 — Canonical repair for fragmented pi streams
+
+### Problem
+
+MiniMax/pi delivered the fork test as:
+
+1. reasoning text
+2. response delta `F`
+3. more reasoning text
+4. response delta `ORK-OK`
+
+Rcode treated the last non-empty response fragment as the whole final answer.
+This produced nested/incomplete Thought widgets inside Worked and persisted
+`ORK-OK` instead of `FORK-OK`.
+
+### Change
+
+- pi's worker now emits the canonical `thinking` and `text` content blocks from
+  each completed assistant message via a new `assistant_end` chunk.
+- Live renderer chunks still preserve the raw provider arrival order.
+- At message completion, Rcode replaces only the current assistant segment after
+  the last tool result with pi's canonical blocks.
+- Earlier tool-call/tool-result history remains untouched.
+- The active final response is taken from the canonical completed assistant
+  message, not from the latest arbitrary stream fragment.
+- Repaired the existing fork verification row from pi's durable session
+  transcript so its stored turn and final answer are `FORK-OK`.
+
+### Verification
+
+- Electron/main TypeScript: pass.
+- Renderer TypeScript: pass.
+- Production build: pass.
+- Existing repaired fork renders one Worked widget, one Thought child, and one
+  `FORK-OK` response outside Worked.
+- Worked content retains `16px` indentation and `14px` left padding.
+- Fresh live turn with the same model persisted one complete reasoning event and
+  one complete response event; final content was `PING`.

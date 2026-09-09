@@ -107,6 +107,22 @@ function mapEvent(ev, id) {
       if (msg && msg.role === "assistant" && msg.usage) {
         emit({ id, kind: "usage", usage: { input: msg.usage.input || 0, output: msg.usage.output || 0 } });
       }
+      if (msg && msg.role === "assistant" && Array.isArray(msg.content)) {
+        const blocks = msg.content
+          .map(block => {
+            if (block.type === "text" && typeof block.text === "string") {
+              return { type: "text", text: block.text };
+            }
+            if (block.type === "thinking" && typeof block.thinking === "string") {
+              return { type: "thinking", text: block.thinking };
+            }
+            return null;
+          })
+          .filter(Boolean);
+        if (blocks.length > 0) {
+          emit({ id, kind: "assistant_end", blocks });
+        }
+      }
       return;
     }
     case "agent_end": {
