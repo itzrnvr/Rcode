@@ -75,6 +75,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
               key={msg.id}
               role={msg.role}
               content={msg.content}
+              turn={msg.turn}
               onEdit={newContent => {
                 if (msg.role === "user") {
                   editMessage(msg.id, newContent).then(() => resend(msg.id));
@@ -91,10 +92,10 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
             />
           );
         })}
-        {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
+        {isStreaming && (liveSteps.length > 0 || streamingContent) && (
+          <ChatMessage role="assistant" content={streamingContent} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
         )}
-        {isStreaming && !streamingContent && <div className="message-assistant stream-cursor" />}
+        {isStreaming && liveSteps.length === 0 && !streamingContent && <div className="message-assistant stream-cursor" />}
         {error && <div className="chat-error">Error: {error}</div>}
         <div ref={endRef} />
       </div>

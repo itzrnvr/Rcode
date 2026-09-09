@@ -15,13 +15,14 @@ import remarkGfm from "remark-gfm";
 import rehypeHighlight from "rehype-highlight";
 import "highlight.js/styles/github-dark.css";
 
-import type { MessageRole } from "../../types";
-import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon , GitForkIcon} from "../common/Icons";
-import { parseTurn, ToolRow, TurnHeader, type LiveStep } from "./AgentTurn";
+import type { AgentTurn, AgentTurnEvent, MessageRole, TurnUsage } from "../../types";
+import { CopyIcon, CheckIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, PenIcon, TrashIcon, RefreshIcon, GitForkIcon } from "../common/Icons";
+import { parseTurn, ReasoningWidget, ToolCallWidget, ToolResultWidget, WorkedWidget, type LiveStep } from "./AgentTurn";
 
 interface ChatMessageProps {
   role: MessageRole;
   content: string;
+  turn?: AgentTurn;
   streaming?: boolean;
   reasoning?: string;
   onEdit?: (newContent: string) => void;
@@ -33,7 +34,7 @@ interface ChatMessageProps {
   onRetry?: () => void;
   liveSteps?: LiveStep[];
   workedSecs?: number | null;
-  liveUsage?: import("./AgentTurn").TurnUsage | null;
+  liveUsage?: TurnUsage | null;
   onFork?: () => void;
   mid?: string;
 }
@@ -62,96 +63,90 @@ function CodeBlock({ lang, code, children }: { lang: string; code: string; child
   );
 }
 
-export function ThinkingBlock({ content, defaultOpen = false, label = "Thought", meta = "", delayMs }: { content: string; defaultOpen?: boolean; label?: string; meta?: string; delayMs?: number }) {
-  const [open, setOpen] = useState(defaultOpen);
+function renderMarkdown(text: string, key: string) {
   return (
-    <div className={`thinking-block ${open ? "open" : ""}`} style={delayMs != null ? { animationDelay: `${delayMs}ms` } : undefined}>
-      <button className="thinking-toggle" onClick={() => setOpen(o => !o)}>
-        <ChevronDownIcon size={12} className={open ? "rotate-180" : ""} />
-        <span style={{ fontWeight: 400 }}>{label}</span>
-        {meta && <span style={{ color: "var(--color-muted)", fontSize: 11, fontWeight: 400 }}>{meta}</span>}
-      </button>
-      {open && <div className="thinking-content">{content}</div>}
-    </div>
-  );
-}
+    <ReactMarkdown
+      key={key}
+      remarkPlugins={[remarkGfm]}
+      rehypePlugins={[rehypeHighlight]}
+      components={{
+        code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
+          const match = /language-(\w+)/.exec(className || "");
+          if (!match) return <code className={className} {...props}>{children}</code>;
 
-function ToolCallBlock({ name, args, result }: { name: string; args: string; result?: string }) {
-  return (
-    <div className="tool-call-block">
-      <div className="tool-call-header">
-        <span className="tool-call-name">{name}</span>
-        <span className="tool-call-status">completed</span>
-      </div>
-      {args && <pre className="tool-call-args"><code>{args}</code></pre>}
-      {result != null && (
-        <pre className="tool-call-result"><code>{result}</code></pre>
-      )}
-    </div>
-  );
-}
-
-function renderContent(content: string, turnCollapsed = false, onToggle?: () => void): ReactNode[] {
-  const nodes: ReactNode[] = [];
-  // Agent turn markers: [worked:NNs] + [tool:...] + <toolresult> blocks
-  const { workedSecs, steps, usage: parsedUsage } = parseTurn(content);
-  const hasTrace = steps.some(s => s.kind !== "say");
-  let key0 = 0;
-  if (workedSecs != null || hasTrace) {
-    nodes.push(<TurnHeader key={`turn-${key0++}`} secs={workedSecs} usage={parsedUsage} collapsible={hasTrace} collapsed={turnCollapsed} onToggle={onToggle} />);
-  }
-  let key = 0;
-
-  let stepIdx = 0;
-  for (const s of steps) {
-    if (turnCollapsed && (s.kind === "thought" || s.kind === "tool")) continue;
-    const delay = s.kind === "say" ? undefined : stepIdx++ * 40;
-    if (s.kind === "say") {
-      nodes.push(
-        <ReactMarkdown
-          key={`md-${key++}`}
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeHighlight]}
-        components={{
-          code({ className, children, ...props }: { className?: string; children?: React.ReactNode }) {
-            const match = /language-(\w+)/.exec(className || "");
-            const isBlock = !!match;
-            if (isBlock) {
-              const lang = match![1];
-              // children are hljs-* spans from rehype-highlight — render them directly,
-              // but keep raw string for copy. Extract raw text recursively.
-              const isElementWithChildren = (value: unknown): value is { props: { children?: React.ReactNode } } =>
-                !!value && typeof value === "object" && "props" in value;
-              const extractRaw = (node: React.ReactNode): string => {
-                if (typeof node === "string") return node;
-                if (Array.isArray(node)) return node.map(extractRaw).join("");
-                if (isElementWithChildren(node)) {
-                  const child = node.props.children;
-                  return child ? extractRaw(child) : "";
-                }
-                return "";
-              };
-              const raw = extractRaw(children).replace(/\n$/, "");
-              return <CodeBlock lang={lang} code={raw}>{children}</CodeBlock>;
+          const isElementWithChildren = (value: unknown): value is { props: { children?: React.ReactNode } } =>
+            !!value && typeof value === "object" && "props" in value;
+          const extractRaw = (node: React.ReactNode): string => {
+            if (typeof node === "string") return node;
+            if (Array.isArray(node)) return node.map(extractRaw).join("");
+            if (isElementWithChildren(node)) {
+              const child = node.props.children;
+              return child ? extractRaw(child) : "";
             }
-            return <code className={className} {...props}>{children}</code>;
-          },
-        }}
-      >
-          {s.text ?? ""}
-        </ReactMarkdown>
-      );
-    } else if (s.kind === "tool") {
-      nodes.push(<ToolRow key={`step-${key++}`} step={s} />);
-    } else {
-      nodes.push(<ThinkingBlock key={`step-${key++}`} content={s.text ?? ""} />);
+            return "";
+          };
+          const raw = extractRaw(children).replace(/\n$/, "");
+          return <CodeBlock lang={match[1]} code={raw}>{children}</CodeBlock>;
+        },
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  );
+}
+
+function renderEvent(event: AgentTurnEvent, index: number, live = false): ReactNode {
+  const delay = index * 40;
+  if (event.kind === "reasoning") {
+    return <ReasoningWidget key={`reasoning-${index}`} text={event.text} defaultOpen={live} delayMs={delay} />;
+  }
+  if (event.kind === "response") {
+    return <div key={`response-${index}`} className="trace-response">{renderMarkdown(event.text, `markdown-${index}`)}</div>;
+  }
+  if (event.kind === "tool_call") {
+    return <ToolCallWidget key={`tool-call-${index}`} step={event} delayMs={delay} />;
+  }
+  return <ToolResultWidget key={`tool-result-${index}`} step={event} delayMs={delay} />;
+}
+
+function renderTurn(turn: AgentTurn, collapsed: boolean, onToggle: () => void): ReactNode {
+  const events = turn.events;
+  const isMeaningfulResponse = (event: AgentTurnEvent): event is Extract<AgentTurnEvent, { kind: "response" }> =>
+    event.kind === "response" && event.text.trim().length > 0;
+
+  let finalResponseIndex = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (isMeaningfulResponse(events[i])) {
+      finalResponseIndex = i;
+      break;
     }
   }
 
-  return nodes;
+  const traceEvents = (finalResponseIndex >= 0 ? events.slice(0, finalResponseIndex) : events)
+    .filter(event => event.kind !== "response" || isMeaningfulResponse(event));
+  const finalResponse = finalResponseIndex >= 0 ? events[finalResponseIndex] : undefined;
+  const finalText = finalResponse?.kind === "response" ? finalResponse.text : turn.finalContent;
+
+  return (
+    <>
+      {traceEvents.length > 0 && (
+        <WorkedWidget
+          secs={turn.secs}
+          usage={turn.usage}
+          collapsed={collapsed}
+          onToggle={onToggle}
+        >
+          {traceEvents.map((event, index) => renderEvent(event, index))}
+        </WorkedWidget>
+      )}
+      {finalText && (
+        <div className="message-response">{renderMarkdown(finalText, "final-response")}</div>
+      )}
+    </>
+  );
 }
 
-export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, workedSecs, liveUsage, mid }: ChatMessageProps) {
+export function ChatMessage({ role, content, turn, streaming, onEdit, onDelete, versionIndex, versionCount, onPrevVersion, onNextVersion, onRetry, onFork, liveSteps, liveUsage, mid }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [turnCollapsed, setTurnCollapsed] = useState(true);
   const [traceOpen, setTraceOpen] = useState<boolean | null>(null);
@@ -222,29 +217,14 @@ export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDel
     <div className={`message-group message-group-assistant ${streaming ? "stream-cursor" : ""}`} data-mid={mid}>
       {streaming && (() => {
         const steps = liveSteps ?? [];
-        const hasTools = steps.some(s => s.kind === "tool");
-        const lastKind = steps[steps.length - 1]?.kind;
-        // ZCode flow: steps progress visibly; once the final answer starts
-        // streaming the whole trace folds under the Worked header. New tool
-        // calls unfold it again. Each step stays individually collapsible.
-        const collapsed = traceOpen ?? (hasTools && lastKind === "say");
-        // When folded, the streaming response itself stays visible — only
-        // reasoning/tool steps tuck under the header.
-        const visible = collapsed ? steps.filter(s => s.kind === "say") : steps;
+        const collapsed = traceOpen ?? false;
         return (
-          <>
-            <TurnHeader secs={null} live usage={liveUsage} collapsible={hasTools} collapsed={collapsed} onToggle={() => setTraceOpen(!collapsed)} />
-            {!collapsed && visible.map((s, i) =>
-              s.kind === "tool"
-                ? <ToolRow key={`live-${i}`} step={s} delayMs={i * 40} />
-                : s.kind === "thought"
-                  ? <ThinkingBlock key={`live-${i}-${i === steps.length - 1 ? "a" : "b"}`} content={s.text ?? ""} defaultOpen={i === steps.length - 1} meta={s.secs != null ? `· ${s.secs <= 2 ? "a few seconds" : `${s.secs} seconds`}` : ""} delayMs={i * 40} />
-                  : <div key={`live-${i}`} className="message-assistant" style={{ padding: 0 }}>{renderContent(s.text ?? "")}</div>)}
-          </>
+          <WorkedWidget secs={0} live usage={liveUsage} collapsed={collapsed} onToggle={() => setTraceOpen(!collapsed)}>
+            {steps.map((step, index) => renderEvent(step, index, true))}
+          </WorkedWidget>
         );
       })()}
       {streaming && !content && <div className="thinking-row"><span className="tool-row-spinner" />Thinking…</div>}
-      {reasoning && !streaming && <ThinkingBlock content={reasoning} />}
       <div className="message-assistant">
         {isEditing ? (
           <div className="message-edit-box">
@@ -254,9 +234,7 @@ export function ChatMessage({ role, content, streaming, reasoning, onEdit, onDel
               <button className="btn" onClick={handleCancelEdit}>Cancel</button>
             </div>
           </div>
-        ) : streaming ? null : (
-          renderContent(content, turnCollapsed, () => setTurnCollapsed(c => !c))
-        )}
+        ) : streaming ? null : renderTurn(turn ?? parseTurn(content), turnCollapsed, () => setTurnCollapsed(c => !c))}
       </div>
       <div className="message-actions">
         <button className="message-action-btn" onClick={onCopyMessage} title={copied ? "Copied" : "Copy"}>

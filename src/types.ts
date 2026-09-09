@@ -29,6 +29,28 @@ export interface Message {
   createdAt: number;
   versions?: string[];
   versionIndex?: number;
+  turn?: AgentTurn;
+  turnVersions?: AgentTurn[];
+}
+
+export interface TurnUsage {
+  prompt_tokens?: number;
+  completion_tokens?: number;
+  reasoning_tokens?: number;
+  cached_tokens?: number;
+}
+
+export type AgentTurnEvent =
+  | { kind: "reasoning"; text: string }
+  | { kind: "response"; text: string }
+  | { kind: "tool_call"; name: string; args?: string }
+  | { kind: "tool_result"; name: string; result?: string; isError?: boolean };
+
+export interface AgentTurn {
+  secs: number;
+  usage?: TurnUsage;
+  events: AgentTurnEvent[];
+  finalContent: string;
 }
 
 export interface SideChatTab {

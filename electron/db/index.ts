@@ -142,6 +142,19 @@ function createSchema(): void {
     }
   } catch {}
 
+  // Migration: structured agent turns. `content` stays the final answer;
+  // reasoning, tool calls, tool results, and intermediate responses are kept
+  // as ordered typed events instead of being flattened into markdown.
+  try {
+    const cols4 = getDb().prepare("PRAGMA table_info(messages)").all() as { name: string }[];
+    if (!cols4.some(c => c.name === "turn_json")) {
+      getDb().exec("ALTER TABLE messages ADD COLUMN turn_json TEXT");
+    }
+    if (!cols4.some(c => c.name === "turn_versions")) {
+      getDb().exec("ALTER TABLE messages ADD COLUMN turn_versions TEXT NOT NULL DEFAULT '[]'");
+    }
+  } catch {}
+
   // Seed providers from the live wandb proxy fleet (3478) only, for now.
   // Old models (glm-4*, llama*, gpt-oss*) are excluded per user request.
   try {

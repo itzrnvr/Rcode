@@ -367,6 +367,7 @@ export function ChatView() {
               mid={msg.id}
               role={msg.role}
               content={msg.content}
+              turn={msg.turn}
               onEdit={newContent => {
                 // Editing a user prompt re-sends the turn; assistant edits just save.
                 if (msg.role === "user") {
@@ -385,10 +386,10 @@ export function ChatView() {
             />
           );
         })}
-        {isStreaming && streamingContent && (
-          <ChatMessage role="assistant" content={streamingContent} reasoning={streamingReasoning || undefined} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
+        {isStreaming && (liveSteps.length > 0 || streamingContent) && (
+          <ChatMessage role="assistant" content={streamingContent} liveSteps={liveSteps} liveUsage={turnUsage} streaming />
         )}
-        {isStreaming && !streamingContent && (
+        {isStreaming && liveSteps.length === 0 && !streamingContent && (
           <div className="message-assistant stream-cursor" />
         )}
         {error && (

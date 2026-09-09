@@ -2,10 +2,10 @@
  * PURPOSE: Chat state hook — loads messages, streams agent turns.
  *
  * Accumulates from chat:chunk events:
- *   content    → streamingContent (live answer text)
- *   reasoning  → streamingReasoning (live thought)
- *   tool_call  → liveSteps tool row (running)
- *   tool_result→ fills the running row's result
+ *   content    → response event
+ *   reasoning  → reasoning event
+ *   tool_call  → tool_call event
+ *   tool_result→ tool_result event
  *   done       → turnSecs (+reload messages from DB)
  *
  * CONSUMERS: components/chat/ChatView.tsx, sidepanel/SideChatThread.tsx
@@ -57,53 +57,40 @@ export function useChat(sessionId: string | null) {
       }
       return;
     }
-    const finalizeThought = (p: LiveStep[]): LiveStep[] => {
-      const last = p[p.length - 1];
-      if (last?.kind === "thought" && last.secs == null && last.bornAt != null) {
-        const next = [...p];
-        next[next.length - 1] = { ...last, secs: Math.max(1, Math.round((Date.now() - (last.bornAt ?? Date.now())) / 1000)) };
-        return next;
-      }
-      return p;
-    };
     if (chunk.kind === "tool_call") {
-      setLiveSteps(p => [...finalizeThought(p), { kind: "tool", name: chunk.tool?.name, args: chunk.tool?.args, status: "running" }]);
+      setLiveSteps(p => [...p, { kind: "tool_call", name: chunk.tool?.name ?? "tool", args: chunk.tool?.args, status: "running" }]);
       return;
     }
     if (chunk.kind === "tool_result") {
+      setLiveSteps(p => [...p, { kind: "tool_result", name: chunk.tool?.name ?? "tool", result: chunk.tool?.result, status: "done" }]);
+      return;
+    }
+    const reasoningDelta = chunk.reasoning;
+    if (reasoningDelta) {
+      setStreamingReasoning(prev => prev + reasoningDelta);
       setLiveSteps(p => {
-        const idx = [...p].map((s, i) => ({ s, i })).reverse().find(({ s }) => s.kind === "tool" && s.name === chunk.tool?.name && s.status === "running")?.i;
-        if (idx == null) return [...p, { kind: "tool", name: chunk.tool?.name, result: chunk.tool?.result, status: "done" }];
-        const next = [...p];
-        next[idx] = { ...next[idx], result: chunk.tool?.result, status: "done" };
-        return next;
+        const last = p[p.length - 1];
+        if (last?.kind === "reasoning") {
+          const next = [...p];
+          next[next.length - 1] = { ...last, text: last.text + reasoningDelta };
+          return next;
+        }
+        return [...p, { kind: "reasoning", text: reasoningDelta, bornAt: Date.now() }];
       });
       return;
     }
-    if (chunk.reasoning) {
-      setStreamingReasoning(prev => prev + chunk.reasoning);
+    const contentDelta = chunk.content;
+    if (contentDelta) {
+      if (contentDelta.trim().length === 0) return;
+      setStreamingContent(prev => prev + contentDelta);
       setLiveSteps(p => {
         const last = p[p.length - 1];
-        if (last?.kind === "thought") {
+        if (last?.kind === "response") {
           const next = [...p];
-          next[next.length - 1] = { ...last, text: (last.text ?? "") + chunk.reasoning };
+          next[next.length - 1] = { ...last, text: last.text + contentDelta };
           return next;
         }
-        return [...p, { kind: "thought", text: chunk.reasoning, bornAt: Date.now() }];
-      });
-      return;
-    }
-    if (chunk.content) {
-      setLiveSteps(p => finalizeThought(p));
-      setStreamingContent(prev => prev + chunk.content);
-      setLiveSteps(p => {
-        const last = p[p.length - 1];
-        if (last?.kind === "say") {
-          const next = [...p];
-          next[next.length - 1] = { ...last, text: (last.text ?? "") + chunk.content };
-          return next;
-        }
-        return [...p, { kind: "say", text: chunk.content }];
+        return [...p, { kind: "response", text: contentDelta }];
       });
     }
   }, []);
