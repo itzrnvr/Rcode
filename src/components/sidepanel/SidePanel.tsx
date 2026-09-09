@@ -1,5 +1,5 @@
 /*
- * PURPOSE: Right side panel — ZCode-like tab system
+ * PURPOSE: Right side panel — Rcode tab system
  *
  * Tabs are dynamic instances: Terminal, Side conversation, Review, Browser.
  * Header has a dropdown (Search tabs... + Open tabs + Recently closed + New tab types).

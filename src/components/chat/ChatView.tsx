@@ -362,6 +362,7 @@ export function ChatView() {
       </AgentConversation>
 
       <AgentPromptInput
+        key={`composer-${currentSessionId ?? "welcome"}`}
         onSend={currentSessionId ? handleSend : handleWelcomeSend}
         onStop={stopStream}
         streaming={isStreaming}

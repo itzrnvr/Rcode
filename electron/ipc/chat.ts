@@ -35,7 +35,11 @@ async function runTurn(
 ): Promise<void> {
   const sid = request.sessionId;
   const session = getSession(sid);
-  const sendChunk = (chunk: ChatChunk) => event.sender.send(`chat:chunk:${sid}`, chunk);
+  const sendChunk = (chunk: ChatChunk) => {
+    if (!event.sender.isDestroyed()) {
+      event.sender.send(`chat:chunk:${sid}`, chunk);
+    }
+  };
   const startedAt = Date.now();
   let finalContent = "";
   const events: AgentTurnEvent[] = [];

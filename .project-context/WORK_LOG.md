@@ -105,3 +105,38 @@ turn by parsing that string. This caused several defects:
   `form.requestSubmit()` both worked. The nested-button tooltip composition
   was fixed; this appears to be an automation targeting quirk, not a user-facing
   submit failure.
+
+## 2026-09-09 — Rcode/ZCode decoupling and interaction stabilization
+
+### Change
+
+- Removed Rcode's ZCode importer, IPC handlers, preload API, sidebar button,
+  and all reads of `~/.zcode`.
+- Added a migration that drops Rcode's obsolete internal ZCode import mapping
+  table. Imported Rcode sessions remain untouched.
+- Replaced the bare model select with the prebuilt AI Elements model selector:
+  searchable dialog, grouped providers, selected state, and provider labels.
+- Styled mode/effort selectors and the model trigger inside the composer.
+- Hardened the pi worker pipe:
+  - stdin/stdout/child failures now reject active turns;
+  - failed writes reset the worker so the next turn can reconnect;
+  - renderer sends are skipped if the sender window is destroyed.
+- Fixed retry/version persistence for structured turns.
+- Fixed fork persistence to generate new message IDs while preserving typed
+  reasoning/response/tool events and version arrays.
+- Added real inline edit states for user and assistant messages.
+- Synced the prebuilt branch selector with Rcode's authoritative version index.
+- Added indentation and a subtle left gutter inside Worked; removed broad hover
+  highlighting so only interactive triggers signal hover.
+
+### Verification
+
+- Renderer TypeScript: pass.
+- Electron/main TypeScript: pass.
+- Production build: pass.
+- Live retry: created a structured branch and displayed prev/next controls.
+- Live branch switching: restored prior/new turn variants.
+- Live user edit: saved edited prompt, resent, and appended a new structured
+  response version.
+- Live fork: copied typed user/assistant turns with newly generated message IDs.
+- Renderer runtime errors after reload: none.

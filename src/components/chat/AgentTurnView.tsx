@@ -85,7 +85,7 @@ export function AgentTurnView({
           {header}
           {usage ? ` · ${usage}` : ""}
         </ChainOfThoughtHeader>
-        <ChainOfThoughtContent>
+        <ChainOfThoughtContent className="rcode-worked-content">
           {traceEvents.map((event, index) => renderEvent(event, index, streaming))}
         </ChainOfThoughtContent>
       </ChainOfThought>

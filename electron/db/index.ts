@@ -155,6 +155,12 @@ function createSchema(): void {
     }
   } catch {}
 
+  // Remove the retired ZCode importer mapping table. Rcode sessions imported
+  // earlier remain untouched; this only deletes the obsolete coupling metadata.
+  try {
+    getDb().exec("DROP TABLE IF EXISTS zcode_imports");
+  } catch {}
+
   // Seed providers from the live wandb proxy fleet (3478) only, for now.
   // Old models (glm-4*, llama*, gpt-oss*) are excluded per user request.
   try {

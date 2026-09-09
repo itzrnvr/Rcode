@@ -3005,7 +3005,7 @@ body {
   box-shadow: 0 12px 40px rgba(0,0,0,0.6);
 }
 
-/* --- Model settings (ZCode-style) --- */
+/* --- Model settings --- */
 .ms-provider-row {
   display: flex;
   align-items: center;
@@ -3121,7 +3121,7 @@ body {
 .ms-check.locked { color: var(--color-muted); cursor: default; }
 .ms-check input { accent-color: var(--color-accent); }
 
-/* --- Agent turn (ZCode-style) --- */
+/* --- Agent turn --- */
 .turn-header {
   display: flex;
   align-items: center;
@@ -3170,6 +3170,61 @@ body {
   font-size: 14px;
   line-height: 1.55;
   color: var(--color-fg);
+}
+.rcode-composer-select {
+  min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-bg) 52%, transparent);
+  font-size: 12px;
+}
+.rcode-composer-select:hover {
+  border-color: color-mix(in srgb, var(--color-fg) 20%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 68%, transparent);
+}
+.rcode-composer-model-trigger {
+  min-width: min(190px, 38vw);
+  justify-content: flex-start;
+  border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--color-bg) 52%, transparent);
+  padding: 5px 8px;
+  font-size: 12px;
+}
+.rcode-composer-model-trigger:hover {
+  border-color: color-mix(in srgb, var(--color-fg) 20%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 68%, transparent);
+}
+.rcode-model-trigger-text {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+.rcode-model-trigger-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+.rcode-model-trigger-provider {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: var(--color-muted);
+}
+.rcode-model-selector {
+  width: min(560px, calc(100vw - 32px));
+}
+.rcode-model-selector [cmdk-group-heading] {
+  padding: 8px 10px 4px;
+  color: var(--color-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* Narrow side-chat variant of the prebuilt chat surface */
@@ -3228,13 +3283,31 @@ body {
   cursor: pointer;
   text-align: left;
 }
-.worked-toggle:hover { background: color-mix(in srgb, var(--color-surface) 90%, transparent); }
 .worked-toggle .turn-header { margin: 0; color: inherit; }
 .worked-content {
   display: grid;
   gap: 8px;
   padding: 4px 10px 10px 12px;
   border-top: 1px solid var(--color-border);
+}
+.rcode-worked-content {
+  margin: 10px 4px 4px 16px;
+  padding-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
+}
+.rcode-worked-content > * + * {
+  margin-top: 10px;
+}
+.rcode-worked-content [data-slot="collapsible"] {
+  border: 1px solid color-mix(in srgb, var(--color-fg) 8%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--color-bg) 48%, transparent);
+}
+.rcode-worked-content [data-slot="collapsible-trigger"] {
+  border-radius: 10px;
+}
+.rcode-worked-content [data-slot="collapsible-trigger"]:hover {
+  color: var(--color-fg);
 }
 .trace-widget {
   border: 1px solid var(--color-border);
@@ -3256,7 +3329,6 @@ body {
   cursor: pointer;
   text-align: left;
 }
-.trace-widget-head:hover { color: var(--color-fg); }
 .trace-widget-kind {
   flex: 0 0 auto;
   min-width: 72px;

@@ -129,16 +129,6 @@ const electronAPI = {
   toggleProvider: (id: string): Promise<number> =>
     ipcRenderer.invoke("provider:toggle", id),
 
-  // --- ZCode import ---
-  zcodeImportStatus: (): Promise<{
-    available: boolean; total: number; interactive: number; forks: number;
-    sideChats: number; subagents: number; alreadyImported: number;
-  }> => ipcRenderer.invoke("zcode:importStatus"),
-  zcodeImport: (): Promise<{
-    sessions: number; sideChats: number; messages: number;
-    skippedSubagents: number; settingsApplied: boolean;
-  }> => ipcRenderer.invoke("zcode:import"),
-
   // --- Platform ---
   platform: process.platform,
 

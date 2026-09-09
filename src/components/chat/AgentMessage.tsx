@@ -12,6 +12,8 @@ import {
   TrashIcon,
 } from "../common/Icons";
 import { useCallback, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 interface AgentMessageProps {
   message: RcodeMessage;
@@ -58,6 +60,8 @@ export function AgentMessage({
   streamingContent,
 }: AgentMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(message.content);
   const turn = messageTurn(message, liveSteps, liveUsage, streamingContent);
   const versions = message.turnVersions?.length ? message.turnVersions : [turn];
   const activeVersion = message.versionIndex ?? 0;
@@ -70,14 +74,55 @@ export function AgentMessage({
     } catch {}
   }, [message.content]);
 
+  const startEditing = useCallback(() => {
+    setEditValue(message.content);
+    setEditing(true);
+  }, [message.content]);
+
+  const cancelEditing = useCallback(() => {
+    setEditValue(message.content);
+    setEditing(false);
+  }, [message.content]);
+
+  const saveEditing = useCallback(() => {
+    const nextContent = editValue.trim();
+    if (!nextContent || nextContent === message.content) {
+      setEditing(false);
+      return;
+    }
+
+    onEdit?.(nextContent);
+    setEditing(false);
+  }, [editValue, message.content, onEdit]);
+
   const content =
     message.role === "user" ? (
-      <MessageContent>
-        <MessageResponse>{message.content}</MessageResponse>
-      </MessageContent>
+      editing ? (
+        <MessageContent>
+          <Textarea
+            autoFocus
+            onChange={event => setEditValue(event.target.value)}
+            rows={3}
+            value={editValue}
+          />
+          <div className="flex justify-end gap-2">
+            <Button onClick={cancelEditing} size="sm" variant="outline">
+              Cancel
+            </Button>
+            <Button disabled={!editValue.trim()} onClick={saveEditing} size="sm">
+              Save & resend
+            </Button>
+          </div>
+        </MessageContent>
+      ) : (
+        <MessageContent>
+          <MessageResponse>{message.content}</MessageResponse>
+        </MessageContent>
+      )
     ) : versions.length > 1 ? (
       <MessageBranch
         defaultBranch={activeVersion}
+        key={`branch-${activeVersion}`}
         onBranchChange={onVersionChange}
       >
         <MessageBranchContent>
@@ -99,7 +144,26 @@ export function AgentMessage({
       </MessageBranch>
     ) : (
       <MessageContent>
-        <AgentTurnView streaming={streaming} turn={turn} />
+        {editing ? (
+          <>
+            <Textarea
+              autoFocus
+              onChange={event => setEditValue(event.target.value)}
+              rows={6}
+              value={editValue}
+            />
+            <div className="flex justify-end gap-2">
+              <Button onClick={cancelEditing} size="sm" variant="outline">
+                Cancel
+              </Button>
+              <Button disabled={!editValue.trim()} onClick={saveEditing} size="sm">
+                Save
+              </Button>
+            </div>
+          </>
+        ) : (
+          <AgentTurnView streaming={streaming} turn={turn} />
+        )}
       </MessageContent>
     );
 
@@ -112,7 +176,7 @@ export function AgentMessage({
             {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
           </MessageAction>
           {onEdit && (
-            <MessageAction onClick={() => onEdit(message.content)} tooltip="Edit">
+            <MessageAction onClick={startEditing} tooltip="Edit">
               <PenIcon size={14} />
             </MessageAction>
           )}

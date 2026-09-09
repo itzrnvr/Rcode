@@ -31,7 +31,6 @@ import { homedir } from "node:os";
 const PI_PKG = "C:/Users/babys/AppData/Roaming/npm/node_modules/@earendil-works/pi-coding-agent";
 const pi = (await import(pathToFileURL(join(PI_PKG, "dist/index.js")).href));
 const piCore = (await import(pathToFileURL(join(PI_PKG, "node_modules/@earendil-works/pi-agent-core/dist/index.js")).href));
-const piAi = (await import(pathToFileURL(join(PI_PKG, "node_modules/@earendil-works/pi-ai/dist/index.js")).href));
 
 // sid -> {session, currentId}
 const sessions = new Map();
@@ -72,55 +71,6 @@ function resultText(result) {
 
 function emit(obj) {
   process.stdout.write(JSON.stringify(obj) + "\n");
-}
-
-// OpenAI-compatible providers process `delta.content` before reasoning fields
-// even when both arrive in the same SSE chunk. Holding one text delta lets us
-// emit an immediately following thinking delta first, so persisted turns keep
-// reasoning before the final answer. All other event order is untouched.
-async function orderedStream(model, context, options) {
-  const source = await piAi.streamSimple(model, context, options);
-  const output = new piAi.AssistantMessageEventStream();
-  let heldTextDelta = null;
-
-  void (async () => {
-    for await (const event of source) {
-      if (event.type === "text_delta") {
-        if (heldTextDelta) output.push(heldTextDelta);
-        heldTextDelta = event;
-        continue;
-      }
-      if (event.type === "thinking_delta" && heldTextDelta) {
-        output.push(event);
-        output.push(heldTextDelta);
-        heldTextDelta = null;
-        continue;
-      }
-      if (heldTextDelta) {
-        output.push(heldTextDelta);
-        heldTextDelta = null;
-      }
-      output.push(event);
-    }
-    if (heldTextDelta) output.push(heldTextDelta);
-  })().catch(error => {
-    output.push({
-      type: "error",
-      error: {
-        role: "assistant",
-        content: [],
-        api: model.api,
-        provider: model.provider,
-        model: model.id,
-        usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, totalTokens: 0, cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 } },
-        stopReason: "error",
-        errorMessage: String(error?.message ?? error),
-        timestamp: Date.now(),
-      },
-    });
-  });
-
-  return output;
 }
 
 // pi ships 7 tools but only activates 4 by default; Rcode exposes them all,
@@ -230,7 +180,6 @@ async function buildSession(req) {
   });
   const agent = new piCore.Agent({
     getApiKey: provider => registry.getApiKeyForProvider(provider),
-    streamFn: orderedStream,
     ...(resumedMessages.length ? { initialState: { messages: resumedMessages } } : {}),
   });
   const session = new pi.AgentSession({

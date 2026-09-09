@@ -1,5 +1,5 @@
 /*
- * PURPOSE: ZCode-style Git tools widget for the Review tab.
+ * PURPOSE: Rcode Git tools widget for the Review tab.
  * Shows branch, color-coded +added/−deleted, changed files, and
  * Refresh / Commit / Push actions backed by electron/ipc/git.ts.
  */

@@ -182,9 +182,37 @@ export function forkSession(sessionId: string, upToMessageId: string): Session {
     provider: parent.provider,
   });
   const rows = db.prepare(
-    "SELECT role, content, versions, version_index FROM messages WHERE session_id = ? AND rowid <= (SELECT rowid FROM messages WHERE id = ?) ORDER BY rowid"
-  ).all(sessionId, upToMessageId) as Array<{ role: MessageRole; content: string; versions: string; version_index: number }>;
-  const ins = db.prepare("INSERT INTO messages (session_id, role, content, versions, version_index, created_at) VALUES (?, ?, ?, ?, ?, ?)");
-  for (const r of rows) ins.run(fork.id, r.role, r.content, r.versions, r.version_index, Date.now());
+    `SELECT id, role, content, created_at, versions, version_index, turn_json, turn_versions
+     FROM messages
+     WHERE session_id = ? AND rowid <= (SELECT rowid FROM messages WHERE id = ?)
+     ORDER BY rowid`
+  ).all(sessionId, upToMessageId) as Array<{
+    id: string;
+    role: MessageRole;
+    content: string;
+    created_at: number;
+    versions: string;
+    version_index: number;
+    turn_json: string | null;
+    turn_versions: string;
+  }>;
+  const ins = db.prepare(`
+    INSERT OR IGNORE INTO messages
+      (id, session_id, role, content, created_at, versions, version_index, turn_json, turn_versions)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  for (const row of rows) {
+    ins.run(
+      randomUUID(),
+      fork.id,
+      row.role,
+      row.content,
+      row.created_at,
+      row.versions,
+      row.version_index,
+      row.turn_json,
+      row.turn_versions
+    );
+  }
   return fork;
 }

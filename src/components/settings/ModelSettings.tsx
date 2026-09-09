@@ -1,5 +1,5 @@
 /*
- * PURPOSE: Model settings — mirrors the ZCode Model settings page.
+ * PURPOSE: Model settings — Rcode model settings.
  *
  * Two-pane layout:
  *   Left: Providers list (built-in + Custom providers) with enabled dot,
@@ -11,7 +11,7 @@
  *
  * Add/Edit model opens a DIALOG (same for editing): Model ID, Context window,
  *         Max output tokens, Input types (Text locked + Image + Video),
- *         Output types (Text locked), Cancel/Save — like the ZCode dialog.
+ *         Output types (Text locked), Cancel/Save — matching the Rcode settings dialog.
  *
  * Model entries persist inside the provider row's model_list JSON as
  * { id, context?: number, maxOutput?: number, vision?: 0|1, video?: 0|1 }.

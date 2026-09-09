@@ -115,6 +115,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
       </AgentConversation>
 
       <AgentPromptInput
+        key={`side-composer-${sessionId}`}
         disabled={isStreaming}
         onSend={sendMessage}
         onStop={stopStream}

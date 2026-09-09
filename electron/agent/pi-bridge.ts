@@ -57,12 +57,34 @@ let child: ChildProcess | null = null;
 let nextId = 1;
 const pending = new Map<number, Pending>();
 let workerReady: Promise<void> | null = null;
+let rejectWorkerReady: ((reason: Error) => void) | null = null;
 let available: boolean | null = null;
+
+function failWorker(cause: unknown): void {
+  const error =
+    cause instanceof Error
+      ? cause
+      : new Error(typeof cause === "string" ? cause : "pi worker pipe failed");
+
+  // eslint-disable-next-line no-console
+  console.error("[pi-bridge]", error.message);
+
+  for (const [, request] of pending) {
+    request.reject(new Error(`pi worker unavailable: ${error.message}`));
+  }
+  pending.clear();
+
+  child = null;
+  workerReady = null;
+  rejectWorkerReady = null;
+  available = null;
+}
 
 function startWorker(): Promise<void> {
   if (workerReady) return workerReady;
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   workerReady = promise;
+  rejectWorkerReady = reject;
   try {
     child = spawn("node", [WORKER], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
   } catch (e) {
@@ -111,20 +133,33 @@ function startWorker(): Promise<void> {
     child.stderr!.on("data", (d: string) => {
       console.error("[pi-worker]", d.trim().slice(0, 300));
     });
+    child.on("error", error => {
+      clearTimeout(timer);
+      failWorker(error);
+      rejectWorkerReady?.(error);
+      rejectWorkerReady = null;
+    });
+    child.stdin!.on("error", error => {
+      clearTimeout(timer);
+      failWorker(error);
+      rejectWorkerReady?.(error);
+      rejectWorkerReady = null;
+    });
     child.on("exit", () => {
       const err = new Error("pi worker exited");
-      for (const [, p] of pending) p.reject(err);
-      pending.clear();
-      child = null;
-      workerReady = null;
-      available = null;
+      clearTimeout(timer);
+      failWorker(err);
+      rejectWorkerReady?.(err);
+      rejectWorkerReady = null;
     });
   return promise;
 }
 
 function send(obj: Record<string, unknown>): void {
   if (!child || !child.stdin || child.killed) throw new Error("pi worker not running");
-  child.stdin.write(JSON.stringify(obj) + "\n");
+  child.stdin.write(`${JSON.stringify(obj)}\n`, error => {
+    if (error) failWorker(error);
+  });
 }
 
 export async function piAvailable(): Promise<boolean> {
@@ -153,20 +188,25 @@ export async function runPiTurn(rcodeSid: string, prompt: string, o: PiRunOption
   const id = nextId++;
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   pending.set(id, { onChunk: o.onChunk, resolve, reject });
-  send({
-    id,
-    op: "prompt",
-    sid: rcodeSid,
-    prompt,
-    provider: { id: o.providerId, baseUrl: o.baseUrl, apiKey: o.apiKey },
-    modelId: o.modelId,
-    modelList: o.modelList ?? [],
-    cwd: o.cwd,
-    systemPrompt: o.systemPrompt,
-    mode: o.mode,
-    effort: o.effort,
-  });
-  await promise;
+  try {
+    send({
+      id,
+      op: "prompt",
+      sid: rcodeSid,
+      prompt,
+      provider: { id: o.providerId, baseUrl: o.baseUrl, apiKey: o.apiKey },
+      modelId: o.modelId,
+      modelList: o.modelList ?? [],
+      cwd: o.cwd,
+      systemPrompt: o.systemPrompt,
+      mode: o.mode,
+      effort: o.effort,
+    });
+    await promise;
+  } catch (error) {
+    pending.delete(id);
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 }
 
 export async function runPiCompact(rcodeSid: string): Promise<string> {
@@ -181,6 +221,11 @@ export async function runPiCompact(rcodeSid: string): Promise<string> {
     resolve: () => resolve(text || "Compacted."),
     reject,
   });
-  send({ id, op: "compact", sid: rcodeSid });
-  return promise;
+  try {
+    send({ id, op: "compact", sid: rcodeSid });
+    return await promise;
+  } catch (error) {
+    pending.delete(id);
+    throw error instanceof Error ? error : new Error(String(error));
+  }
 }
