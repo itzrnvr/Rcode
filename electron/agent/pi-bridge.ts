@@ -199,6 +199,7 @@ export function dropPiSession(rcodeSid: string): void {
 export async function resetPiSessionToUser(
   rcodeSid: string,
   userMessage: string,
+  occurrence: number,
   cwd: string,
 ): Promise<void> {
   await startWorker();
@@ -206,7 +207,7 @@ export async function resetPiSessionToUser(
   const { promise, resolve, reject } = Promise.withResolvers<void>();
   pending.set(id, { onChunk: () => {}, resolve, reject });
   try {
-    send({ id, op: "reset", sid: rcodeSid, userMessage, cwd });
+    send({ id, op: "reset", sid: rcodeSid, userMessage, occurrence, cwd });
     await promise;
   } catch (error) {
     pending.delete(id);

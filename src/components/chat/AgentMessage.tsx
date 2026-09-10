@@ -173,7 +173,9 @@ export function AgentMessage({
       from={message.role === "user" ? "user" : "assistant"}
     >
       {content}
-      <MessageToolbar>
+      <MessageToolbar
+        className={`rcode-message-toolbar ${message.role === "user" ? "rcode-message-toolbar-user" : "rcode-message-toolbar-assistant"}`}
+      >
         <MessageActions>
           <MessageAction onClick={copy} tooltip="Copy">
             {copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}

@@ -2663,3 +2663,16 @@ body {
 .rcode-model-selector [data-slot="command-item"][data-checked="true"] {
   background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
 }
+
+
+/* Message actions stay attached to the message edge they belong to. */
+.rcode-message-toolbar {
+  min-width: 0;
+  margin-top: 2px !important;
+}
+.rcode-message-toolbar-user {
+  justify-content: flex-end;
+}
+.rcode-message-toolbar-assistant {
+  justify-content: flex-start;
+}

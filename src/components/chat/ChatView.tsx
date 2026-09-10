@@ -9,7 +9,7 @@ import { api } from "../../api/client";
 import { useApp } from "../../state/AppContext";
 import { useChat } from "../../state/useChat";
 import { pendingAutosend } from "../sidepanel/SideChatThread";
-import type { Session } from "../../types";
+import type { Message as RcodeMessage, Session } from "../../types";
 
 import { AgentConversation } from "./AgentConversation";
 import { AgentMessage } from "./AgentMessage";
@@ -84,9 +84,16 @@ export function ChatView() {
   const retryTargetIndex = isStreaming && streamingTargetId
     ? messages.findIndex(message => message.id === streamingTargetId)
     : -1;
+  const retryPlaceholder: RcodeMessage = {
+    id: `retry-streaming-${streamingTargetId ?? "target"}`,
+    sessionId: currentSessionId ?? "",
+    role: "assistant",
+    content: streamingContent,
+    createdAt: Date.now(),
+  };
   const visibleMessages = retryTargetIndex === -1
     ? messages
-    : messages.filter((_, index) => index !== retryTargetIndex);
+    : Object.assign([...messages], { [retryTargetIndex]: retryPlaceholder });
 
   useEffect(() => {
     if (!currentSessionId) {
@@ -312,6 +319,8 @@ export function ChatView() {
         {messages.length === 0 && !isStreaming ? emptyState : null}
 
         {visibleMessages.map((message, index) => {
+          const isRetryPlaceholder =
+            isStreaming && retryTargetIndex >= 0 && message.id === retryPlaceholder.id;
           const previousUser = message.role === "assistant"
             ? messages.slice(0, index).reverse().find(item => item.role === "user")
             : undefined;
@@ -319,6 +328,8 @@ export function ChatView() {
           return (
             <AgentMessage
               key={message.id}
+              liveSteps={isRetryPlaceholder ? liveSteps : undefined}
+              liveUsage={isRetryPlaceholder ? turnUsage : undefined}
               message={message}
               onDelete={() => deleteMessage(message.id)}
               onEdit={nextContent => {
@@ -335,11 +346,13 @@ export function ChatView() {
                   : undefined
               }
               onVersionChange={nextIndex => setVersion(message.id, nextIndex)}
+              streaming={isRetryPlaceholder || isStreaming}
+              streamingContent={isRetryPlaceholder ? streamingContent : streamingContent}
             />
           );
         })}
 
-        {isStreaming && (
+        {isStreaming && retryTargetIndex === -1 && (
           <AgentMessage
             liveSteps={liveSteps}
             liveUsage={turnUsage}
@@ -355,7 +368,7 @@ export function ChatView() {
           />
         )}
 
-        {isStreaming && liveSteps.length === 0 && !streamingContent && (
+        {isStreaming && retryTargetIndex === -1 && liveSteps.length === 0 && !streamingContent && (
           <Message from="assistant">
             <MessageContent>
               <Shimmer>Thinking…</Shimmer>

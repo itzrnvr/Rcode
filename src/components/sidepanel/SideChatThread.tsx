@@ -7,6 +7,7 @@ import { AgentConversation } from "../chat/AgentConversation";
 import { AgentMessage } from "../chat/AgentMessage";
 import { AgentPromptInput } from "../chat/AgentPromptInput";
 import { useEffect } from "react";
+import type { Message as RcodeMessage } from "../../types";
 
 interface SideChatThreadProps {
   sessionId: string;
@@ -59,18 +60,30 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
           const retryTargetIndex = isStreaming && streamingTargetId
             ? messages.findIndex(message => message.id === streamingTargetId)
             : -1;
-          const visibleMessages = retryTargetIndex === -1
+          const retryPlaceholder: RcodeMessage = {
+            id: `retry-streaming-${streamingTargetId ?? "target"}`,
+            sessionId,
+            role: "assistant",
+            content: streamingContent,
+            createdAt: Date.now(),
+          };
+          const visibleMessages = !streamingTargetId
             ? messages
-            : messages.filter((_, index) => index !== retryTargetIndex);
+            : Object.assign([...messages], { [retryTargetIndex]: retryPlaceholder });
 
           return visibleMessages.map((message, index) => {
           const previousUser = message.role === "assistant"
             ? messages.slice(0, index).reverse().find(item => item.role === "user")
             : undefined;
 
+          const isRetryPlaceholder =
+            isStreaming && retryTargetIndex >= 0 && message.id === retryPlaceholder.id;
+
           return (
             <AgentMessage
               key={message.id}
+              liveSteps={isRetryPlaceholder ? liveSteps : undefined}
+              liveUsage={isRetryPlaceholder ? turnUsage : undefined}
               message={message}
               onDelete={() => deleteMessage(message.id)}
               onEdit={nextContent => {
@@ -86,12 +99,14 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
                   : undefined
               }
               onVersionChange={nextIndex => setVersion(message.id, nextIndex)}
+              streaming={isRetryPlaceholder || isStreaming}
+              streamingContent={streamingContent}
             />
           );
           });
         })()}
 
-        {isStreaming && (
+        {isStreaming && !streamingTargetId && (
           <AgentMessage
             liveSteps={liveSteps}
             liveUsage={turnUsage}
@@ -107,7 +122,7 @@ export function SideChatThread({ sessionId, title }: SideChatThreadProps) {
           />
         )}
 
-        {isStreaming && liveSteps.length === 0 && !streamingContent && (
+        {isStreaming && !streamingTargetId && liveSteps.length === 0 && !streamingContent && (
           <Message from="assistant">
             <MessageContent>
               <Shimmer>Thinking…</Shimmer>

@@ -243,20 +243,48 @@ rl.on("line", async line => {
       try {
         const map = loadSessionMap();
         const file = map[req.sid];
+        let branched = false;
         if (file && existsSync(file)) {
           const manager = pi.SessionManager.open(file, SESSION_DIR, req.cwd);
           const userEntries = manager
             .getBranch()
             .filter(entry => entry?.type === "message" && entry.message?.role === "user");
-          const target = [...userEntries]
-            .reverse()
-            .find(entry => messageText(entry.message).trim() === String(req.userMessage || "").trim());
-          if (target) manager.branch(target.id);
-          else manager.resetLeaf();
+          const wanted = String(req.userMessage || "").trim();
+          const occurrence = Math.max(1, Number(req.occurrence) || 1);
+          let seen = 0;
+          let target;
+          for (const entry of userEntries) {
+            if (messageText(entry.message).trim() !== wanted) continue;
+            seen += 1;
+            if (seen === occurrence) {
+              target = entry;
+              break;
+            }
+          }
+          // SessionManager is append-only: branch() only changes an in-memory
+          // leaf pointer and is lost on reopen. Materialize the branch as a new
+          // session so the next prompt can never resume the abandoned tail.
+          if (target) {
+            const branchedFile = manager.createBranchedSession(target.id);
+            if (branchedFile) {
+              map[req.sid] = branchedFile;
+              saveSessionMap(map);
+              branched = true;
+            }
+          }
+        }
+        if (!branched) {
+          const fresh = pi.SessionManager.create(req.cwd, SESSION_DIR);
+          const freshFile = fresh.sessionFile;
+          if (freshFile) {
+            map[req.sid] = freshFile;
+            saveSessionMap(map);
+          }
         }
       } catch (error) {
         console.error("[pi-worker] retry reset failed:", error?.message || error);
       }
+      sessions.delete(req.sid);
       emit({ id: req.id, kind: "end" });
       return;
     }

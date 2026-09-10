@@ -170,8 +170,16 @@ export function registerChatHandler(): void {
     // Retry must move pi's durable conversation tree back to the anchor user
     // message. Dropping only the in-memory session is not enough: rebuilding it
     // would otherwise resume the old branch, including the abandoned answer.
-    await resetPiSessionToUser(request.sessionId, anchor.content, homedir());
     const anchorIdx = history.indexOf(anchor);
+    const anchorOccurrence = history
+      .slice(0, anchorIdx + 1)
+      .filter(m => m.role === "user" && m.content === anchor.content).length;
+    await resetPiSessionToUser(
+      request.sessionId,
+      anchor.content,
+      anchorOccurrence,
+      homedir(),
+    );
     const target = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
     // Retry = new branch: archive everything after the target under its current
     // version so the tail disappears; version arrows restore it later.

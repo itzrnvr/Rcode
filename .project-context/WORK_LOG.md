@@ -320,3 +320,32 @@ message. This made retry look like a separate follow-up turn.
 - Live model picker: dark input (`rgb(22,22,22)`), 34 models, one selected
   check, and no horizontal overflow.
 - Live edge controls: sidebar collapse/expand via edge handle verified.
+
+## 2026-09-10 — Append-only retry materialization and prompt action alignment
+
+### Retry root cause and fix
+- Confirmed the issue was not ordinary context inclusion: pi's session tree is
+  append-only, and `branch()` only moves an in-memory leaf pointer.
+- Reopening the session reset that pointer to the newest entry, causing the
+  abandoned response/tail to re-enter model context.
+- Retry now materializes the selected branch into a new pi session file using
+  `SessionManager.createBranchedSession(anchorEntryId)`, then remaps Rcode's
+  session ID to that file.
+- Duplicate prompts are disambiguated by occurrence ordinal from Rcode's active
+  history, so retrying an earlier identical prompt targets the correct entry.
+- The retry streaming placeholder now replaces the old assistant message at its
+  original transcript index in both main chat and side conversations.
+
+### Prompt action alignment
+- Added role-specific toolbar classes to the prebuilt message toolbar.
+- User prompt actions are now right-aligned directly below the prompt bubble.
+- Assistant actions remain left-aligned below the assistant output.
+
+### Verification
+- Renderer and Electron/main TypeScript: pass.
+- Production build: pass.
+- Impeccable UI detector on changed UI files: zero findings.
+- Live retry created a materialized pi branch file containing only the anchor
+  user message and regenerated assistant response, not the abandoned tail.
+- Live geometry check: prompt bubble and action row share the same right edge;
+  action row renders below the prompt.
