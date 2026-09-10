@@ -1985,12 +1985,12 @@ body {
   background: color-mix(in srgb, var(--color-surface) 68%, transparent);
 }
 .rcode-composer-model-trigger {
-  min-width: min(190px, 38vw);
-  justify-content: flex-start;
+  min-width: 0;
+  justify-content: center;
   border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--color-bg) 52%, transparent);
-  padding: 5px 8px;
+  padding: 0 8px;
   font-size: 12px;
 }
 .rcode-composer-model-trigger:hover {
@@ -2617,16 +2617,16 @@ body {
   background: var(--color-surface);
 }
 .rcode-composer-model-trigger {
-  width: min(190px, 34vw);
-  min-width: 0;
-  max-width: 40vw;
+  width: 44px;
   height: 32px;
-  justify-content: flex-start;
+  justify-content: center;
+  gap: 4px;
   border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
   border-radius: 9px;
   background: color-mix(in srgb, var(--color-surface) 88%, transparent);
   padding: 0 8px;
   font-size: 12px;
+  overflow: hidden;
 }
 .rcode-mode-select [data-slot="select-trigger"] {
   padding: 4px 6px;
@@ -2710,7 +2710,7 @@ body {
 
 @media (max-width: 1120px) {
   .rcode-composer-model-trigger {
-    width: min(160px, 34vw);
+    width: 44px;
   }
 }
 
@@ -2768,11 +2768,11 @@ body {
 
 /* Model picker: explicitly dark, compact, and non-repetitive. */
 .rcode-composer-model-trigger {
-  width: min(180px, 32vw);
-  gap: 8px;
+  width: 44px;
+  gap: 4px;
 }
 .rcode-composer-model-trigger .rcode-model-trigger-name {
-  flex: 1 1 auto;
+  display: none;
 }
 .rcode-model-selector {
   border: 1px solid var(--color-border);
