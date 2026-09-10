@@ -56,6 +56,7 @@ import {
   Terminal,
   FileText,
   Globe2,
+  Layers,
   Network,
   Cpu,
   History,
@@ -223,6 +224,8 @@ export const Globe2Icon = (p: { size?: number; className?: string }) =>
   <Globe2 size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const CpuIcon = (p: { size?: number; className?: string }) =>
   <Cpu size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
+export const LayersIcon = (p: { size?: number; className?: string }) =>
+  <Layers size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const HistoryIcon = (p: { size?: number; className?: string }) =>
   <History size={p.size ?? DEFAULT_SIZE} className={p.className} strokeWidth={2} />;
 export const BookIcon = (p: { size?: number; className?: string }) =>

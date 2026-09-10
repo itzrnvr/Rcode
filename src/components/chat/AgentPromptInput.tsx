@@ -33,6 +33,7 @@ import {
   ChevronDownIcon,
   CompassIcon,
   GlobeIcon,
+  LayersIcon,
   LockIcon,
   MicIcon,
   PlusIcon,
@@ -166,7 +167,7 @@ export function AgentPromptInput({
                   />
                 }
               >
-                <span className="rcode-model-dot" aria-hidden="true" />
+                <LayersIcon size={14} />
                 <ChevronDownIcon
                   size={12}
                   className="rcode-model-trigger-chevron"
