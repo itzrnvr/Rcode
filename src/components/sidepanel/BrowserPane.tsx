@@ -2,17 +2,28 @@ import { useMemo, useRef, useState } from "react";
 import { GlobeIcon, RefreshIcon } from "../common/Icons";
 
 function BrowserPane() {
+  const isEmbeddedApp = new URLSearchParams(window.location.search).has("embedded");
   const reloadKeyRef = useRef(0);
   const [reloadKey, setReloadKey] = useState(0);
   const url = useMemo(() => {
     // The preview entry shares the top frame's Electron bridge, so the embedded
-    return new URL("preview.html", window.location.href).href;
+    const url = new URL("preview.html", window.location.href);
+    url.searchParams.set("embedded", "1");
+    return url.href;
   }, []);
 
   const reload = () => {
     reloadKeyRef.current += 1;
     setReloadKey(reloadKeyRef.current);
   };
+
+  if (isEmbeddedApp) {
+    return (
+      <div className="browser-pane-unsupported">
+        Browser preview is unavailable inside the embedded preview.
+      </div>
+    );
+  }
 
   return (
     <div className="browser-pane">

@@ -10,7 +10,8 @@
  * own durable session files so agent context survives restarts.
  */
 
-import { ipcMain, type IpcMainInvokeEvent } from "electron";
+import type { IpcMainInvokeEvent } from "electron";
+import { registerApiHandler } from "../api/registry";
 
 import { getSession } from "../db/sessions";
 import { getMessages, addMessage, appendAssistantVersion, archiveTail } from "../db/messages";
@@ -146,7 +147,7 @@ async function runTurn(
 }
 
 export function registerChatHandler(): void {
-  ipcMain.handle("chat:send", async (event: IpcMainInvokeEvent, request: ChatRequest) => {
+  registerApiHandler("chat:send", async (event: IpcMainInvokeEvent, request: ChatRequest) => {
     const settings = getSettings();
     const session = getSession(request.sessionId);
     if (!session) throw new Error("Session not found");
@@ -158,7 +159,7 @@ export function registerChatHandler(): void {
   });
 
   // Re-run a turn anchored at a user message (retry / edit-and-resend).
-  ipcMain.handle("chat:resend", async (event: IpcMainInvokeEvent, request: { sessionId: string; anchorUserMessageId: string; model?: string }) => {
+  registerApiHandler("chat:resend", async (event: IpcMainInvokeEvent, request: { sessionId: string; anchorUserMessageId: string; model?: string }) => {
     const settings = getSettings();
     const session = getSession(request.sessionId);
     if (!session) throw new Error("Session not found");
@@ -200,14 +201,14 @@ export function registerChatHandler(): void {
   });
 
   // Compact the pi session's context (pi does the summarization in-engine).
-  ipcMain.handle("chat:compact", async (_e, sessionId: string) => {
+  registerApiHandler("chat:compact", async (_e, sessionId: string) => {
     const summary = await runPiCompact(sessionId);
     return { summary };
   });
 
   // Context usage estimate for the composer pill. Tool schemas live in pi;
   // a fixed estimate keeps the pill meaningful without reaching into the worker.
-  ipcMain.handle("chat:contextInfo", (_e, sessionId: string) => {
+  registerApiHandler("chat:contextInfo", (_e, sessionId: string) => {
     const settings = getSettings();
     const session = getSession(sessionId);
     const est = (s: string) => Math.round(s.length / 4);

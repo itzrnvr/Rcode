@@ -17,5 +17,17 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(__dirname, "src") },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      "/api/ipc": { target: "http://127.0.0.1:5174", changeOrigin: true },
+      "/api/events": {
+        target: "http://127.0.0.1:5174",
+        changeOrigin: true,
+        // Keep SSE frames flowing through Vite in development.
+        configure: proxy => { proxy.on("proxyRes", proxyRes => { proxyRes.headers["cache-control"] = "no-store, no-transform"; }); },
+      },
+      "/api/health": { target: "http://127.0.0.1:5174", changeOrigin: true },
+    },
+  },
 });

@@ -349,3 +349,29 @@ message. This made retry look like a separate follow-up turn.
   user message and regenerated assistant response, not the abandoned tail.
 - Live geometry check: prompt bubble and action row share the same right edge;
   action row renders below the prompt.
+
+## 2026-09-10 — Browser webapp runtime
+
+### Change
+- Added a shared API registry so Electron IPC and the browser webapp use the same
+  backend handlers.
+- Added a localhost-only browser API server on `127.0.0.1:5174`.
+- Added SSE-based streaming for chat and terminal events.
+- Added a browser Electron API adapter, selected automatically when the app is
+  not running inside Electron.
+- Added Vite proxies for `/api/ipc`, `/api/events`, and `/api/health`.
+- The Browser pane preview now marks itself as embedded and disables nested
+  Browser panes to avoid recursive app embedding.
+
+### Result
+- The full Rcode UI now runs at `http://127.0.0.1:5173/` in a normal browser
+  while the Electron backend is running.
+- Sessions, settings, providers, chat streaming, terminal streaming, and the
+  remaining API-backed surfaces use the same local backend as desktop.
+
+### Verification
+- Browser API health returned 50 registered handlers.
+- A normal browser instance with `window.electron === undefined` loaded all
+  sessions through the web bridge.
+- A real chat run from the browser returned `WEB-OK`.
+- Terminal streaming from the browser echoed `RCODE-WEB-TERMINAL`.

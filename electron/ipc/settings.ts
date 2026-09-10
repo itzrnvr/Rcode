@@ -4,15 +4,16 @@
  * CONSUMERS: ipc/index.ts (registration)
  */
 
-import { ipcMain } from "electron";
+
 
 import * as settings from "../db/settings";
+import { registerApiHandler } from "../api/registry";
 
 import type { Theme } from "../../src/types";
 
 export function registerSettingsHandlers(): void {
-  ipcMain.handle("settings:get", () => settings.getSettings());
-  ipcMain.handle("settings:getOne", (_e, key: string) => settings.getSetting(key));
-  ipcMain.handle("settings:set", (_e, key: string, value: string) => settings.setSetting(key, value));
-  ipcMain.handle("settings:setTheme", (_e, theme: Theme) => settings.setTheme(theme));
+  registerApiHandler("settings:get", () => settings.getSettings());
+  registerApiHandler("settings:getOne", (_e, key: string) => settings.getSetting(key));
+  registerApiHandler("settings:set", (_e, key: string, value: string) => settings.setSetting(key, value));
+  registerApiHandler("settings:setTheme", (_e, theme: Theme) => settings.setTheme(theme));
 }

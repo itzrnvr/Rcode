@@ -16,6 +16,7 @@ import { writeFileSync } from "fs";
 
 import { initDb } from "./db/index";
 import { registerAllHandlers } from "./ipc/index";
+import { startWebApiServer } from "./api/webServer";
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -60,6 +61,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   initDb();
   registerAllHandlers();
+  startWebApiServer();
   createWindow();
 
   ipcMain.handle("debug:screenshot", async (_e, path: string) => {

@@ -1,4 +1,5 @@
-import { ipcMain } from "electron";
+import { registerApiHandler } from "../api/registry";
+
 import { getDb } from "../db";
 import { DEFAULT_SETTINGS } from "../../src/types";
 
@@ -6,7 +7,7 @@ interface ModelCatalogEntry { id: string; object: string; created: number; owned
 interface ModelCatalog { object: string; data: ModelCatalogEntry[]; }
 
 export function registerModelCatalogHandler(): void {
-  ipcMain.handle("model:catalog", async () => {
+  registerApiHandler("model:catalog", async () => {
     let apiBase = DEFAULT_SETTINGS.apiBase;
     try {
       const row = getDb().prepare("SELECT value FROM settings WHERE key = 'apiBase'").get() as { value: string } | undefined;
