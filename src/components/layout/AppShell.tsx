@@ -10,6 +10,8 @@
 
 import { type ReactNode } from "react";
 
+import { ChevronLeftIcon, ChevronRightIcon } from "../common/Icons";
+
 interface AppShellProps {
   titleBar: ReactNode;
   sessions: ReactNode;
@@ -18,21 +20,27 @@ interface AppShellProps {
   sidebarCollapsed?: boolean;
   sidebarWidth?: number;
   onSidebarWidthChange?: (w: number) => void;
+  onToggleSidebar?: () => void;
   sidePanelCollapsed?: boolean;
   sidePanelWidth?: number;
   onSidePanelWidthChange?: (w: number) => void;
   onToggleSidePanel?: () => void;
 }
 
-export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed, sidebarWidth, onSidebarWidthChange, sidePanelCollapsed, sidePanelWidth, onSidePanelWidthChange, onToggleSidePanel }: AppShellProps) {
+export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed, sidebarWidth, onSidebarWidthChange, onToggleSidebar, sidePanelCollapsed, sidePanelWidth, onSidePanelWidthChange, onToggleSidePanel }: AppShellProps) {
+  let leftDragMoved = false;
+  let rightDragMoved = false;
+
   const handleLeftMouseDown = (e: React.MouseEvent) => {
     if (sidebarCollapsed) return;
     const startX = e.clientX;
     const startW = sidebarWidth ?? 280;
+    let moved = false;
     const el = document.querySelector(".panel-sessions") as HTMLElement | null;
     const prevTransition = el?.style.transition;
     if (el) el.style.transition = "none";
     const onMove = (ev: MouseEvent) => {
+      if (Math.abs(ev.clientX - startX) > 3) moved = true;
       const delta = ev.clientX - startX;
       const next = Math.min(480, Math.max(200, startW + delta));
       // Direct DOM update for smooth 60fps without React re-render per pixel
@@ -52,6 +60,7 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
       const delta = ev.clientX - startX;
       const finalW = Math.min(480, Math.max(200, startW + delta));
       onSidebarWidthChange?.(finalW);
+      leftDragMoved = moved;
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
@@ -61,10 +70,12 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
     if (sidePanelCollapsed) return;
     const startX = e.clientX;
     const startW = sidePanelWidth ?? 380;
+    let moved = false;
     const el = document.querySelector(".panel-side") as HTMLElement | null;
     const prevTransition = el?.style.transition;
     if (el) el.style.transition = "none";
     const onMove = (ev: MouseEvent) => {
+      if (Math.abs(startX - ev.clientX) > 3) moved = true;
       const delta = startX - ev.clientX; // drag left to increase width
       const next = Math.min(600, Math.max(240, startW + delta));
       if (el) {
@@ -89,6 +100,7 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
       } else {
         onSidePanelWidthChange?.(finalW);
       }
+      rightDragMoved = moved;
     };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
@@ -106,7 +118,8 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize sidebar"
-            title="Drag to resize"
+            title="Drag to resize • click to collapse"
+            onClick={() => { if (!leftDragMoved) onToggleSidebar?.(); leftDragMoved = false; }}
           />
         )}
         {chat}
@@ -117,31 +130,32 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
             role="separator"
             aria-orientation="vertical"
             aria-label="Resize side panel"
-            title="Drag to resize side panel"
+            title="Drag to resize • click to collapse"
             style={{ cursor: "col-resize" }}
+            onClick={() => { if (!rightDragMoved) onToggleSidePanel?.(); rightDragMoved = false; }}
           />
         )}
         {!sidePanelCollapsed && sidePanel}
+        {sidebarCollapsed && (
+          <button
+            className="panel-edge-expand"
+            onClick={onToggleSidebar}
+            title="Expand sidebar"
+            aria-label="Expand sidebar"
+            type="button"
+          >
+            <ChevronRightIcon size={13} />
+          </button>
+        )}
         {sidePanelCollapsed && (
           <button
+            className="panel-edge-expand panel-edge-expand-right"
             onClick={onToggleSidePanel}
             title="Expand side panel"
             aria-label="Expand side panel"
-            style={{
-              width: 16,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "var(--color-bg-secondary)",
-              borderLeft: "1px solid var(--color-border)",
-              cursor: "pointer",
-              color: "var(--color-muted)",
-              writingMode: "vertical-rl",
-              fontSize: 11,
-              letterSpacing: 1,
-            }}
+            type="button"
           >
-            ›
+            <ChevronLeftIcon size={13} />
           </button>
         )}
       </div>

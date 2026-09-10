@@ -212,6 +212,18 @@ async function buildSession(req) {
   return session;
 }
 
+function messageText(message) {
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (Array.isArray(message.content)) {
+    return message.content
+      .filter(part => part && typeof part.text === "string")
+      .map(part => part.text)
+      .join("");
+  }
+  return "";
+}
+
 const rl = createInterface({ input: process.stdin });
 rl.on("line", async line => {
   if (!line.trim()) return;
@@ -224,6 +236,28 @@ rl.on("line", async line => {
     }
     if (req.op === "drop") {
       sessions.delete(req.sid);
+      return;
+    }
+    if (req.op === "reset") {
+      sessions.delete(req.sid);
+      try {
+        const map = loadSessionMap();
+        const file = map[req.sid];
+        if (file && existsSync(file)) {
+          const manager = pi.SessionManager.open(file, SESSION_DIR, req.cwd);
+          const userEntries = manager
+            .getBranch()
+            .filter(entry => entry?.type === "message" && entry.message?.role === "user");
+          const target = [...userEntries]
+            .reverse()
+            .find(entry => messageText(entry.message).trim() === String(req.userMessage || "").trim());
+          if (target) manager.branch(target.id);
+          else manager.resetLeaf();
+        }
+      } catch (error) {
+        console.error("[pi-worker] retry reset failed:", error?.message || error);
+      }
+      emit({ id: req.id, kind: "end" });
       return;
     }
     if (req.op === "prompt") {

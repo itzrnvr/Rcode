@@ -196,6 +196,24 @@ export function dropPiSession(rcodeSid: string): void {
   try { send({ op: "drop", sid: rcodeSid }); } catch { /* worker down: nothing to drop */ }
 }
 
+export async function resetPiSessionToUser(
+  rcodeSid: string,
+  userMessage: string,
+  cwd: string,
+): Promise<void> {
+  await startWorker();
+  const id = nextId++;
+  const { promise, resolve, reject } = Promise.withResolvers<void>();
+  pending.set(id, { onChunk: () => {}, resolve, reject });
+  try {
+    send({ id, op: "reset", sid: rcodeSid, userMessage, cwd });
+    await promise;
+  } catch (error) {
+    pending.delete(id);
+    throw error instanceof Error ? error : new Error(String(error));
+  }
+}
+
 export async function runPiTurn(rcodeSid: string, prompt: string, o: PiRunOptions): Promise<void> {
   await startWorker();
   const id = nextId++;

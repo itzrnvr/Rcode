@@ -18,7 +18,7 @@ import { getSettings } from "../db/settings";
 import { getProvider } from "../db/providers";
 import { buildSystemPrompt } from "../chat/systemPrompt";
 import { logTrace, readTrace } from "../agent/trace";
-import { runPiTurn, dropPiSession, runPiCompact, type PiAssistantBlock } from "../agent/pi-bridge";
+import { runPiTurn, resetPiSessionToUser, runPiCompact, type PiAssistantBlock } from "../agent/pi-bridge";
 import { homedir } from "os";
 
 import type { AgentTurn, AgentTurnEvent, ChatRequest, ChatChunk, Settings, TurnUsage } from "../../src/types";
@@ -163,13 +163,14 @@ export function registerChatHandler(): void {
     const session = getSession(request.sessionId);
     if (!session) throw new Error("Session not found");
 
-    // History is about to be rewritten from Rcode's truth; the engine must not
-    // keep the invalidated turn in context.
-    dropPiSession(request.sessionId);
-
     const history = getMessages(request.sessionId);
     const anchor = history.find(m => m.id === request.anchorUserMessageId && m.role === "user");
     if (!anchor) throw new Error("Anchor user message not found");
+
+    // Retry must move pi's durable conversation tree back to the anchor user
+    // message. Dropping only the in-memory session is not enough: rebuilding it
+    // would otherwise resume the old branch, including the abandoned answer.
+    await resetPiSessionToUser(request.sessionId, anchor.content, homedir());
     const anchorIdx = history.indexOf(anchor);
     const target = history.slice(anchorIdx + 1).find(m => m.role === "assistant");
     // Retry = new branch: archive everything after the target under its current

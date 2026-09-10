@@ -282,3 +282,41 @@ message. This made retry look like a separate follow-up turn.
 - Live model picker: opened anchored, focused search, rendered 34 models, used
   dark popover tokens, and caused no horizontal document overflow.
 - Live Browser pane: rendered embedded Rcode preview with bridge access.
+
+## 2026-09-10 — Retry context isolation, model picker repair, edge affordances
+
+### Retry context bug
+- Found the cause: retry removed only pi's in-memory session. Rebuilding the
+  worker session resumed the old durable pi branch, including the abandoned
+  response and later tail.
+- Added a `reset` operation that opens the durable pi session tree, finds the
+  anchor user message, and moves the active branch back to that entry.
+- Retry now continues from legitimate history before the anchor and appends the
+  regenerated response as a new branch. It no longer carries the abandoned
+  response or later messages.
+
+### Model picker
+- Removed duplicated provider metadata and duplicate selected checkmarks.
+- Made the search field explicitly dark with theme-backed border/background.
+- Compact model trigger now shows only the active model name; provider remains
+  visible in the picker groups.
+- Kept the popover anchored to the model trigger with viewport collision
+  handling and search focus.
+
+### Panel edges
+- Expanded sidebar/side-panel resizers now show a chevron handle on hover.
+- A small click on an expanded edge collapses that panel; dragging still
+  resizes it and does not toggle.
+- Collapsed sidebar and side-panel edges now expose narrow expand handles that
+  reveal icons on hover/focus.
+
+### Verification
+- Renderer and Electron/main TypeScript: pass.
+- Production build: pass.
+- Impeccable UI detector on all changed UI files: zero findings.
+- Live retry on the fork test: usage dropped from the polluted multi-turn branch
+  to `347 in`, consistent with the system/tool context plus the anchor prompt;
+  response remained correctly versioned in place.
+- Live model picker: dark input (`rgb(22,22,22)`), 34 models, one selected
+  check, and no horizontal overflow.
+- Live edge controls: sidebar collapse/expand via edge handle verified.

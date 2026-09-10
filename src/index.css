@@ -2574,3 +2574,92 @@ body {
     width: min(160px, 34vw);
   }
 }
+
+
+/* Panel edges expose both resize and collapse affordances. */
+.sidebar-resizer::before {
+  content: "\2039";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 30px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-surface);
+  color: var(--color-fg);
+  font: 600 12px/1 var(--font-ui);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.24);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.94);
+  transition: opacity 120ms ease-out, transform 120ms ease-out;
+  pointer-events: none;
+}
+.sidebar-resizer.sidepanel-resizer::before {
+  content: "\203A";
+}
+.sidebar-resizer:hover::before,
+.sidebar-resizer:active::before {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+.panel-edge-expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 10px;
+  border: 0;
+  border-left: 1px solid var(--color-border);
+  background: var(--color-bg-secondary);
+  color: transparent;
+  cursor: pointer;
+  transition: background 120ms ease-out, color 120ms ease-out;
+}
+.panel-edge-expand:hover,
+.panel-edge-expand:focus-visible {
+  width: 24px;
+  background: color-mix(in srgb, var(--color-fg) 6%, transparent);
+  color: var(--color-fg);
+}
+
+/* Model picker: explicitly dark, compact, and non-repetitive. */
+.rcode-composer-model-trigger {
+  width: min(180px, 32vw);
+  gap: 8px;
+}
+.rcode-composer-model-trigger .rcode-model-trigger-name {
+  flex: 1 1 auto;
+}
+.rcode-model-selector {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+}
+.rcode-model-selector [data-slot="command"] {
+  max-height: min(68vh, 430px);
+  border-radius: 12px;
+}
+.rcode-model-selector [data-slot="command-input-wrapper"],
+.rcode-model-selector [data-slot="input-group"] {
+  border: 0 !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  border-radius: 0 !important;
+  background: var(--color-bg) !important;
+  box-shadow: none !important;
+}
+.rcode-model-selector input,
+.rcode-model-selector [data-slot="command-input"] {
+  background: var(--color-bg) !important;
+  color: var(--color-fg) !important;
+}
+.rcode-model-selector input::placeholder {
+  color: var(--color-muted) !important;
+}
+.rcode-model-selector [data-slot="command-item"][data-checked="true"] {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+}

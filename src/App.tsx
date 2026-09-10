@@ -218,6 +218,7 @@ function AppInner() {
       sidebarCollapsed={sidebarCollapsed}
       sidebarWidth={sidebarWidth}
       onSidebarWidthChange={handleSidebarWidthChange}
+      onToggleSidebar={toggleSidebar}
       chat={<ChatView />}
       sidePanel={<SidePanel collapsed={sidePanelCollapsed} onToggleCollapse={toggleSidePanel} width={sidePanelWidth} />}
       sidePanelCollapsed={sidePanelCollapsed}

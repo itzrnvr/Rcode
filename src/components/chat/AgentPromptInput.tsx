@@ -172,9 +172,6 @@ export function AgentPromptInput({
               <span className="rcode-model-trigger-name">
                 {currentModel?.name ?? "Select model"}
               </span>
-              <span className="rcode-model-trigger-provider">
-                {currentModel?.providerLabel ?? "Provider"}
-              </span>
               <ChevronDownIcon size={12} />
             </PromptInputButton>
 
@@ -249,10 +246,6 @@ export function AgentPromptInput({
                             {model.description}
                           </div>
                         </div>
-                        <span className="rcode-model-item-provider">
-                          {model.providerLabel}
-                        </span>
-                        {selected && <CheckIcon size={14} />}
                       </CommandItem>
                     );
                   })}
