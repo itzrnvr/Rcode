@@ -50,7 +50,7 @@ function createWindow(): void {
   // Comfortable default zoom (user can Ctrl+= / Ctrl+- / Ctrl+0).
   // Set after load: per-origin zoom prefs applied on navigation would override an early set.
   mainWindow.webContents.once("did-finish-load", () => {
-    mainWindow?.webContents.setZoomFactor(1.2);
+    mainWindow?.webContents.setZoomFactor(1.1);
   });
 
   if (process.env.NODE_ENV !== "production") {
