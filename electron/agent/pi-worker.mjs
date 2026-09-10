@@ -88,6 +88,17 @@ function loadSessionMap() {
 function saveSessionMap(map) {
   try { writeFileSync(MAP_FILE, JSON.stringify(map, null, 2)); } catch { /* non-fatal */ }
 }
+function openOrCreateSessionManager(sid, cwd) {
+  mkdirSync(SESSION_DIR, { recursive: true });
+  const map = loadSessionMap();
+  const existing = map[sid];
+  if (existing && existsSync(existing)) {
+    try { return pi.SessionManager.open(existing, SESSION_DIR, cwd); } catch { /* fall through to fresh */ }
+  }
+  const mgr = pi.SessionManager.create(cwd, SESSION_DIR);
+  if (mgr.sessionFile) { map[sid] = mgr.sessionFile; saveSessionMap(map); }
+  return mgr;
+}
 
 ensurePiHome();
 migrateLegacyPiState();
