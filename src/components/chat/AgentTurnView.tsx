@@ -3,7 +3,7 @@ import { MessageResponse } from "@/components/ai-elements/message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@/components/ai-elements/reasoning";
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@/components/ai-elements/tool";
 
-import { formatUsage, splitFinalResponse } from "@/lib/agentTurn";
+import { splitFinalResponse } from "@/lib/agentTurn";
 import type { AgentTurn, AgentTurnEvent } from "../../types";
 
 function parseToolArgs(args?: string): unknown {
@@ -73,7 +73,6 @@ export function AgentTurnView({
   turn: AgentTurn;
 }) {
   const { finalResponse, traceEvents } = splitFinalResponse(turn);
-  const usage = formatUsage(turn.usage);
   const header = streaming
     ? "Working"
     : `Worked for ${turn.secs}s`;
@@ -83,7 +82,6 @@ export function AgentTurnView({
       <ChainOfThought defaultOpen={streaming}>
         <ChainOfThoughtHeader>
           {header}
-          {usage ? ` · ${usage}` : ""}
         </ChainOfThoughtHeader>
         <ChainOfThoughtContent className="rcode-worked-content">
           {traceEvents.map((event, index) => renderEvent(event, index, streaming))}
