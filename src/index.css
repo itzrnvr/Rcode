@@ -1925,6 +1925,16 @@ body {
   border-color: color-mix(in srgb, var(--color-fg) 20%, transparent);
   background: color-mix(in srgb, var(--color-surface) 68%, transparent);
 }
+.rcode-composer-model-trigger[data-popup-open] {
+  border-color: color-mix(in srgb, var(--color-fg) 20%, transparent);
+  background: color-mix(in srgb, var(--color-surface) 68%, transparent);
+}
+.rcode-model-trigger-chevron {
+  transition: transform 0.15s ease;
+}
+.rcode-composer-model-trigger[data-popup-open] .rcode-model-trigger-chevron {
+  transform: rotate(180deg);
+}
 .rcode-model-trigger-text {
   display: flex;
   flex: 1 1 auto;

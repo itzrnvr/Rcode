@@ -26,7 +26,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { useApp } from "../../state/AppContext";
 import { useProviders } from "../../state/useProviders";
@@ -63,7 +63,6 @@ export function AgentPromptInput({
   const { settings, setSetting } = useApp();
   const { allModels } = useProviders();
   const [modelOpen, setModelOpen] = useState(false);
-  const [modelAnchor, setModelAnchor] = useState<DOMRect | null>(null);
   const [mode, setMode] = useState<AgentMode>("full-access");
   const [effort, setEffort] = useState(settings.reasoningEffort || "max");
 
@@ -90,11 +89,6 @@ export function AgentPromptInput({
       models,
     }));
   }, [allModels]);
-
-  const modelAnchorElement = useMemo(
-    () => (modelAnchor ? { getBoundingClientRect: () => modelAnchor } : null),
-    [modelAnchor]
-  );
 
   const chooseModel = useCallback(
     (model: (typeof allModels)[number]) => {
@@ -158,22 +152,65 @@ export function AgentPromptInput({
           </PromptInputTools>
 
           <PromptInputTools className="rcode-prompt-tools rcode-prompt-tools-right">
-            <PromptInputButton
-              aria-expanded={modelOpen}
-              aria-haspopup="listbox"
-              className="rcode-composer-model-trigger"
-              onClick={event => {
-                setModelAnchor(event.currentTarget.getBoundingClientRect());
-                setModelOpen(open => !open);
-              }}
-              tooltip="Choose model"
-            >
-              <CpuIcon size={14} />
-              <span className="rcode-model-trigger-name">
-                {currentModel?.name ?? "Select model"}
-              </span>
-              <ChevronDownIcon size={12} />
-            </PromptInputButton>
+            <Popover open={modelOpen} onOpenChange={setModelOpen}>
+              <PopoverTrigger
+                render={
+                  <PromptInputButton
+                    className="rcode-composer-model-trigger"
+                    tooltip="Choose model"
+                  />
+                }
+              >
+                <CpuIcon size={14} />
+                <span className="rcode-model-trigger-name">
+                  {currentModel?.name ?? "Select model"}
+                </span>
+                <ChevronDownIcon
+                  size={12}
+                  className="rcode-model-trigger-chevron"
+                />
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="rcode-model-selector"
+                side="bottom"
+                sideOffset={8}
+              >
+                <Command className="border-none bg-transparent">
+                  <CommandInput autoFocus placeholder="Search models…" />
+                  <CommandList>
+                    <CommandEmpty>No models match your search.</CommandEmpty>
+                    {modelGroups.map(group => (
+                      <CommandGroup heading={group.label} key={group.label}>
+                        {group.models.map(model => {
+                          const selected =
+                            currentModel?.id === model.id &&
+                            currentModel?.provider === model.provider;
+
+                          return (
+                            <CommandItem
+                              data-checked={selected ? "true" : undefined}
+                              key={`${model.provider}:${model.id}`}
+                              onSelect={() => chooseModel(model)}
+                              value={`${model.provider}:${model.id}`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">
+                                  {model.name}
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {model.description}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             <PromptInputSelect
               onValueChange={value => {
@@ -212,49 +249,6 @@ export function AgentPromptInput({
         </PromptInputFooter>
       </PromptInput>
 
-      <Popover modal={false} onOpenChange={setModelOpen} open={modelOpen}>
-        <PopoverContent
-          align="end"
-          anchor={modelAnchorElement}
-          className="rcode-model-selector"
-          side="bottom"
-          sideOffset={8}
-        >
-          <Command className="border-none bg-transparent">
-            <CommandInput autoFocus placeholder="Search models…" />
-            <CommandList>
-              <CommandEmpty>No models match your search.</CommandEmpty>
-              {modelGroups.map(group => (
-                <CommandGroup heading={group.label} key={group.label}>
-                  {group.models.map(model => {
-                    const selected =
-                      currentModel?.id === model.id &&
-                      currentModel?.provider === model.provider;
-
-                    return (
-                      <CommandItem
-                        data-checked={selected ? "true" : undefined}
-                        key={`${model.provider}:${model.id}`}
-                        onSelect={() => chooseModel(model)}
-                        value={`${model.provider}:${model.id}`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {model.name}
-                          </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {model.description}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
     </>
   );
 }
