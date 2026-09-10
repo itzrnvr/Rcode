@@ -2111,13 +2111,14 @@ body {
   color: var(--color-fg);
 }
 .rcode-prompt-footer {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
 }
 .rcode-prompt-tools {
   flex: 1 1 auto;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
+  min-width: 0;
 }
 .rcode-prompt-submit {
   margin-left: auto;
@@ -2591,11 +2592,13 @@ body {
 /* Composer control groups: attachments/access left, model controls right. */
 .rcode-prompt-footer {
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 10px;
 }
 .rcode-prompt-tools {
   flex: 0 1 auto;
+  flex-wrap: nowrap;
+  min-width: 0;
   gap: 6px;
 }
 .rcode-prompt-tools-right {
@@ -2615,6 +2618,8 @@ body {
 }
 .rcode-composer-model-trigger {
   width: min(190px, 34vw);
+  min-width: 0;
+  max-width: 40vw;
   height: 32px;
   justify-content: flex-start;
   border: 1px solid color-mix(in srgb, var(--color-fg) 10%, transparent);
