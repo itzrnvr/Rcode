@@ -131,27 +131,29 @@ export function AgentPromptInput({
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
 
-            <PromptInputSelect
-              onValueChange={value => setMode(String(value) as AgentMode)}
-              value={mode}
-            >
-              <PromptInputSelectTrigger
-                aria-label="Agent access mode"
-                className="rcode-composer-select"
+            <div className="rcode-mode-select">
+              <PromptInputSelect
+                onValueChange={value => setMode(String(value) as AgentMode)}
+                value={mode}
               >
-                {(() => {
-                  const ModeIcon = MODES.find(m => m.value === mode)?.Icon ?? GlobeIcon;
-                  return <ModeIcon size={14} />;
-                })()}
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent align="start">
-                {MODES.map(option => (
-                  <PromptInputSelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
+                <PromptInputSelectTrigger
+                  aria-label="Agent access mode"
+                  className="rcode-composer-select"
+                >
+                  {(() => {
+                    const ModeIcon = MODES.find(m => m.value === mode)?.Icon ?? GlobeIcon;
+                    return <ModeIcon size={14} />;
+                  })()}
+                </PromptInputSelectTrigger>
+                <PromptInputSelectContent align="start" className="rcode-mode-popup">
+                  {MODES.map(option => (
+                    <PromptInputSelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </PromptInputSelectItem>
+                  ))}
+                </PromptInputSelectContent>
+              </PromptInputSelect>
+            </div>
           </PromptInputTools>
 
           <PromptInputTools className="rcode-prompt-tools rcode-prompt-tools-right">
