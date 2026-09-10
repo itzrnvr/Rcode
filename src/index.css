@@ -2004,6 +2004,14 @@ body {
 .rcode-model-trigger-chevron {
   transition: transform 0.15s ease;
 }
+.rcode-model-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-accent) 50%, transparent);
+  flex-shrink: 0;
+}
 .rcode-composer-model-trigger[data-popup-open] .rcode-model-trigger-chevron {
   transform: rotate(180deg);
 }

@@ -32,7 +32,6 @@ import { useProviders } from "../../state/useProviders";
 import {
   ChevronDownIcon,
   CompassIcon,
-  CpuIcon,
   GlobeIcon,
   LockIcon,
   MicIcon,
@@ -167,7 +166,7 @@ export function AgentPromptInput({
                   />
                 }
               >
-                <CpuIcon size={14} />
+                <span className="rcode-model-dot" aria-hidden="true" />
                 <ChevronDownIcon
                   size={12}
                   className="rcode-model-trigger-chevron"
