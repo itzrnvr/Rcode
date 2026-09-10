@@ -4,8 +4,7 @@
  * Full-page layout (not a modal) — replaces the old SettingsModal.
  *
  * Layout (left to right):
- *   [back arrow] Rcode   | [API] [Theme] [Modes] [Hotkeys] [About] | right pane
- *   ^ left settings sidebar   ^ category icons + labels  ^ category content
+ *   [back arrow] Rcode   | [Theme] [Providers] [Data] | right pane
  *
  * Uses lucide-react icons — no emojis, no inline SVGs.
  */
@@ -17,29 +16,19 @@ import { useSettings } from "../../state/useSettings";
 import { ThemeSettings } from "./ThemeSettings";
 import { InstructionsEditor } from "./InstructionsEditor";
 import { api } from "../../api/client";
-import { MODELS } from "../../models";
 import { ModelSettings } from "./ModelSettings";
 
 import {
   ArrowLeftIcon,
-  KeyIcon,
   PaletteIcon,
-  BotIcon,
-  KeyboardIcon,
-  InfoIcon,
   CpuIcon,
-  SparkleIcon,
-  ShieldCheckIcon,
-  Globe2Icon,
   HistoryIcon,
+  InfoIcon,
 } from "../common/Icons";
 
 type SettingsCategory =
-  | "api"
   | "theme"
   | "model"
-  | "modes"
-  | "hotkeys"
   | "data"
   | "about";
 
@@ -52,12 +41,6 @@ interface CategoryDef {
 
 const CATEGORIES: CategoryDef[] = [
   {
-    id: "api",
-    label: "API",
-    Icon: KeyIcon,
-    description: "Provider endpoint, credentials, default model",
-  },
-  {
     id: "theme",
     label: "Theme",
     Icon: PaletteIcon,
@@ -65,21 +48,9 @@ const CATEGORIES: CategoryDef[] = [
   },
   {
     id: "model",
-    label: "Model",
+    label: "Providers",
     Icon: CpuIcon,
-    description: "Default model, sampling, fallbacks",
-  },
-  {
-    id: "modes",
-    label: "Modes",
-    Icon: BotIcon,
-    description: "Agent permission levels",
-  },
-  {
-    id: "hotkeys",
-    label: "Hotkeys",
-    Icon: KeyboardIcon,
-    description: "Keyboard shortcuts",
+    description: "Providers, endpoints, model lists",
   },
   {
     id: "data",
@@ -101,11 +72,11 @@ interface SettingsPageProps {
 }
 
 export function SettingsPage({ onClose, initialCategory }: SettingsPageProps) {
-  const [active, setActive] = useState<SettingsCategory>(initialCategory ?? "api");
+  const [active, setActive] = useState<SettingsCategory>(initialCategory ?? "model");
   useEffect(() => {
     if (initialCategory) setActive(initialCategory);
   }, [initialCategory]);
-  const { settings, updateSetting } = useSettings();
+  const { settings } = useSettings();
   const [sidebarWidth, setSidebarWidth] = useState(280);
 
   useEffect(() => {
@@ -194,54 +165,6 @@ export function SettingsPage({ onClose, initialCategory }: SettingsPageProps) {
         </header>
 
         <div className="settings-content-body">
-          {active === "api" && (
-            <div className="settings-section-block">
-              <div className="settings-row">
-                <label htmlFor="apiBase">API Base URL</label>
-                <input
-                  id="apiBase"
-                  type="text"
-                  defaultValue={settings.apiBase}
-                  onBlur={e => updateSetting("apiBase", e.target.value)}
-                  placeholder="http://127.0.0.1:3490/v1"
-                />
-              </div>
-
-              <div className="settings-row">
-                <label htmlFor="apiKey">API Key</label>
-                <input
-                  id="apiKey"
-                  type="password"
-                  defaultValue={settings.apiKey}
-                  onBlur={e => updateSetting("apiKey", e.target.value)}
-                  placeholder="sk-..."
-                />
-              </div>
-
-              <div className="settings-row">
-                <label htmlFor="defaultModel">Default Model</label>
-                <input
-                  id="defaultModel"
-                  type="text"
-                  defaultValue={settings.model}
-                  onBlur={e => updateSetting("model", e.target.value)}
-                  placeholder="glm-5.2"
-                />
-              </div>
-
-              <div className="settings-row">
-                <label htmlFor="providerName">Provider Name</label>
-                <input
-                  id="providerName"
-                  type="text"
-                  defaultValue={settings.providerName}
-                  onBlur={e => updateSetting("providerName", e.target.value)}
-                  placeholder="local-proxy"
-                />
-              </div>
-            </div>
-          )}
-
           {active === "theme" && <ThemeSettings />}
 
           {active === "model" && (
@@ -250,84 +173,9 @@ export function SettingsPage({ onClose, initialCategory }: SettingsPageProps) {
             </div>
           )}
 
-          {active === "modes" && (
-            <div className="settings-section-block">
-              <p className="settings-hint">
-                Pick the agent permission level for new conversations. Switch
-                per-conversation from the mode badge in the composer.
-              </p>
-              <div className="settings-mode-cards">
-                <div className="settings-mode-card">
-                  <ShieldCheckIcon size={18} />
-                  <div>
-                    <div className="settings-mode-card-title">Plan</div>
-                    <div className="settings-mode-card-desc">
-                      Read-only. Agent proposes a plan before taking action.
-                    </div>
-                  </div>
-                </div>
-                <div className="settings-mode-card">
-                  <Globe2Icon size={18} />
-                  <div>
-                    <div className="settings-mode-card-title">Full access</div>
-                    <div className="settings-mode-card-desc">
-                      Agent can read, write, and execute commands without prompts.
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {active === "hotkeys" && (
-            <div className="settings-section-block">
-              <HotkeyRow label="New chat" keys={["Ctrl", "N"]} />
-              <HotkeyRow label="Search" keys={["Ctrl", "K"]} />
-              <HotkeyRow label="Toggle sidebar" keys={["Ctrl", "B"]} />
-              <HotkeyRow label="Settings" keys={["Ctrl", ","] } />
-              <HotkeyRow label="Send message" keys={["Enter"]} />
-              <HotkeyRow label="Newline in message" keys={["Shift", "Enter"]} />
-            </div>
-          )}
-
           {active === "data" && <InstructionsEditor />}
-
-          {active === "about" && (
-            <div className="settings-section-block">
-              <div className="settings-info-card">
-                <SparkleIcon size={20} />
-                <div>
-                  <div className="settings-info-title">Rcode v0.1.0</div>
-                  <div className="settings-info-meta">
-                    Minimal AI coding assistant. Native, local-first.
-                  </div>
-                </div>
-              </div>
-              <p className="settings-hint">
-                Built with Electron + React + Radix UI primitives. SQLite for
-                local session storage. Custom CSS design system on top of
-                CSS variables.
-              </p>
-            </div>
-          )}
         </div>
       </main>
     </div>
   );
 }
-
-function HotkeyRow({ label, keys }: { label: string; keys: string[] }) {
-  return (
-    <div className="settings-hotkey-row">
-      <span className="settings-hotkey-label">{label}</span>
-      <span className="settings-hotkey-keys">
-        {keys.map((k, i) => (
-          <span key={i} className="settings-kbd">
-            {k}
-          </span>
-        ))}
-      </span>
-    </div>
-  );
-}
-

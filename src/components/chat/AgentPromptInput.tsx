@@ -13,7 +13,6 @@ import {
   PromptInputSelectContent,
   PromptInputSelectItem,
   PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -32,6 +31,9 @@ import { useApp } from "../../state/AppContext";
 import { useProviders } from "../../state/useProviders";
 import {
   ChevronDownIcon,
+  CompassIcon,
+  GlobeIcon,
+  LockIcon,
   MicIcon,
   PlusIcon,
 } from "../common/Icons";
@@ -39,10 +41,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AgentMode = "plan" | "full-access" | "restricted";
 
-const MODES: Array<{ value: AgentMode; label: string }> = [
-  { value: "full-access", label: "Full access" },
-  { value: "plan", label: "Plan" },
-  { value: "restricted", label: "Restricted" },
+const MODES: Array<{ value: AgentMode; label: string; Icon: React.FC<{ size?: number; className?: string }> }> = [
+  { value: "full-access", label: "Full access", Icon: GlobeIcon },
+  { value: "plan", label: "Plan", Icon: CompassIcon },
+  { value: "restricted", label: "Restricted", Icon: LockIcon },
 ];
 
 const EFFORTS = ["low", "medium", "high", "max"] as const;
@@ -137,7 +139,11 @@ export function AgentPromptInput({
                 aria-label="Agent access mode"
                 className="rcode-composer-select"
               >
-                <PromptInputSelectValue />
+                {(() => {
+                  const ModeIcon = MODES.find(m => m.value === mode)?.Icon ?? GlobeIcon;
+                  return <ModeIcon size={14} />;
+                })()}
+                <ChevronDownIcon size={12} />
               </PromptInputSelectTrigger>
               <PromptInputSelectContent align="start">
                 {MODES.map(option => (
@@ -175,6 +181,22 @@ export function AgentPromptInput({
               >
                 <Command className="border-none bg-transparent">
                   <CommandInput autoFocus placeholder="Search models…" />
+                  <div className="rcode-effort-row">
+                    {EFFORTS.map(value => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={`rcode-effort-pill ${effort === value ? "active" : ""}`}
+                        title={`Reasoning effort: ${value}`}
+                        onClick={() => {
+                          setEffort(value);
+                          setSetting("reasoningEffort", value);
+                        }}
+                      >
+                        {value === "max" ? "Max" : value[0].toUpperCase() + value.slice(1)}
+                      </button>
+                    ))}
+                  </div>
                   <CommandList>
                     <CommandEmpty>No models match your search.</CommandEmpty>
                     {modelGroups.map(group => (
@@ -208,29 +230,6 @@ export function AgentPromptInput({
                 </Command>
               </PopoverContent>
             </Popover>
-
-            <PromptInputSelect
-              onValueChange={value => {
-                const nextEffort = String(value);
-                setEffort(nextEffort);
-                setSetting("reasoningEffort", nextEffort);
-              }}
-              value={effort}
-            >
-              <PromptInputSelectTrigger
-                aria-label="Reasoning effort"
-                className="rcode-composer-select"
-              >
-                <PromptInputSelectValue />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent align="end">
-                {EFFORTS.map(value => (
-                  <PromptInputSelectItem key={value} value={value}>
-                    {value === "max" ? "Max" : value[0].toUpperCase() + value.slice(1)}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
 
             <PromptInputButton tooltip="Voice input">
               <MicIcon size={16} />
