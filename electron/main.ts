@@ -11,14 +11,39 @@
 
 import { app, BrowserWindow, Menu, ipcMain } from "electron";
 import { join } from "path";
-import { existsSync } from "fs";
-import { writeFileSync } from "fs";
+import { writeFileSync, cpSync, existsSync } from "fs";
+import { APP_DATA_DIR, ELECTRON_PROFILE_DIR, FEEDBACK_DIR, LEGACY_APP_DATA_ROOT, TRACES_DIR } from "./lib/paths";
 
 import { initDb } from "./db/index";
 import { registerAllHandlers } from "./ipc/index";
 import { startWebApiServer } from "./api/webServer";
 
 let mainWindow: BrowserWindow | null = null;
+
+function migrateLegacyAppData(): void {
+  const pairs: Array<[string, string]> = [
+    [join(LEGACY_APP_DATA_ROOT, "data"), APP_DATA_DIR],
+    [join(LEGACY_APP_DATA_ROOT, "traces"), TRACES_DIR],
+    [join(LEGACY_APP_DATA_ROOT, "feedback"), FEEDBACK_DIR],
+    [join(LEGACY_APP_DATA_ROOT, "Local Storage"), join(ELECTRON_PROFILE_DIR, "Local Storage")],
+    [join(LEGACY_APP_DATA_ROOT, "IndexedDB"), join(ELECTRON_PROFILE_DIR, "IndexedDB")],
+  ];
+
+  for (const [from, to] of pairs) {
+    if (!existsSync(from) || existsSync(to)) continue;
+    try {
+      cpSync(from, to, { recursive: true, force: false, errorOnExist: false });
+    } catch (error) {
+      console.error("[rcode] legacy data migration failed:", error);
+    }
+  }
+}
+
+// Must run before Electron creates its Chromium profile.
+const legacyUserData = LEGACY_APP_DATA_ROOT;
+app.setPath("userData", ELECTRON_PROFILE_DIR);
+migrateLegacyAppData();
+void legacyUserData;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({

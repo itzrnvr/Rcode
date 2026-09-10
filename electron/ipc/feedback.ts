@@ -11,13 +11,14 @@
  * anywhere. The agent reads latest.md / the png when the user says "read it".
  */
 
-import { ipcMain, clipboard, nativeImage, app, ClipboardItem } from "electron";
+import { ipcMain, clipboard, nativeImage, ClipboardItem } from "electron";
 import { registerApiHandler } from "../api/registry";
+import { FEEDBACK_DIR } from "../lib/paths";
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 
 export function feedbackDir(): string {
-  return join(app.getPath("userData"), "feedback");
+  return FEEDBACK_DIR;
 }
 
 export function registerFeedbackHandlers(): void {

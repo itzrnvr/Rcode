@@ -25,7 +25,7 @@
 import { createInterface } from "node:readline";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 const PI_PKG = "C:/Users/babys/AppData/Roaming/npm/node_modules/@earendil-works/pi-coding-agent";
@@ -35,28 +35,62 @@ const piCore = (await import(pathToFileURL(join(PI_PKG, "node_modules/@earendil-
 // sid -> {session, currentId}
 const sessions = new Map();
 
-// --- session persistence -----------------------------------------------------
-const DATA_DIR = join(process.env.APPDATA ?? join(homedir(), ".config"), "Rcode");
-const SESSION_DIR = join(DATA_DIR, "pi-sessions");
-const MAP_FILE = join(DATA_DIR, "pi-session-map.json");
+// --- embedded Pi state -------------------------------------------------------
+// Rcode owns a completely isolated Pi home under ~/.rcode/pi. This is distinct
+// from a regular Pi installation in ~/.pi and cannot read its packages,
+// extensions, settings, or session tree.
+const RCODE_HOME = process.env.RCODE_HOME ?? join(homedir(), ".rcode");
+const PI_HOME = join(RCODE_HOME, "pi");
+const PI_AGENT_DIR = join(PI_HOME, "agent");
+const SESSION_DIR = join(PI_HOME, "sessions");
+const MAP_FILE = join(PI_HOME, "session-map.json");
+const MIGRATION_MARKER = join(PI_HOME, ".migrated-from-appdata");
+
+function ensurePiHome() {
+  for (const dir of [PI_AGENT_DIR, SESSION_DIR]) {
+    mkdirSync(dir, { recursive: true });
+  }
+  for (const dir of ["extensions", "skills", "prompt-templates", "themes", "packages", "npm"]) {
+    mkdirSync(join(PI_AGENT_DIR, dir), { recursive: true });
+  }
+}
+
+function migrateLegacyPiState() {
+  if (existsSync(MIGRATION_MARKER)) return;
+  const legacyDataDir = join(process.env.APPDATA ?? join(homedir(), ".config"), "Rcode");
+  const legacySessionDir = join(legacyDataDir, "pi-sessions");
+  const legacyMapFile = join(legacyDataDir, "pi-session-map.json");
+
+  try {
+    mkdirSync(SESSION_DIR, { recursive: true });
+    if (existsSync(legacySessionDir) && !existsSync(SESSION_DIR)) {
+      cpSync(legacySessionDir, SESSION_DIR, { recursive: true, force: false, errorOnExist: false });
+    }
+    if (existsSync(legacyMapFile) && !existsSync(MAP_FILE)) {
+      const map = JSON.parse(readFileSync(legacyMapFile, "utf8"));
+      for (const [sid, file] of Object.entries(map)) {
+        if (typeof file === "string" && file.startsWith(legacySessionDir)) {
+          map[sid] = join(SESSION_DIR, file.slice(legacySessionDir.length));
+        }
+      }
+      writeFileSync(MAP_FILE, JSON.stringify(map, null, 2));
+    }
+    writeFileSync(MIGRATION_MARKER, new Date().toISOString());
+  } catch (error) {
+    console.error("[pi-worker] legacy Pi state migration failed:", error?.message || error);
+  }
+}
 
 function loadSessionMap() {
   try { return JSON.parse(readFileSync(MAP_FILE, "utf8")); } catch { return {}; }
 }
+
 function saveSessionMap(map) {
   try { writeFileSync(MAP_FILE, JSON.stringify(map, null, 2)); } catch { /* non-fatal */ }
 }
-function openOrCreateSessionManager(sid, cwd) {
-  mkdirSync(SESSION_DIR, { recursive: true });
-  const map = loadSessionMap();
-  const existing = map[sid];
-  if (existing && existsSync(existing)) {
-    try { return pi.SessionManager.open(existing, SESSION_DIR, cwd); } catch { /* fall through to fresh */ }
-  }
-  const mgr = pi.SessionManager.create(cwd, SESSION_DIR);
-  if (mgr.sessionFile) { map[sid] = mgr.sessionFile; saveSessionMap(map); }
-  return mgr;
-}
+
+ensurePiHome();
+migrateLegacyPiState();
 
 function resultText(result) {
   if (!result) return "";
@@ -171,7 +205,11 @@ async function buildSession(req) {
     registry.find(o.provider.id, o.modelId) ??
     registry.getAll().find(m => m.provider === o.provider.id);
   if (!model) throw new Error("pi: model not registered: " + o.provider.id + "/" + o.modelId);
-  const agentDir = join(o.cwd, ".pi-agent");
+  // Keep Pi configuration/resources inside ~/.rcode/pi/agent. Do not read or
+  // write ~/.pi. Resource/project discovery is rooted here too, so a regular
+  // Pi project in the user's home cannot leak into the embedded runtime.
+  const agentDir = PI_AGENT_DIR;
+  const settingsManager = pi.SettingsManager.create(agentDir, agentDir);
   const sessionManager = openOrCreateSessionManager(req.sid, o.cwd);
   // Resume: seed the agent with the persisted transcript (root->leaf branch),
   // otherwise every worker/app restart starts the conversation blank even
@@ -183,12 +221,12 @@ async function buildSession(req) {
       .filter(e => e && e.type === "message" && e.message)
       .map(e => e.message);
   } catch { /* fresh session */ }
-  const settingsManager = pi.SettingsManager.inMemory();
   const resourceLoader = new pi.DefaultResourceLoader({
-    cwd: o.cwd,
+    cwd: agentDir,
     agentDir,
-    noExtensions: true,
-    noSkills: true,
+    settingsManager,
+    noExtensions: false,
+    noSkills: false,
     noPromptTemplates: true,
     noThemes: true,
     noContextFiles: true,
