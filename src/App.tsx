@@ -76,7 +76,7 @@ function AppInner() {
   useEffect(() => {
     // Preserve the chat column at desktop breakpoints. The user can still
     // explicitly reopen either panel; this only intervenes on a narrowing path.
-    if (viewportWidth < 1120 && !sidePanelCollapsed) void setSidePanelCollapsed(true);
+    if (viewportWidth < 920 && !sidePanelCollapsed) void setSidePanelCollapsed(true);
     if (viewportWidth < 860 && !sidebarCollapsed) void setSidebarCollapsed(true);
   }, [viewportWidth, sidePanelCollapsed, sidebarCollapsed, setSidePanelCollapsed, setSidebarCollapsed]);
   const openSettingsAt = (cat?: string) => {

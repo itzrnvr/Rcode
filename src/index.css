@@ -176,8 +176,8 @@ body {
 }
 
 .panel-side {
-  width: 380px;
-  min-width: 320px;
+  width: 320px;
+  min-width: 260px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1880,6 +1880,17 @@ body {
   width: 100%;
   max-width: 760px;
   margin-top: 14px;
+  display: flex;
+  justify-content: center;
+}
+.rcode-quick-prompts [data-slot="scroll-area"] {
+  width: 100%;
+}
+.rcode-quick-prompts [data-slot="scroll-area-viewport"] > div {
+  justify-content: center;
+  flex-wrap: wrap;
+  width: 100%;
+  margin-inline: auto;
 }
 .rcode-prompt-input {
   width: 100%;
@@ -1890,9 +1901,9 @@ body {
 }
 .rcode-prompt-input [data-slot="input-group"] {
   background: color-mix(in srgb, var(--color-surface) 88%, transparent);
-  border-color: color-mix(in srgb, var(--color-fg) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-fg) 12%, transparent) !important;
   border-radius: 14px;
-  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18) !important;
 }
 .rcode-prompt-input [data-slot="input-group-control"] {
   min-height: 92px;
@@ -2107,7 +2118,24 @@ body {
 [data-radix-popper-content-wrapper] { animation: none; }
 [data-radix-popper-content-wrapper] > * { animation: sp-pop .13s ease-out; }
 
-.header-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #1e1e1e; border: 1px solid #262626; color: #b8b8b8; font-size: 11.5px; cursor: pointer; }
+.header-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #1e1e1e;
+  border: 1px solid #262626;
+  color: #b8b8b8;
+  font-size: 11.5px;
+  cursor: pointer;
+  min-width: 0;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 1 auto;
+}
 .header-pill:hover { background: #222; color: #e8e8e8; }
 
 /* dark themed scrollbars */
@@ -2649,29 +2677,60 @@ body {
   border: 1px solid var(--color-border);
   background: var(--color-surface);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42);
+  border-radius: 16px;
+  overflow: hidden;
 }
 .rcode-model-selector [data-slot="command"] {
   max-height: min(68vh, 430px);
-  border-radius: 12px;
+  border-radius: inherit;
+  background: transparent !important;
+  padding: 0 !important;
+  font-family: inherit;
 }
 .rcode-model-selector [data-slot="command-input-wrapper"],
 .rcode-model-selector [data-slot="input-group"] {
   border: 0 !important;
   border-bottom: 1px solid var(--color-border) !important;
   border-radius: 0 !important;
-  background: var(--color-bg) !important;
+  background: color-mix(in srgb, var(--color-bg) 70%, transparent) !important;
   box-shadow: none !important;
+  margin: 0 !important;
+  padding: 10px 14px !important;
 }
 .rcode-model-selector input,
 .rcode-model-selector [data-slot="command-input"] {
-  background: var(--color-bg) !important;
+  background: transparent !important;
   color: var(--color-fg) !important;
+  font-size: 13px !important;
 }
 .rcode-model-selector input::placeholder {
   color: var(--color-muted) !important;
 }
+.rcode-model-selector [data-slot="command-list"] {
+  padding: 6px 8px 10px !important;
+}
+.rcode-model-selector [cmdk-group-heading] {
+  padding: 10px 10px 6px !important;
+  font-size: 10px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-muted) !important;
+  font-weight: 600 !important;
+  background: transparent;
+}
+.rcode-model-selector [data-slot="command-item"] {
+  padding: 8px 10px !important;
+  border-radius: 10px !important;
+  margin-bottom: 2px;
+  cursor: pointer !important;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.rcode-model-selector [data-slot="command-item"]:hover,
+.rcode-model-selector [data-slot="command-item"][data-selected="true"] {
+  background: color-mix(in srgb, var(--color-fg) 8%, transparent) !important;
+}
 .rcode-model-selector [data-slot="command-item"][data-checked="true"] {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent) !important;
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent) !important;
 }
 
 

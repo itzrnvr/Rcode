@@ -31,9 +31,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useApp } from "../../state/AppContext";
 import { useProviders } from "../../state/useProviders";
 import {
-  CheckIcon,
   ChevronDownIcon,
-  CpuIcon,
   MicIcon,
   PlusIcon,
 } from "../common/Icons";
@@ -161,7 +159,6 @@ export function AgentPromptInput({
                   />
                 }
               >
-                <CpuIcon size={14} />
                 <span className="rcode-model-trigger-name">
                   {currentModel?.name ?? "Select model"}
                 </span>

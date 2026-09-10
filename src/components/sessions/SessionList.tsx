@@ -26,7 +26,6 @@ import {
   MessagesSquareIcon,
   ChevronDownIcon,
   ChevronsLeftIcon,
-  PanelLeftCloseIcon,
   SettingsIcon,
   PinIcon,
   PenIcon,
@@ -149,15 +148,6 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
   if (collapsed) {
     return (
       <div className="panel-sessions collapsed" style={{ width: width ?? 52, minWidth: width ?? 52 }}>
-        <button
-          className="sidebar-expand-btn"
-          onClick={onToggleCollapse}
-          title="Expand sidebar"
-          aria-label="Expand sidebar"
-        >
-          <PanelLeftCloseIcon size={16} />
-        </button>
-
         <button
           className="sidebar-collapsed-newchat"
           onClick={newChat}

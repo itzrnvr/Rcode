@@ -18,6 +18,7 @@ export default defineConfig({
     alias: { "@": resolve(__dirname, "src") },
   },
   server: {
+    host: "127.0.0.1",
     port: 5173,
     proxy: {
       "/api/ipc": { target: "http://127.0.0.1:5174", changeOrigin: true },

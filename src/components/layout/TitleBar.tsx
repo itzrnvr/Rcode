@@ -21,8 +21,9 @@ interface TitleBarProps {
 
 export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback }: TitleBarProps) {
   const isWin = (navigator.platform || "").toLowerCase().includes("win");
+  const inElectron = typeof window !== "undefined" && typeof window.electron !== "undefined";
   return (
-    <div className="titlebar" style={isWin ? { paddingRight: 138 } : undefined}>
+    <div className="titlebar" style={inElectron && isWin ? { paddingRight: 138 } : undefined}>
       <div className="titlebar-left">
         <button
           className="titlebar-sidebar-toggle"
@@ -75,7 +76,7 @@ export function TitleBar({ onToggleSidebar, onToggleSidePanel, onToggleFeedback 
             <PanelRightIcon size={16} />
           </button>
         )}
-        {!isWin && <div className="traffic-group">
+        {inElectron && !isWin && <div className="traffic-group">
           <button
             className="traffic-light traffic-close"
             onClick={() => api.windowClose()}

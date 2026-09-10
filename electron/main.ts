@@ -62,7 +62,8 @@ app.whenReady().then(() => {
   initDb();
   registerAllHandlers();
   startWebApiServer();
-  createWindow();
+  const headless = process.argv.includes("--headless") || process.env.RCODE_HEADLESS === "1";
+  if (!headless) createWindow();
 
   ipcMain.handle("debug:screenshot", async (_e, path: string) => {
     if (!mainWindow) return false;

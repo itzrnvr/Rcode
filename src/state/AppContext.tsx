@@ -52,7 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [hasSideChats, setHasSideChats] = useState(false);
   const [sidePanelCollapsed, setSidePanelCollapsedState] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsedState] = useState(false);
-  const [sidePanelWidth, setSidePanelWidthState] = useState(380);
+  const [sidePanelWidth, setSidePanelWidthState] = useState(320);
 
   const refreshSettings = useCallback(async () => {
     const s = await api.getSettings();
