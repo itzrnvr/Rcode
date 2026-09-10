@@ -303,9 +303,13 @@ export function ChatView() {
           title="Open trajectory viewer"
           onClick={() => {
             setSidePanelCollapsed(false);
-            window.dispatchEvent(
-              new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } })
-            );
+            // The SidePanel only mounts this event listener when it is
+            // rendered (collapsed = unmounted), so defer after commit.
+            setTimeout(() => {
+              window.dispatchEvent(
+                new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } })
+              );
+            }, 0);
           }}
         >
           <ActivityIcon size={14} />
