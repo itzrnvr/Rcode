@@ -143,7 +143,6 @@ export function AgentPromptInput({
                   const ModeIcon = MODES.find(m => m.value === mode)?.Icon ?? GlobeIcon;
                   return <ModeIcon size={14} />;
                 })()}
-                <ChevronDownIcon size={12} />
               </PromptInputSelectTrigger>
               <PromptInputSelectContent align="start">
                 {MODES.map(option => (
