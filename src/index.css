@@ -1879,7 +1879,7 @@ body {
 .rcode-quick-prompts {
   width: 100%;
   max-width: 760px;
-  margin-top: 14px;
+  margin: 14px auto 0;
   display: flex;
   justify-content: center;
 }
