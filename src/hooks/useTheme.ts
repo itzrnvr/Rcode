@@ -30,6 +30,27 @@ export function useTheme(theme: Theme): void {
     root.style.setProperty("--color-danger", theme.danger);
     root.style.setProperty("--color-bg-secondary", theme.surface);
     root.style.setProperty("--color-bg-tertiary", theme.border);
+    // Prebuilt primitives consume shadcn token names. Keep them in lockstep with
+    // the authoritative Rcode palette so model/menu surfaces stay dark in every theme.
+    root.style.setProperty("--background", theme.background);
+    root.style.setProperty("--foreground", theme.foreground);
+    root.style.setProperty("--card", theme.surface);
+    root.style.setProperty("--card-foreground", theme.foreground);
+    root.style.setProperty("--popover", theme.surface);
+    root.style.setProperty("--popover-foreground", theme.foreground);
+    root.style.setProperty("--primary", theme.accent);
+    root.style.setProperty("--primary-foreground", theme.background);
+    root.style.setProperty("--secondary", theme.surface);
+    root.style.setProperty("--secondary-foreground", theme.foreground);
+    root.style.setProperty("--muted", theme.surface);
+    root.style.setProperty("--muted-foreground", theme.muted);
+    root.style.setProperty("--accent", theme.surface);
+    root.style.setProperty("--accent-foreground", theme.foreground);
+    root.style.setProperty("--destructive", theme.danger);
+    root.style.setProperty("--destructive-foreground", theme.background);
+    root.style.setProperty("--border", theme.border);
+    root.style.setProperty("--input", theme.border);
+    root.style.setProperty("--ring", theme.accent);
 
     // Typography
     root.style.setProperty("--font-ui", theme.uiFont);

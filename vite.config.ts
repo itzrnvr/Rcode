@@ -8,7 +8,10 @@ export default defineConfig({
   build: {
     outDir: "dist/renderer",
     rollupOptions: {
-      input: resolve(__dirname, "index.html"),
+      input: {
+        main: resolve(__dirname, "index.html"),
+        preview: resolve(__dirname, "preview.html"),
+      },
     },
   },
   resolve: {

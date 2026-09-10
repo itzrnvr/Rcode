@@ -251,3 +251,34 @@ message. This made retry look like a separate follow-up turn.
   - completion returned to one assistant message in the original position;
   - versions advanced and the final refetch rendered the new active branch.
 - Mechanical UI detector on changed files: zero findings.
+
+## 2026-09-10 — Composer/model picker and built-in Browser preview
+
+### Composer
+- Split the footer into two explicit control groups: attachments/access on the
+  left; model, effort, mic, and submit on the right.
+- Removed the duplicated effort/model controls left by the interrupted edit.
+- Replaced the centered modal model selector with a compact anchored popover.
+- The popover opens from the model widget, uses viewport collision handling,
+  focuses its search field, supports grouped provider results, and marks the
+  active model.
+- Mapped the Rcode theme palette onto the shadcn token names so prebuilt
+  popover/command components follow the dark theme instead of bright defaults.
+
+### Browser preview and annotation
+- Added a real Browser pane instead of the static placeholder.
+- Added a same-origin `preview.html` entry that receives the top frame's
+  Electron bridge before app modules initialize.
+- Built the Browser pane as a working embedded Rcode preview with a URL bar and
+  reload action.
+- Extended UI annotation element selection to resolve elements inside the
+  same-origin Browser iframe and convert their coordinates back to the parent
+  screenshot canvas.
+
+### Verification
+- Renderer and Electron/main TypeScript: pass.
+- Production build including `preview.html`: pass.
+- Impeccable UI detector on changed UI files: zero findings.
+- Live model picker: opened anchored, focused search, rendered 34 models, used
+  dark popover tokens, and caused no horizontal document overflow.
+- Live Browser pane: rendered embedded Rcode preview with bridge access.

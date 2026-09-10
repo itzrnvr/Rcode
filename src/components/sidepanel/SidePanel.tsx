@@ -27,6 +27,7 @@ import {
 import { TerminalPane } from "./TerminalPane";
 import { TrajectoryView } from "./TrajectoryView";
 import { GitPanel } from "./GitPanel";
+import { BrowserPane } from "./BrowserPane";
 import { SideChatThread } from "./SideChatThread";
 
 type ZTabType = "side-conversation" | "review" | "terminal" | "browser" | "trajectory";
@@ -395,7 +396,7 @@ export function SidePanel({ collapsed, width, onToggleCollapse }: { collapsed?: 
           <div style={{flex:1, minHeight:0, padding:12}}><TerminalPane terminalId={activeTab.id} /></div>
         )}
         {activeTab?.type === "review" && <GitPanel />}
-        {activeTab?.type === "browser" && <div style={{color:'#8a8a8a', fontSize:13, textAlign:'center', marginTop:40, padding:12}}>Browser — preview at http://192.168.1.100:63881/prototype-mobile.html</div>}
+        {activeTab?.type === "browser" && <BrowserPane />}
       </div>
     </aside>
   );

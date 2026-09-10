@@ -159,6 +159,49 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
     setPopup(null);
   }, [popup]);
 
+  interface PointAt { element: Element; rect: { x: number; y: number; w: number; h: number } }
+
+  // Select mode can annotate same-origin content inside the built Browser pane.
+  function elementAtPoint(x: number, y: number): PointAt | null {
+    const top = document.elementFromPoint(x, y);
+    if (!top) return null;
+    const topRect = top.getBoundingClientRect();
+    return {
+      element: top,
+      rect: { x: topRect.x, y: topRect.y, w: topRect.width, h: topRect.height },
+    };
+  }
+
+  function elementAtPointDeep(x: number, y: number): PointAt | null {
+    const top = document.elementFromPoint(x, y);
+    if (!top) return null;
+
+    if (top instanceof HTMLIFrameElement) {
+      try {
+        const doc = top.contentDocument;
+        const frameRect = top.getBoundingClientRect();
+        const inner = doc?.elementFromPoint(x - frameRect.left, y - frameRect.top);
+        if (inner) {
+          const innerRect = inner.getBoundingClientRect();
+          return {
+            element: inner,
+            rect: {
+              x: frameRect.left + innerRect.left,
+              y: frameRect.top + innerRect.top,
+              w: innerRect.width,
+              h: innerRect.height,
+            },
+          };
+        }
+      } catch {
+        // Cross-origin frames stay selected as the frame itself.
+      }
+    }
+
+    const rect = top.getBoundingClientRect();
+    return { element: top, rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height } };
+  }
+
   // Select mode: canvas is pointer-transparent; resolve elements under cursor.
   useEffect(() => {
     if (tool !== "select") {
@@ -169,20 +212,18 @@ export function FeedbackOverlay({ onExit }: { onExit: () => void }) {
       (e.target as Element).closest?.(UI_SELECTOR) != null;
     const onMove = (e: PointerEvent) => {
       if (overUI(e)) { setHover(null); return; }
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || el.closest?.(UI_SELECTOR)) { setHover(null); return; }
-      const r = el.getBoundingClientRect();
-      setHover({ x: r.x, y: r.y, w: r.width, h: r.height });
+      const target = elementAtPointDeep(e.clientX, e.clientY);
+      if (!target || target.element.closest?.(UI_SELECTOR)) { setHover(null); return; }
+      setHover(target.rect);
     };
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0 || overUI(e)) return;
       e.preventDefault();
       e.stopPropagation();
-      const el = document.elementFromPoint(e.clientX, e.clientY);
-      if (!el || el.closest?.(UI_SELECTOR)) return;
-      const r = el.getBoundingClientRect();
-      const rect = { x: r.x, y: r.y, w: r.width, h: r.height };
-      const desc = describeEl(el);
+      const target = elementAtPointDeep(e.clientX, e.clientY);
+      if (!target || target.element.closest?.(UI_SELECTOR)) return;
+      const rect = target.rect;
+      const desc = describeEl(target.element);
       let createdLabel: number | null = null;
       setShapes(prev => {
         if (prev.some(s => s.tool === "select" && s.rect && Math.abs(s.rect.x - rect.x) < 2 && Math.abs(s.rect.y - rect.y) < 2 && Math.abs(s.rect.w - rect.w) < 2 && Math.abs(s.rect.h - rect.h) < 2)) return prev;

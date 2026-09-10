@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Rcode Preview</title>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module">
+    // The embedded preview runs in a same-origin iframe. Electron exposes the
+    // bridge only to the top frame, so hand the existing bridge to this frame
+    // before application modules import it.
+    try {
+      const parentBridge = window.parent?.electron ?? window.top?.electron;
+      if (parentBridge && !window.electron) window.electron = parentBridge;
+    } catch (error) {
+      console.warn("Rcode preview bridge unavailable", error);
+    }
+  </script>
+  <script type="module" src="/src/preview-main.tsx"></script>
+</body>
+</html>
