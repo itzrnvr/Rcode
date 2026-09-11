@@ -66,6 +66,7 @@ function AppInner() {
   const [settingsCategory, setSettingsCategory] = useState<string | undefined>(undefined);
   const [feedbackMode, setFeedbackMode] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(() => window.innerWidth);
+  const [userOverrodePanels, setUserOverrodePanels] = useState(false);
 
   useEffect(() => {
     const updateViewportWidth = () => setViewportWidth(window.innerWidth);
@@ -74,11 +75,12 @@ function AppInner() {
   }, []);
 
   useEffect(() => {
-    // Preserve the chat column at desktop breakpoints. The user can still
-    // explicitly reopen either panel; this only intervenes on a narrowing path.
+    // Auto-collapse on narrow screens, but never overrule a user toggle.
+    // Once the user explicitly opens a panel, respect that choice.
+    if (userOverrodePanels) return;
     if (viewportWidth < 920 && !sidePanelCollapsed) void setSidePanelCollapsed(true);
     if (viewportWidth < 860 && !sidebarCollapsed) void setSidebarCollapsed(true);
-  }, [viewportWidth, sidePanelCollapsed, sidebarCollapsed, setSidePanelCollapsed, setSidebarCollapsed]);
+  }, [viewportWidth, sidePanelCollapsed, sidebarCollapsed, setSidePanelCollapsed, setSidebarCollapsed, userOverrodePanels]);
   const openSettingsAt = (cat?: string) => {
     setSettingsCategory(cat);
     setShowSettings(true);
@@ -180,6 +182,7 @@ function AppInner() {
   const closeSettings = () => setShowSettings(false);
 
   const toggleSidebar = async () => {
+    setUserOverrodePanels(true);
     await setSidebarCollapsed(!sidebarCollapsed);
   };
   const handleSidebarWidthChange = async (w: number) => {
@@ -187,6 +190,7 @@ function AppInner() {
     await api.setSetting("sidebarWidth", String(w));
   };
   const toggleSidePanel = async () => {
+    setUserOverrodePanels(true);
     await setSidePanelCollapsed(!sidePanelCollapsed);
   };
   const handleSidePanelWidthChange = async (w: number) => {
