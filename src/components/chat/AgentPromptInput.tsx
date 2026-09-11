@@ -147,11 +147,14 @@ export function AgentPromptInput({
                   })()}
                 </PromptInputSelectTrigger>
                 <PromptInputSelectContent align="start" className="rcode-mode-popup">
-                  {MODES.map(option => (
-                    <PromptInputSelectItem key={option.value} value={option.value}>
+                {MODES.map(option => (
+                  <PromptInputSelectItem key={option.value} value={option.value}>
+                    <span className="rcode-mode-item">
+                      <option.Icon size={13} />
                       {option.label}
-                    </PromptInputSelectItem>
-                  ))}
+                    </span>
+                  </PromptInputSelectItem>
+                ))}
                 </PromptInputSelectContent>
               </PromptInputSelect>
             </div>

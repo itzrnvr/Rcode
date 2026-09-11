@@ -2701,6 +2701,19 @@ body {
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-fg);
 }
+.rcode-mode-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.rcode-mode-item svg {
+  color: var(--color-muted);
+  flex-shrink: 0;
+}
+.rcode-mode-popup [data-slot="select-item"][data-selected="true"] .rcode-mode-item svg {
+  color: var(--color-accent);
+}
 .rcode-composer-model-trigger:hover {
   border-color: color-mix(in srgb, var(--color-fg) 20%, transparent);
   background: var(--color-surface);
