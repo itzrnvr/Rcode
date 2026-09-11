@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import { ConversationEmptyState } from "@/components/ai-elements/conversation";
 import { Message, MessageContent, MessageResponse } from "@/components/ai-elements/message";
@@ -76,6 +76,25 @@ export function ChatView() {
   } = useChat(currentSessionId);
 
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches);
+  const [headerOverflowOpen, setHeaderOverflowOpen] = useState(false);
+  const headerOverflowRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const m = window.matchMedia("(max-width: 768px)");
+    const onChange = () => setIsMobile(m.matches);
+    m.addEventListener("change", onChange);
+    return () => m.removeEventListener("change", onChange);
+  }, []);
+  useEffect(() => {
+    if (!headerOverflowOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!headerOverflowRef.current?.contains(e.target as Node)) {
+        setHeaderOverflowOpen(false);
+      }
+    };
+    window.addEventListener("mousedown", onDown);
+    return () => window.removeEventListener("mousedown", onDown);
+  }, [headerOverflowOpen]);
   const [session, setSession] = useState<Session | null>(null);
 
   // During retry, the temporary streaming message takes the old response's
@@ -143,6 +162,14 @@ export function ChatView() {
   const menuItems: ContextMenuItem[] = [
     { label: "Create side chat from selection", onClick: createSideChat },
   ];
+  const openTrajectoryViewer = () => {
+    setSidePanelCollapsed(false);
+    setTimeout(() => {
+      window.dispatchEvent(
+        new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } })
+      );
+    }, 0);
+  };
 
   const handleSend = useCallback(
     async (text: string, meta?: { mode?: string; reasoningEffort?: string }) => {
@@ -294,29 +321,44 @@ export function ChatView() {
           </button>
         )}
         <span className="chat-title">{session?.title ?? "New chat"}</span>
-        <HeaderPills />
+        {!isMobile && <HeaderPills />}
         {session && session.depth > 0 && (
           <span className="chat-depth">depth {session.depth}</span>
         )}
-        <button
-          className="chat-header-toggle"
-          title="Open trajectory viewer"
-          onClick={() => {
-            setSidePanelCollapsed(false);
-            // The SidePanel only mounts this event listener when it is
-            // rendered (collapsed = unmounted), so defer after commit.
-            setTimeout(() => {
-              window.dispatchEvent(
-                new CustomEvent("sidepanel:new-tab", { detail: { type: "trajectory" } })
-              );
-            }, 0);
-          }}
-        >
-          <ActivityIcon size={14} />
-        </button>
+        {!isMobile && (
+          <button
+            className="chat-header-toggle"
+            title="Open trajectory viewer"
+            onClick={openTrajectoryViewer}
+          >
+            <ActivityIcon size={14} />
+          </button>
+        )}
         <button className="chat-header-toggle" title="More">
           <ChevronDownIcon size={14} />
         </button>
+        {isMobile && (
+          <div className="chat-header-overflow-anchor" ref={headerOverflowRef}>
+            <button
+              className="chat-header-toggle"
+              title="More"
+              onClick={() => setHeaderOverflowOpen(o => !o)}
+              aria-expanded={headerOverflowOpen}
+            >
+              <ChevronDownIcon size={14} />
+            </button>
+            {headerOverflowOpen && (
+              <div className="chat-header-overflow" role="menu">
+                <HeaderPillsOverflowMenu
+                  onOpenTrajectory={() => {
+                    setHeaderOverflowOpen(false);
+                    openTrajectoryViewer();
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <AgentConversation onContextMenu={handleContextMenu}>
@@ -409,28 +451,12 @@ export function ChatView() {
 }
 
 function HeaderPills() {
-  const [branch, setBranch] = useState("");
-  const [branches, setBranches] = useState<string[]>([]);
-  const [cwdName, setCwdName] = useState("");
+  const { branch, branches, cwdName, loadBranches, checkout } = useGitInfo();
   const [open, setOpen] = useState(false);
-
-  const gitApi = api as unknown as {
-    gitBranches: () => Promise<string[]>;
-    gitCheckout: (branch: string) => Promise<{ ok: boolean }>;
-    gitCwdName: () => Promise<string>;
-    gitStatus: () => Promise<{ branch: string }>;
-  };
-
-  useEffect(() => {
-    gitApi.gitCwdName().then(setCwdName).catch(() => {});
-    gitApi.gitStatus().then(status => setBranch(status.branch)).catch(() => {});
-  }, [gitApi]);
 
   const toggle = async () => {
     if (!open) {
-      try {
-        setBranches(await gitApi.gitBranches());
-      } catch {}
+      try { await loadBranches(); } catch {}
     }
     setOpen(current => !current);
   };
@@ -453,10 +479,7 @@ function HeaderPills() {
               key={nextBranch}
               onClick={async () => {
                 setOpen(false);
-                try {
-                  await gitApi.gitCheckout(nextBranch);
-                  setBranch(nextBranch);
-                } catch {}
+                try { await checkout(nextBranch); } catch {}
               }}
             >
               <GitForkIcon size={11} />
@@ -467,4 +490,88 @@ function HeaderPills() {
       )}
     </span>
   );
+}
+
+function HeaderPillsOverflowMenu({ onOpenTrajectory }: { onOpenTrajectory: () => void }) {
+  const { branch, branches, cwdName, loadBranches, checkout } = useGitInfo();
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="chat-header-overflow-list" role="none">
+      <div className="header-pill header-pill-static">
+        <FolderIcon size={12} />
+        {cwdName || "…"}
+      </div>
+      <button
+        type="button"
+        className="chat-header-overflow-item"
+        onClick={() => {
+          if (!open) loadBranches();
+          setOpen(o => !o);
+        }}
+        aria-expanded={open}
+      >
+        <GitForkIcon size={12} />
+        <span>{branch || "…"}</span>
+        <ChevronDownIcon size={10} />
+      </button>
+      {open && (
+        <div className="chat-header-overflow-sub" role="none">
+          {branches.map(b => (
+            <button
+              key={b}
+              type="button"
+              className={`chat-header-overflow-subitem ${b === branch ? "active" : ""}`}
+              onClick={async () => {
+                setOpen(false);
+                try { await checkout(b); } catch {}
+              }}
+            >
+              <GitForkIcon size={11} />
+              {b}
+            </button>
+          ))}
+        </div>
+      )}
+      <button
+        type="button"
+        className="chat-header-overflow-item"
+        onClick={onOpenTrajectory}
+      >
+        <ActivityIcon size={12} />
+        <span>Trajectory viewer</span>
+      </button>
+    </div>
+  );
+}
+
+function useGitInfo() {
+  const [branch, setBranch] = useState("");
+  const [branches, setBranches] = useState<string[]>([]);
+  const [cwdName, setCwdName] = useState("");
+
+  const gitApi = api as unknown as {
+    gitBranches: () => Promise<string[]>;
+    gitCheckout: (branch: string) => Promise<{ ok: boolean }>;
+    gitCwdName: () => Promise<string>;
+    gitStatus: () => Promise<{ branch: string }>;
+  };
+
+  useEffect(() => {
+    gitApi.gitCwdName().then(setCwdName).catch(() => {});
+    gitApi.gitStatus().then(status => setBranch(status.branch)).catch(() => {});
+  }, [gitApi]);
+
+  const loadBranches = async () => {
+    try { setBranches(await gitApi.gitBranches()); }
+    catch {}
+  };
+
+  const checkout = async (next: string) => {
+    try {
+      await gitApi.gitCheckout(next);
+      setBranch(next);
+    } catch {}
+  };
+
+  return { branch, branches, cwdName, loadBranches, checkout };
 }
