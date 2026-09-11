@@ -183,6 +183,8 @@ function AppInner() {
 
   const toggleSidebar = async () => {
     setUserOverrodePanels(true);
+    // Mobile: opening one drawer should close the other so they don't stack.
+    if (viewportWidth < 768) await setSidePanelCollapsed(true);
     await setSidebarCollapsed(!sidebarCollapsed);
   };
   const handleSidebarWidthChange = async (w: number) => {
@@ -191,6 +193,7 @@ function AppInner() {
   };
   const toggleSidePanel = async () => {
     setUserOverrodePanels(true);
+    if (viewportWidth < 768) await setSidebarCollapsed(true);
     await setSidePanelCollapsed(!sidePanelCollapsed);
   };
   const handleSidePanelWidthChange = async (w: number) => {
