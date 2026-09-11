@@ -2748,19 +2748,28 @@ body {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  width: 10px;
+  width: 16px;
   border: 0;
   border-left: 1px solid var(--color-border);
+  border-radius: 6px;
   background: var(--color-bg-secondary);
-  color: transparent;
+  color: var(--color-muted);
   cursor: pointer;
-  transition: background 120ms ease-out, color 120ms ease-out;
+  transition: background 120ms ease-out, color 120ms ease-out, width 120ms ease-out;
 }
 .panel-edge-expand:hover,
 .panel-edge-expand:focus-visible {
   width: 24px;
   background: color-mix(in srgb, var(--color-fg) 6%, transparent);
   color: var(--color-fg);
+}
+
+/* Sidebar-collapsed hint: chevron + label appear when hovering the edge */
+.panel-edge-expand::after {
+  content: "";
+  display: block;
+  width: 0;
+  transition: width 120ms ease-out;
 }
 
 /* Model picker: explicitly dark, compact, and non-repetitive. */
