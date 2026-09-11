@@ -2134,9 +2134,6 @@ body {
   .rcode-prompt-input {
     padding: 0 16px 12px;
   }
-  .rcode-composer-model-trigger {
-    min-width: 150px;
-  }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 .tool-result {
