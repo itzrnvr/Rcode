@@ -13,7 +13,6 @@ import {
   PromptInputSelectContent,
   PromptInputSelectItem,
   PromptInputSelectTrigger,
-  PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
@@ -26,14 +25,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Popover, PopoverContent } from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 import { useApp } from "../../state/AppContext";
 import { useProviders } from "../../state/useProviders";
 import {
-  CheckIcon,
   ChevronDownIcon,
-  CpuIcon,
+  CompassIcon,
+  GlobeIcon,
+  LayersIcon,
+  LockIcon,
   MicIcon,
   PlusIcon,
 } from "../common/Icons";
@@ -41,10 +42,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 type AgentMode = "plan" | "full-access" | "restricted";
 
-const MODES: Array<{ value: AgentMode; label: string }> = [
-  { value: "full-access", label: "Full access" },
-  { value: "plan", label: "Plan" },
-  { value: "restricted", label: "Restricted" },
+const MODES: Array<{ value: AgentMode; label: string; Icon: React.FC<{ size?: number; className?: string }> }> = [
+  { value: "full-access", label: "Full access", Icon: GlobeIcon },
+  { value: "plan", label: "Plan", Icon: CompassIcon },
+  { value: "restricted", label: "Restricted", Icon: LockIcon },
 ];
 
 const EFFORTS = ["low", "medium", "high", "max"] as const;
@@ -63,7 +64,6 @@ export function AgentPromptInput({
   const { settings, setSetting } = useApp();
   const { allModels } = useProviders();
   const [modelOpen, setModelOpen] = useState(false);
-  const [modelAnchor, setModelAnchor] = useState<DOMRect | null>(null);
   const [mode, setMode] = useState<AgentMode>("full-access");
   const [effort, setEffort] = useState(settings.reasoningEffort || "max");
 
@@ -90,11 +90,6 @@ export function AgentPromptInput({
       models,
     }));
   }, [allModels]);
-
-  const modelAnchorElement = useMemo(
-    () => (modelAnchor ? { getBoundingClientRect: () => modelAnchor } : null),
-    [modelAnchor]
-  );
 
   const chooseModel = useCallback(
     (model: (typeof allModels)[number]) => {
@@ -137,66 +132,107 @@ export function AgentPromptInput({
               </PromptInputActionMenuContent>
             </PromptInputActionMenu>
 
-            <PromptInputSelect
-              onValueChange={value => setMode(String(value) as AgentMode)}
-              value={mode}
-            >
-              <PromptInputSelectTrigger
-                aria-label="Agent access mode"
-                className="rcode-composer-select"
+            <div className="rcode-mode-select">
+              <PromptInputSelect
+                onValueChange={value => setMode(String(value) as AgentMode)}
+                value={mode}
               >
-                <PromptInputSelectValue />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent align="start">
+                <PromptInputSelectTrigger
+                  aria-label="Agent access mode"
+                  className="rcode-composer-select"
+                >
+                  {(() => {
+                    const ModeIcon = MODES.find(m => m.value === mode)?.Icon ?? GlobeIcon;
+                    return <ModeIcon size={14} />;
+                  })()}
+                </PromptInputSelectTrigger>
+                <PromptInputSelectContent align="start" className="rcode-mode-popup">
                 {MODES.map(option => (
                   <PromptInputSelectItem key={option.value} value={option.value}>
-                    {option.label}
+                    <span className="rcode-mode-item">
+                      <option.Icon size={13} />
+                      {option.label}
+                    </span>
                   </PromptInputSelectItem>
                 ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
+                </PromptInputSelectContent>
+              </PromptInputSelect>
+            </div>
           </PromptInputTools>
 
           <PromptInputTools className="rcode-prompt-tools rcode-prompt-tools-right">
-            <PromptInputButton
-              aria-expanded={modelOpen}
-              aria-haspopup="listbox"
-              className="rcode-composer-model-trigger"
-              onClick={event => {
-                setModelAnchor(event.currentTarget.getBoundingClientRect());
-                setModelOpen(open => !open);
-              }}
-              tooltip="Choose model"
-            >
-              <CpuIcon size={14} />
-              <span className="rcode-model-trigger-name">
-                {currentModel?.name ?? "Select model"}
-              </span>
-              <ChevronDownIcon size={12} />
-            </PromptInputButton>
-
-            <PromptInputSelect
-              onValueChange={value => {
-                const nextEffort = String(value);
-                setEffort(nextEffort);
-                setSetting("reasoningEffort", nextEffort);
-              }}
-              value={effort}
-            >
-              <PromptInputSelectTrigger
-                aria-label="Reasoning effort"
-                className="rcode-composer-select"
+            <Popover open={modelOpen} onOpenChange={setModelOpen}>
+              <PopoverTrigger
+                render={
+                  <PromptInputButton
+                    className="rcode-composer-model-trigger"
+                    tooltip="Choose model"
+                  />
+                }
               >
-                <PromptInputSelectValue />
-              </PromptInputSelectTrigger>
-              <PromptInputSelectContent align="end">
-                {EFFORTS.map(value => (
-                  <PromptInputSelectItem key={value} value={value}>
-                    {value === "max" ? "Max" : value[0].toUpperCase() + value.slice(1)}
-                  </PromptInputSelectItem>
-                ))}
-              </PromptInputSelectContent>
-            </PromptInputSelect>
+                <LayersIcon size={14} />
+                <ChevronDownIcon
+                  size={12}
+                  className="rcode-model-trigger-chevron"
+                />
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                className="rcode-model-selector"
+                side="bottom"
+                sideOffset={8}
+              >
+                <Command className="border-none bg-transparent">
+                  <CommandInput autoFocus placeholder="Search models…" />
+                  <div className="rcode-effort-row">
+                    {EFFORTS.map(value => (
+                      <button
+                        type="button"
+                        key={value}
+                        className={`rcode-effort-pill ${effort === value ? "active" : ""}`}
+                        title={`Reasoning effort: ${value}`}
+                        onClick={() => {
+                          setEffort(value);
+                          setSetting("reasoningEffort", value);
+                        }}
+                      >
+                        {value === "max" ? "Max" : value[0].toUpperCase() + value.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                  <CommandList>
+                    <CommandEmpty>No models match your search.</CommandEmpty>
+                    {modelGroups.map(group => (
+                      <CommandGroup heading={group.label} key={group.label}>
+                        {group.models.map(model => {
+                          const selected =
+                            currentModel?.id === model.id &&
+                            currentModel?.provider === model.provider;
+
+                          return (
+                            <CommandItem
+                              data-checked={selected ? "true" : undefined}
+                              key={`${model.provider}:${model.id}`}
+                              onSelect={() => chooseModel(model)}
+                              value={`${model.provider}:${model.id}`}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">
+                                  {model.name}
+                                </div>
+                                <div className="truncate text-xs text-muted-foreground">
+                                  {model.description}
+                                </div>
+                              </div>
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    ))}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             <PromptInputButton tooltip="Voice input">
               <MicIcon size={16} />
@@ -212,49 +248,6 @@ export function AgentPromptInput({
         </PromptInputFooter>
       </PromptInput>
 
-      <Popover modal={false} onOpenChange={setModelOpen} open={modelOpen}>
-        <PopoverContent
-          align="end"
-          anchor={modelAnchorElement}
-          className="rcode-model-selector"
-          side="bottom"
-          sideOffset={8}
-        >
-          <Command className="border-none bg-transparent">
-            <CommandInput autoFocus placeholder="Search models…" />
-            <CommandList>
-              <CommandEmpty>No models match your search.</CommandEmpty>
-              {modelGroups.map(group => (
-                <CommandGroup heading={group.label} key={group.label}>
-                  {group.models.map(model => {
-                    const selected =
-                      currentModel?.id === model.id &&
-                      currentModel?.provider === model.provider;
-
-                    return (
-                      <CommandItem
-                        data-checked={selected ? "true" : undefined}
-                        key={`${model.provider}:${model.id}`}
-                        onSelect={() => chooseModel(model)}
-                        value={`${model.provider}:${model.id}`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-sm font-medium">
-                            {model.name}
-                          </div>
-                          <div className="truncate text-xs text-muted-foreground">
-                            {model.description}
-                          </div>
-                        </div>
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-              ))}
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
     </>
   );
 }

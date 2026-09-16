@@ -349,3 +349,54 @@ message. This made retry look like a separate follow-up turn.
   user message and regenerated assistant response, not the abandoned tail.
 - Live geometry check: prompt bubble and action row share the same right edge;
   action row renders below the prompt.
+
+## 2026-09-10 — Browser webapp runtime
+
+### Change
+- Added a shared API registry so Electron IPC and the browser webapp use the same
+  backend handlers.
+- Added a localhost-only browser API server on `127.0.0.1:5174`.
+- Added SSE-based streaming for chat and terminal events.
+- Added a browser Electron API adapter, selected automatically when the app is
+  not running inside Electron.
+- Added Vite proxies for `/api/ipc`, `/api/events`, and `/api/health`.
+- The Browser pane preview now marks itself as embedded and disables nested
+  Browser panes to avoid recursive app embedding.
+
+### Result
+- The full Rcode UI now runs at `http://127.0.0.1:5173/` in a normal browser
+  while the Electron backend is running.
+- Sessions, settings, providers, chat streaming, terminal streaming, and the
+  remaining API-backed surfaces use the same local backend as desktop.
+
+### Verification
+- Browser API health returned 50 registered handlers.
+- A normal browser instance with `window.electron === undefined` loaded all
+  sessions through the web bridge.
+- A real chat run from the browser returned `WEB-OK`.
+- Terminal streaming from the browser echoed `RCODE-WEB-TERMINAL`.
+
+## 2026-09-10 — Centralize Rcode state under ~/.rcode
+
+### Change
+- Moved all Rcode-owned persistent state to `~/.rcode`.
+- Layout:
+  - `~/.rcode/data/rcode.db` — SQLite database
+  - `~/.rcode/traces` — agent request/response traces
+  - `~/.rcode/feedback` — saved UI feedback
+  - `~/.rcode/electron` — Electron Chromium profile state
+  - `~/.rcode/pi/agent` — isolated Pi settings/extensions/packages/skills
+  - `~/.rcode/pi/sessions` — embedded Pi session files
+- Electron now sets its user profile path before startup.
+- DB, traces, and feedback use explicit Rcode paths instead of Electron's
+  legacy AppData path.
+- The Pi worker creates an isolated Pi agent home and persistent settings under
+  `~/.rcode/pi/agent`; it does not read regular Pi config from `~/.pi`.
+- Existing AppData database/traces/feedback and Pi sessions are migrated once.
+
+### Verification
+- Desktop headless startup migrated the SQLite database; browser API returned
+  138 sessions from `~/.rcode/data/rcode.db`.
+- Direct Pi worker startup created and initialized `~/.rcode/pi/agent` plus
+  session directories.
+- Browser webapp reloaded against migrated data and displayed its sessions.

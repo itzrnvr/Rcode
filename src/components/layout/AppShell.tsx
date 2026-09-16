@@ -107,7 +107,11 @@ export function AppShell({ titleBar, sessions, chat, sidePanel, sidebarCollapsed
   };
 
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      data-sidebar-open={!sidebarCollapsed}
+      data-sidepanel-open={!sidePanelCollapsed}
+    >
       {titleBar}
       <div className="app-body">
         {sessions}

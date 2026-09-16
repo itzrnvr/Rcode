@@ -9,15 +9,16 @@
  * CONSUMERS: ipc/index.ts (registration)
  */
 
-import { ipcMain } from "electron";
+
 
 import * as sideChats from "../db/sideChats";
+import { registerApiHandler } from "../api/registry";
 import { addMessage } from "../db/messages";
 
 import type { CreateSideChatInput } from "../../src/types";
 
 export function registerSideChatHandlers(): void {
-  ipcMain.handle("sidechat:create", async (_e, input: CreateSideChatInput) => {
+  registerApiHandler("sidechat:create", async (_e, input: CreateSideChatInput) => {
     const result = sideChats.createSideChat(input);
     if (input.selectedText) {
       addMessage(result.session.id, "system", `Selected context:\n${input.selectedText}`);
@@ -25,15 +26,15 @@ export function registerSideChatHandlers(): void {
     return result;
   });
 
-  ipcMain.handle("sidechat:tabs", (_e, parentSessionId: string, includeClosed?: boolean) =>
+  registerApiHandler("sidechat:tabs", (_e, parentSessionId: string, includeClosed?: boolean) =>
     sideChats.getSideChatTabs(parentSessionId, includeClosed));
 
-  ipcMain.handle("sidechat:closed", (_e, parentSessionId: string) =>
+  registerApiHandler("sidechat:closed", (_e, parentSessionId: string) =>
     sideChats.getClosedSideChats(parentSessionId));
 
-  ipcMain.handle("sidechat:close", (_e, tabId: string) => sideChats.closeSideChatTab(tabId));
-  ipcMain.handle("sidechat:reopen", (_e, tabId: string) => sideChats.reopenSideChatTab(tabId));
-  ipcMain.handle("sidechat:promote", (_e, sideChatId: string) => sideChats.promoteSideChat(sideChatId));
-  ipcMain.handle("sidechat:reorder", (_e, parentSessionId: string, tabIds: string[]) =>
+  registerApiHandler("sidechat:close", (_e, tabId: string) => sideChats.closeSideChatTab(tabId));
+  registerApiHandler("sidechat:reopen", (_e, tabId: string) => sideChats.reopenSideChatTab(tabId));
+  registerApiHandler("sidechat:promote", (_e, sideChatId: string) => sideChats.promoteSideChat(sideChatId));
+  registerApiHandler("sidechat:reorder", (_e, parentSessionId: string, tabIds: string[]) =>
     sideChats.reorderSideChatTabs(parentSessionId, tabIds));
 }

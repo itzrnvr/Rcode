@@ -98,9 +98,10 @@ export function AgentMessage({
   const content =
     message.role === "user" ? (
       editing ? (
-        <MessageContent>
+        <MessageContent className="w-full max-w-full">
           <Textarea
             autoFocus
+            className="w-full"
             onChange={event => setEditValue(event.target.value)}
             rows={3}
             value={editValue}

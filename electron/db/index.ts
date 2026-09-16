@@ -15,7 +15,7 @@ import Database from "better-sqlite3";
 import type { Database as DBType } from "better-sqlite3";
 import { join } from "path";
 import { mkdirSync, existsSync } from "fs";
-import { app } from "electron";
+import { APP_DATA_DIR } from "../lib/paths";
 
 import { DEFAULT_SETTINGS, DEFAULT_THEME } from "../../src/types";
 
@@ -27,7 +27,7 @@ export function getDb(): DBType {
 }
 
 export function initDb(): void {
-  const dataDir = join(app.getPath("userData"), "data");
+  const dataDir = APP_DATA_DIR;
   if (!existsSync(dataDir)) mkdirSync(dataDir, { recursive: true });
 
   instance = new Database(join(dataDir, "rcode.db"));

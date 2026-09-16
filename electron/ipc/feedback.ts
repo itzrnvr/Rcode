@@ -11,21 +11,23 @@
  * anywhere. The agent reads latest.md / the png when the user says "read it".
  */
 
-import { ipcMain, clipboard, nativeImage, app, ClipboardItem } from "electron";
+import { ipcMain, clipboard, nativeImage, ClipboardItem } from "electron";
+import { registerApiHandler } from "../api/registry";
+import { FEEDBACK_DIR } from "../lib/paths";
 import { join } from "path";
 import { mkdirSync, writeFileSync } from "fs";
 
 export function feedbackDir(): string {
-  return join(app.getPath("userData"), "feedback");
+  return FEEDBACK_DIR;
 }
 
 export function registerFeedbackHandlers(): void {
-  ipcMain.handle("feedback:capture", async (event) => {
+  registerApiHandler("feedback:capture", async (event) => {
     const image = await event.sender.capturePage();
     return { dataUrl: image.toDataURL(), dpr: event.sender.getZoomFactor() || 1, width: image.getSize().width, height: image.getSize().height };
   });
 
-  ipcMain.handle("feedback:save", async (_event, payload: { dataUrl: string; note: string }) => {
+  registerApiHandler("feedback:save", async (_event, payload: { dataUrl: string; note: string }) => {
     const dir = feedbackDir();
     mkdirSync(dir, { recursive: true });
     const ts = new Date().toISOString().replace(/[:.]/g, "-").replace("T", "_").slice(0, 19);

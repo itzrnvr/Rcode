@@ -26,7 +26,6 @@ import {
   MessagesSquareIcon,
   ChevronDownIcon,
   ChevronsLeftIcon,
-  PanelLeftCloseIcon,
   SettingsIcon,
   PinIcon,
   PenIcon,
@@ -71,6 +70,8 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
   const { sessions, loading, deleteSession } = useSessions(sessionListVersion);
   const [menu, setMenu] = useState<{ x: number; y: number; sessionId: string } | null>(null);
   const [recentsOpen, setRecentsOpen] = useState(true);
+  const [pinnedOpen, setPinnedOpen] = useState(true);
+  const [projectsOpen, setProjectsOpen] = useState(true);
   const [activeNav, setActiveNav] = useState("chat");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -150,15 +151,6 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
     return (
       <div className="panel-sessions collapsed" style={{ width: width ?? 52, minWidth: width ?? 52 }}>
         <button
-          className="sidebar-expand-btn"
-          onClick={onToggleCollapse}
-          title="Expand sidebar"
-          aria-label="Expand sidebar"
-        >
-          <PanelLeftCloseIcon size={16} />
-        </button>
-
-        <button
           className="sidebar-collapsed-newchat"
           onClick={newChat}
           title="New chat"
@@ -229,8 +221,18 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
       </div>
 
       {/* Pinned */}
-      <div className="sidebar-group-label">Pinned</div>
-      {(() => {
+      <button
+        className="sidebar-section-title-button"
+        onClick={() => setPinnedOpen(o => !o)}
+        aria-expanded={pinnedOpen}
+      >
+        <span className="sidebar-section-title">Pinned</span>
+        <ChevronDownIcon
+          size={12}
+          className={pinnedOpen ? "" : "rotate-90"}
+        />
+      </button>
+      {pinnedOpen && (() => {
         const pinned = orderedSessions.filter(s => s.isPinned);
         if (pinned.length === 0) {
           return <div className="sidebar-empty-hint">No pinned chats</div>;
@@ -263,8 +265,18 @@ export function SessionList({ collapsed, onToggleCollapse, width }: SessionListP
         );
       })()}
 
-      <div className="sidebar-group-label">Projects</div>
-      <div className="sidebar-empty-hint">No projects</div>
+      <button
+        className="sidebar-section-title-button"
+        onClick={() => setProjectsOpen(o => !o)}
+        aria-expanded={projectsOpen}
+      >
+        <span className="sidebar-section-title">Projects</span>
+        <ChevronDownIcon
+          size={12}
+          className={projectsOpen ? "" : "rotate-90"}
+        />
+      </button>
+      {projectsOpen && <div className="sidebar-empty-hint">No projects</div>}
 
       {/* Recents / Conversations */}
       <button

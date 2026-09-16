@@ -18,7 +18,7 @@
 
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from "fs";
 import { join } from "path";
-import { app } from "electron";
+import { TRACES_DIR } from "../lib/paths";
 
 const CAP = 200 * 1024;
 
@@ -28,7 +28,7 @@ function cap(s: string): string {
 }
 
 export function tracesDir(): string {
-  return join(app.getPath("userData"), "traces");
+  return TRACES_DIR;
 }
 
 export function logTrace(sessionId: string, entry: Record<string, unknown>): void {

@@ -62,10 +62,14 @@ function PresetCard({
       onClick={() => onApply(presetId)}
       aria-pressed={isActive}
     >
-      <div className="preset-card-preview">
-        <div className="preset-preview-bg" style={{ background: preset.background }} />
-        <div className="preset-preview-sidebar" style={{ background: preset.sidebar }} />
-        <div className="preset-preview-accent" style={{ background: preset.accent }} />
+      <div className="preset-card-preview" style={{ background: preset.background, border: `1px solid ${preset.border}` }}>
+        <div className="preset-mini-sidebar" style={{ background: preset.sidebar }} />
+        <div className="preset-mini-main">
+          <span className="preset-mini-line strong" style={{ background: preset.foreground, opacity: 0.85 }} />
+          <span className="preset-mini-line" style={{ background: preset.muted }} />
+          <div className="preset-mini-card" style={{ background: preset.surface, border: `1px solid ${preset.border}` }} />
+          <span className="preset-mini-btn" style={{ background: preset.accent }} />
+        </div>
       </div>
       <div className="preset-card-label">{PRESETS.find(p => p.id === presetId)?.label}</div>
       <div className="preset-card-desc">{PRESETS.find(p => p.id === presetId)?.description}</div>
@@ -75,6 +79,37 @@ function PresetCard({
         </div>
       )}
     </button>
+  );
+}
+
+function ColorRow({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="settings-row theme-color-row">
+      <label>{label}</label>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, justifyContent: "flex-end", minWidth: 0 }}>
+        <span
+          className="theme-color-swatch"
+          style={{ background: value, borderColor: value }}
+          aria-hidden="true"
+        />
+        <input
+          type="color"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          className="theme-color-input"
+          aria-label={`${label} color`}
+        />
+        <span className="theme-color-hex">{value}</span>
+      </div>
+    </div>
   );
 }
 
@@ -128,40 +163,13 @@ export function ThemeSettings() {
 
       <h3 className="settings-h3">Colors</h3>
 
-      <div className="settings-row">
-        <label>Accent</label>
-        <input type="color" value={theme.accent} onChange={e => handleChange("accent", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Background</label>
-        <input type="color" value={theme.background} onChange={e => handleChange("background", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Surface (cards)</label>
-        <input type="color" value={theme.surface} onChange={e => handleChange("surface", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Sidebar</label>
-        <input type="color" value={theme.sidebar} onChange={e => handleChange("sidebar", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Border</label>
-        <input type="color" value={theme.border} onChange={e => handleChange("border", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Muted text</label>
-        <input type="color" value={theme.muted} onChange={e => handleChange("muted", e.target.value)} />
-      </div>
-
-      <div className="settings-row">
-        <label>Foreground</label>
-        <input type="color" value={theme.foreground} onChange={e => handleChange("foreground", e.target.value)} />
-      </div>
+      <ColorRow label="Accent" value={theme.accent} onChange={v => handleChange("accent", v)} />
+      <ColorRow label="Background" value={theme.background} onChange={v => handleChange("background", v)} />
+      <ColorRow label="Surface (cards)" value={theme.surface} onChange={v => handleChange("surface", v)} />
+      <ColorRow label="Sidebar" value={theme.sidebar} onChange={v => handleChange("sidebar", v)} />
+      <ColorRow label="Border" value={theme.border} onChange={v => handleChange("border", v)} />
+      <ColorRow label="Muted text" value={theme.muted} onChange={v => handleChange("muted", v)} />
+      <ColorRow label="Foreground" value={theme.foreground} onChange={v => handleChange("foreground", v)} />
 
       <h3 className="settings-h3">Typography</h3>
 

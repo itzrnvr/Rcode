@@ -6,7 +6,8 @@
  * Falls back to child_process if node-pty fails to load.
  */
 
-import { ipcMain, BrowserWindow } from "electron";
+
+import { registerApiHandler, emitApiEvent } from "../api/registry";
 import { platform } from "os";
 
 // Try to load node-pty, fallback to child_process
@@ -32,9 +33,7 @@ function getShell(): { cmd: string; args: string[] } {
 }
 
 function broadcast(id: string, data: string) {
-  for (const win of BrowserWindow.getAllWindows()) {
-    win.webContents.send(`terminal:data:${id}`, data);
-  }
+  emitApiEvent(`terminal:data:${id}`, data);
 }
 
 function createPtyShell(id: string, cwd?: string): Shell {
@@ -81,7 +80,7 @@ function createPtyShell(id: string, cwd?: string): Shell {
 }
 
 export function registerTerminalHandlers(): void {
-  ipcMain.handle("terminal:create", (_e, id: string, cwd?: string) => {
+  registerApiHandler("terminal:create", (_e, id: string, cwd?: string) => {
     if (shells.has(id)) return;
     try {
       const shell = createPtyShell(id, cwd);
@@ -99,7 +98,7 @@ export function registerTerminalHandlers(): void {
     }
   });
 
-  ipcMain.handle("terminal:input", (_e, id: string, data: string) => {
+  registerApiHandler("terminal:input", (_e, id: string, data: string) => {
     let shell = shells.get(id);
     if (!shell) {
       shell = createPtyShell(id);
@@ -113,7 +112,7 @@ export function registerTerminalHandlers(): void {
     shell.write(data);
   });
 
-  ipcMain.handle("terminal:close", (_e, id: string) => {
+  registerApiHandler("terminal:close", (_e, id: string) => {
     const shell = shells.get(id);
     if (shell) {
       try { shell.kill(); } catch {}
@@ -121,7 +120,7 @@ export function registerTerminalHandlers(): void {
     }
   });
 
-  ipcMain.handle("terminal:resize", (_e, id: string, cols: number, rows: number) => {
+  registerApiHandler("terminal:resize", (_e, id: string, cols: number, rows: number) => {
     shells.get(id)?.resize(cols, rows);
   });
 }

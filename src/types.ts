@@ -101,6 +101,7 @@ export interface Settings {
   providerName: string;
   globalInstructions: string;
   theme: Theme;
+  enableFeedback?: boolean;
 }
 
 export interface CreateSessionInput {
@@ -166,6 +167,7 @@ export const DEFAULT_SETTINGS: Settings = {
   providerName: "local-proxy",
   globalInstructions: "",
   theme: DEFAULT_THEME,
+  enableFeedback: false,
 };
 
 export const THEME_PRESETS: Record<ThemePreset, Theme> = {

@@ -4,7 +4,9 @@
  * explicit checkout/commit/push actions triggered by the user.
  */
 
-import { ipcMain } from "electron";
+import { registerApiHandler } from "../api/registry";
+
+
 import { execFile } from "child_process";
 import { homedir } from "os";
 import { basename, join } from "path";
@@ -65,22 +67,22 @@ async function status(): Promise<{ branch: string; added: number; deleted: numbe
 }
 
 export function registerGitHandlers(): void {
-  ipcMain.handle("git:status", () => status());
-  ipcMain.handle("git:branches", async () => {
+  registerApiHandler("git:status", () => status());
+  registerApiHandler("git:branches", async () => {
     try {
       const out = await git(["branch", "--list", "--format=%(refname:short)"]);
       return out.split("\n").map(s => s.trim()).filter(Boolean);
     } catch { return []; }
   });
-  ipcMain.handle("git:checkout", (_e, branch: string) => git(["checkout", branch]).then(() => ({ ok: true })));
-  ipcMain.handle("git:commit", async (_e, message: string) => {
+  registerApiHandler("git:checkout", (_e, branch: string) => git(["checkout", branch]).then(() => ({ ok: true })));
+  registerApiHandler("git:commit", async (_e, message: string) => {
     await git(["add", "-A"]);
     const out = await git(["commit", "-m", message || "Rcode: quick commit"]);
     return { ok: true, out: out.slice(0, 300) };
   });
-  ipcMain.handle("git:push", async () => {
+  registerApiHandler("git:push", async () => {
     const out = await git(["push"]);
     return { ok: true, out: out.slice(0, 300) };
   });
-  ipcMain.handle("git:cwdName", () => basename(repoCwd()));
+  registerApiHandler("git:cwdName", () => basename(repoCwd()));
 }
